@@ -1,0 +1,253 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+/* Manual dark-mode: toggled by adding .dark on <html> (see resources/js/app.js) */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Theme tokens — the actual values are CSS variables emitted at runtime
+ * from config/theme.php via App\Support\Theme::cssVariables().
+ * Change the palette centrally; every utility below re-skins.
+ */
+@theme inline {
+    --color-primary-50: var(--primary-50);
+    --color-primary-100: var(--primary-100);
+    --color-primary-200: var(--primary-200);
+    --color-primary-300: var(--primary-300);
+    --color-primary-400: var(--primary-400);
+    --color-primary-500: var(--primary-500);
+    --color-primary-600: var(--primary-600);
+    --color-primary-700: var(--primary-700);
+    --color-primary-800: var(--primary-800);
+    --color-primary-900: var(--primary-900);
+    --color-primary-950: var(--primary-950);
+
+    --color-accent-50: var(--accent-50);
+    --color-accent-100: var(--accent-100);
+    --color-accent-200: var(--accent-200);
+    --color-accent-300: var(--accent-300);
+    --color-accent-400: var(--accent-400);
+    --color-accent-500: var(--accent-500);
+    --color-accent-600: var(--accent-600);
+    --color-accent-700: var(--accent-700);
+    --color-accent-800: var(--accent-800);
+    --color-accent-900: var(--accent-900);
+    --color-accent-950: var(--accent-950);
+
+    --radius-app: var(--app-radius);
+    --font-sans: var(--font-sans);
+}
+
+/* ------------------------------------------------------------------ */
+/* Base                                                                */
+/* ------------------------------------------------------------------ */
+
+@layer base {
+    html {
+        @apply antialiased;
+    }
+
+    body {
+        @apply bg-slate-100 text-slate-800 dark:bg-slate-950 dark:text-slate-200;
+        font-family: var(--font-sans);
+    }
+
+    ::selection {
+        @apply bg-primary-600/20;
+    }
+}
+
+/* Slim scrollbars for the app shell */
+@utility scrollbar-slim {
+    &::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+    &::-webkit-scrollbar-thumb {
+        @apply rounded-full bg-slate-400/40 dark:bg-slate-600/60;
+    }
+    &::-webkit-scrollbar-track {
+        background: transparent;
+    }
+}
+
+/* Base building blocks (registered as utilities so component classes can @apply them) */
+@utility btn {
+    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-(--radius-app) px-3.5 py-2 text-sm
+           font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2
+           focus-visible:outline-primary-600 disabled:pointer-events-none disabled:opacity-50;
+}
+
+@utility badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap;
+}
+
+/* ------------------------------------------------------------------ */
+/* Components — semi-flat: soft surfaces, hairline borders, subtle depth */
+/* ------------------------------------------------------------------ */
+
+@layer components {
+    /* Surfaces */
+    .card {
+        @apply rounded-(--radius-app) border border-slate-200/80 bg-white shadow-xs
+               dark:border-slate-800 dark:bg-slate-900;
+    }
+
+    .card-header {
+        @apply flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 px-5 py-4 dark:border-slate-800;
+    }
+
+    .card-body {
+        @apply p-5;
+    }
+
+    /* Buttons */
+    .btn-primary {
+        @apply btn bg-primary-700 text-white shadow-xs hover:bg-primary-800 active:bg-primary-900;
+    }
+
+    .btn-accent {
+        @apply btn bg-accent-600 text-white shadow-xs hover:bg-accent-700;
+    }
+
+    .btn-secondary {
+        @apply btn border border-slate-300 bg-white text-slate-700 shadow-xs hover:bg-slate-50
+               dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700/70;
+    }
+
+    .btn-danger {
+        @apply btn bg-rose-600 text-white shadow-xs hover:bg-rose-700;
+    }
+
+    .btn-ghost {
+        @apply btn text-slate-600 hover:bg-slate-200/70 dark:text-slate-300 dark:hover:bg-slate-800;
+    }
+
+    .btn-sm {
+        @apply px-2.5 py-1.5 text-xs;
+    }
+
+    /* Forms */
+    .form-label {
+        @apply mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300;
+    }
+
+    .form-input {
+        @apply block w-full rounded-(--radius-app) border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800
+               placeholder:text-slate-400 focus:border-primary-600 focus:ring-2 focus:ring-primary-600/20 focus:outline-none
+               dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-100 dark:placeholder:text-slate-500;
+    }
+
+    .form-help {
+        @apply mt-1.5 text-xs text-slate-500 dark:text-slate-400;
+    }
+
+    .form-error {
+        @apply mt-1.5 text-xs font-medium text-rose-600 dark:text-rose-400;
+    }
+
+    /* Tables */
+    .table-shell {
+        @apply w-full overflow-x-auto scrollbar-slim;
+    }
+
+    .table-app {
+        @apply w-full border-collapse text-left text-sm;
+    }
+
+    .table-app thead th {
+        @apply border-b border-slate-200 bg-slate-50/80 px-4 py-3 text-xs font-semibold tracking-wide text-slate-500 uppercase
+               dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400;
+    }
+
+    .table-app tbody td {
+        @apply border-b border-slate-100 px-4 py-3 align-middle text-slate-700 dark:border-slate-800/70 dark:text-slate-300;
+    }
+
+    .table-app tbody tr {
+        @apply transition-colors hover:bg-primary-50/50 dark:hover:bg-slate-800/50;
+    }
+
+    /* Badges */
+    .badge-green {
+        @apply badge bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300;
+    }
+
+    .badge-red {
+        @apply badge bg-rose-100 text-rose-800 dark:bg-rose-500/15 dark:text-rose-300;
+    }
+
+    .badge-amber {
+        @apply badge bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300;
+    }
+
+    .badge-blue {
+        @apply badge bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-300;
+    }
+
+    .badge-slate {
+        @apply badge bg-slate-200/80 text-slate-700 dark:bg-slate-700/50 dark:text-slate-300;
+    }
+
+    .badge-primary {
+        @apply badge bg-primary-100 text-primary-800 dark:bg-primary-500/15 dark:text-primary-300;
+    }
+
+    .badge-purple {
+        @apply badge bg-violet-100 text-violet-800 dark:bg-violet-500/15 dark:text-violet-300;
+    }
+
+    /* Sidebar navigation */
+    .nav-item {
+        @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-300
+               transition-colors hover:bg-white/8 hover:text-white;
+    }
+
+    .nav-item.active {
+        @apply bg-primary-600/25 text-white shadow-[inset_2px_0_0_0] shadow-accent-500;
+    }
+
+    .nav-section {
+        @apply px-3 pt-5 pb-1.5 text-[11px] font-semibold tracking-wider text-slate-500 uppercase;
+    }
+
+    /* Sidebar collapsed to icon rail */
+    .sidebar-collapsed .nav-label,
+    .sidebar-collapsed .nav-section,
+    .sidebar-collapsed .nav-chevron,
+    .sidebar-collapsed .brand-text {
+        @apply hidden;
+    }
+
+    .sidebar-collapsed .nav-item {
+        @apply justify-center px-2;
+    }
+
+    /* Dropdown */
+    .dropdown-panel {
+        @apply absolute right-0 z-50 mt-2 w-56 origin-top-right rounded-(--radius-app) border border-slate-200
+               bg-white p-1.5 shadow-lg dark:border-slate-700 dark:bg-slate-800;
+    }
+
+    .dropdown-item {
+        @apply flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm text-slate-700
+               hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700/70;
+    }
+
+    /* Page heading */
+    .page-title {
+        @apply text-xl font-semibold tracking-tight text-slate-900 dark:text-white;
+    }
+
+    /* Stat card trend arrows */
+    .stat-up {
+        @apply text-xs font-medium text-emerald-600 dark:text-emerald-400;
+    }
+
+    .stat-down {
+        @apply text-xs font-medium text-rose-600 dark:text-rose-400;
+    }
+}

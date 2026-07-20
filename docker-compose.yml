@@ -1,0 +1,84 @@
+# ---------------------------------------------------------------------------
+# Bangladesh Betar Audio Archive — full local/production-like stack.
+#   app     — PHP-FPM + Nginx + queue worker + scheduler (via supervisor)
+#   db      — MySQL 8
+#   redis   — cache / queue backend (optional)
+# ---------------------------------------------------------------------------
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: betar-archive:latest
+    container_name: betar_app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      APP_ENV: ${APP_ENV:-local}
+      APP_DEBUG: ${APP_DEBUG:-true}
+      APP_URL: ${APP_URL:-http://localhost:8080}
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      # These use dedicated MYSQL_* vars (NOT the app's DB_USERNAME/DB_PASSWORD)
+      # so a stray DB_USERNAME=root in a local .env can't leak into the DB
+      # container, which forbids MYSQL_USER=root.
+      DB_DATABASE: ${MYSQL_DATABASE:-betar_archive}
+      DB_USERNAME: ${MYSQL_APP_USER:-betar}
+      DB_PASSWORD: ${MYSQL_APP_PASSWORD:-secret}
+      CACHE_STORE: ${CACHE_STORE:-database}
+      QUEUE_CONNECTION: ${QUEUE_CONNECTION:-database}
+      SESSION_DRIVER: ${SESSION_DRIVER:-database}
+      REDIS_HOST: redis
+      RUN_MIGRATIONS: "true"     # run migrate --force on boot
+      RUN_SEEDERS: "true"        # seed on first boot (idempotent)
+    ports:
+      - "${APP_PORT:-8080}:80"
+    volumes:
+      - app_storage:/var/www/html/storage
+    networks:
+      - betar
+
+  db:
+    image: mysql:8.0
+    container_name: betar_db
+    restart: unless-stopped
+    environment:
+      # Dedicated, non-root application user for the containerized MySQL.
+      # MYSQL_USER must never be "root" (the image rejects it) — keep these
+      # decoupled from the app's DB_USERNAME/DB_PASSWORD.
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-betar_archive}
+      MYSQL_USER: ${MYSQL_APP_USER:-betar}
+      MYSQL_PASSWORD: ${MYSQL_APP_PASSWORD:-secret}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootsecret}
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "${DB_PORT_HOST:-33061}:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD:-rootsecret}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - betar
+
+  redis:
+    image: redis:7-alpine
+    container_name: betar_redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT_HOST:-63791}:6379"
+    networks:
+      - betar
+
+volumes:
+  db_data:
+  app_storage:
+
+networks:
+  betar:
+    driver: bridge

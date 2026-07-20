@@ -1,0 +1,233 @@
+<?php
+
+use App\Http\Controllers\Admin;
+use Illuminate\Support\Facades\Route;
+
+Route::redirect('/', '/admin');
+
+/*
+|--------------------------------------------------------------------------
+| Admin Web Portal (back office)
+|--------------------------------------------------------------------------
+| Every action is permission-gated (Spatie). Permissions are seeded in
+| RolePermissionSeeder; see that file for the full matrix.
+*/
+
+Route::prefix('admin')->name('admin.')->group(function (): void {
+
+    // ---- Authentication ----
+    Route::middleware('guest')->group(function (): void {
+        Route::get('login', [Admin\AuthController::class, 'showLogin'])->name('login');
+        Route::post('login', [Admin\AuthController::class, 'login'])->name('login.attempt');
+    });
+
+    Route::middleware(['auth', 'staff'])->group(function (): void {
+        Route::post('logout', [Admin\AuthController::class, 'logout'])->name('logout');
+
+        Route::get('/', [Admin\DashboardController::class, 'index'])
+            ->middleware('permission:dashboard.view')->name('dashboard');
+
+        // ---- M01: Users & Roles ----
+        Route::resource('users', Admin\UserController::class)->except('show')
+            ->middleware('permission:users.view');
+        Route::resource('roles', Admin\RoleController::class)->except('show')
+            ->middleware('permission:roles.view');
+
+        // ---- M04: Stations & hierarchy ----
+        Route::resource('stations', Admin\StationController::class)->except('show')
+            ->middleware('permission:stations.view');
+        Route::resource('programmes', Admin\ProgrammeController::class)->except('show')
+            ->middleware('permission:programmes.view');
+
+        // ---- M05: Vocabularies (categories, genres, moods, languages, tags) ----
+        Route::prefix('vocabularies/{type}')->whereIn('type', ['categories', 'genres', 'moods', 'languages', 'tags'])
+            ->middleware('permission:taxonomies.view')->name('vocabularies.')->group(function (): void {
+                Route::get('/', [Admin\VocabularyController::class, 'index'])->name('index');
+                Route::post('/', [Admin\VocabularyController::class, 'store'])->name('store');
+                Route::put('{id}', [Admin\VocabularyController::class, 'update'])->name('update');
+                Route::delete('{id}', [Admin\VocabularyController::class, 'destroy'])->name('destroy');
+            });
+
+        Route::resource('artists', Admin\ArtistController::class)->except('show')
+            ->middleware('permission:artists.view');
+
+        // ---- M02/M04: Audio assets & versions ----
+        Route::middleware('permission:assets.view')->group(function (): void {
+            Route::get('assets', [Admin\AudioAssetController::class, 'index'])->name('assets.index');
+            Route::get('assets/create', [Admin\AudioAssetController::class, 'create'])
+                ->middleware('permission:assets.upload')->name('assets.create');
+            Route::post('assets', [Admin\AudioAssetController::class, 'store'])
+                ->middleware('permission:assets.upload')->name('assets.store');
+            Route::get('assets/{asset}', [Admin\AudioAssetController::class, 'show'])->name('assets.show');
+            Route::get('assets/{asset}/edit', [Admin\AudioAssetController::class, 'edit'])
+                ->middleware('permission:assets.edit')->name('assets.edit');
+            Route::put('assets/{asset}', [Admin\AudioAssetController::class, 'update'])
+                ->middleware('permission:assets.edit')->name('assets.update');
+            Route::delete('assets/{asset}', [Admin\AudioAssetController::class, 'destroy'])
+                ->middleware('permission:assets.delete')->name('assets.destroy');
+            Route::post('assets/{asset}/publish', [Admin\AudioAssetController::class, 'publish'])
+                ->middleware('permission:assets.publish')->name('assets.publish');
+            Route::post('assets/{asset}/unpublish', [Admin\AudioAssetController::class, 'unpublish'])
+                ->middleware('permission:assets.publish')->name('assets.unpublish');
+            Route::post('assets/{asset}/submit', [Admin\AudioAssetController::class, 'submitForApproval'])
+                ->middleware('permission:assets.edit')->name('assets.submit');
+
+            // M02 — (re)ingest audio for an existing asset (one file at a time)
+            Route::post('assets/{asset}/upload', [Admin\AudioAssetController::class, 'uploadMaster'])
+                ->middleware('permission:assets.upload')->name('assets.upload');
+
+            // Audio Studio — visualization + non-destructive editing
+            Route::get('assets/{asset}/studio', [Admin\AudioStudioController::class, 'show'])->name('assets.studio');
+            Route::get('assets/{asset}/versions/{version}/audio', [Admin\AudioStudioController::class, 'streamVersion'])->name('assets.stream');
+            Route::post('assets/{asset}/peaks', [Admin\AudioStudioController::class, 'savePeaks'])
+                ->middleware('permission:assets.edit')->name('assets.peaks');
+            Route::get('assets/{asset}/markers', [Admin\AudioStudioController::class, 'markers'])->name('assets.markers');
+            Route::post('assets/{asset}/markers', [Admin\AudioStudioController::class, 'storeMarker'])
+                ->middleware('permission:assets.edit')->name('assets.markers.store');
+            Route::delete('assets/{asset}/markers/{marker}', [Admin\AudioStudioController::class, 'deleteMarker'])
+                ->middleware('permission:assets.edit')->name('assets.markers.destroy');
+            Route::post('assets/{asset}/edit-session', [Admin\AudioStudioController::class, 'saveEdit'])
+                ->middleware('permission:editing.use')->name('assets.edit-session');
+        });
+
+        // ---- M03: Digitization ----
+        Route::resource('media-items', Admin\MediaItemController::class)->except('show')
+            ->middleware('permission:digitization.view');
+
+        // ---- M08: Music library ----
+        Route::resource('albums', Admin\AlbumController::class)->except('show')
+            ->middleware('permission:albums.view');
+        Route::resource('songs', Admin\SongController::class)->except('show')
+            ->middleware('permission:songs.view');
+        Route::resource('playlists', Admin\PlaylistController::class)->except('show')
+            ->middleware('permission:playlists.view');
+
+        // ---- M09: Podcasts ----
+        Route::resource('podcast-channels', Admin\PodcastChannelController::class)->except('show')
+            ->middleware('permission:podcasts.view');
+        Route::resource('podcast-episodes', Admin\PodcastEpisodeController::class)->except('show')
+            ->middleware('permission:podcasts.view');
+
+        // ---- M10: Event programmes (Bhoot FM) ----
+        Route::resource('episodes', Admin\EpisodeController::class)->except('show')
+            ->middleware('permission:episodes.view');
+        Route::resource('stories', Admin\StoryController::class)->except('show')
+            ->middleware('permission:stories.view');
+        Route::get('story-submissions', [Admin\StorySubmissionController::class, 'index'])
+            ->middleware('permission:submissions.view')->name('story-submissions.index');
+        Route::post('story-submissions/{submission}/review', [Admin\StorySubmissionController::class, 'review'])
+            ->middleware('permission:submissions.review')->name('story-submissions.review');
+
+        // ---- M11: Marketing production ----
+        Route::middleware('permission:marketing.view')->group(function (): void {
+            Route::resource('voice-artists', Admin\VoiceArtistController::class)->except('show');
+            Route::resource('scripts', Admin\ScriptController::class)->except('show');
+            Route::resource('marketing-campaigns', Admin\MarketingCampaignController::class)->except('show');
+        });
+
+        // ---- M12: Edit sessions ----
+        Route::get('edit-sessions', [Admin\EditSessionController::class, 'index'])
+            ->middleware('permission:editing.view')->name('edit-sessions.index');
+
+        // ---- M13: Workflow & approvals ----
+        Route::resource('workflows', Admin\WorkflowController::class)->except('show')
+            ->middleware('permission:workflows.view');
+        Route::get('approvals', [Admin\ApprovalController::class, 'index'])
+            ->middleware('permission:approvals.view')->name('approvals.index');
+        Route::get('approvals/{approval}', [Admin\ApprovalController::class, 'show'])
+            ->middleware('permission:approvals.view')->name('approvals.show');
+        Route::post('approvals/{approval}/act', [Admin\ApprovalController::class, 'act'])
+            ->middleware('permission:approvals.act')->name('approvals.act');
+
+        // ---- M14: Rights ----
+        Route::resource('rights-holders', Admin\RightsHolderController::class)->except('show')
+            ->middleware('permission:rights.view');
+        Route::resource('rights-records', Admin\RightsRecordController::class)->except('show')
+            ->middleware('permission:rights.view');
+
+        // ---- M15: Quality control ----
+        Route::get('qc-reports', [Admin\QcReportController::class, 'index'])
+            ->middleware('permission:qc.view')->name('qc-reports.index');
+        Route::get('qc-reports/{qcReport}', [Admin\QcReportController::class, 'show'])
+            ->middleware('permission:qc.view')->name('qc-reports.show');
+        Route::post('qc-reports/{qcReport}/verdict', [Admin\QcReportController::class, 'verdict'])
+            ->middleware('permission:qc.review')->name('qc-reports.verdict');
+
+        // ---- M16: Transcripts & AI suggestions ----
+        Route::get('transcripts', [Admin\TranscriptController::class, 'index'])
+            ->middleware('permission:transcripts.view')->name('transcripts.index');
+        Route::post('transcripts/{transcript}/verify', [Admin\TranscriptController::class, 'verify'])
+            ->middleware('permission:transcripts.manage')->name('transcripts.verify');
+        Route::get('ai-suggestions', [Admin\AiSuggestionController::class, 'index'])
+            ->middleware('permission:ai-suggestions.view')->name('ai-suggestions.index');
+        Route::post('ai-suggestions/{suggestion}/review', [Admin\AiSuggestionController::class, 'review'])
+            ->middleware('permission:ai-suggestions.review')->name('ai-suggestions.review');
+
+        // ---- M24: Curation ----
+        Route::resource('home-sections', Admin\HomeSectionController::class)->except('show')
+            ->middleware('permission:curation.view');
+        Route::resource('banners', Admin\BannerController::class)->except('show')
+            ->middleware('permission:curation.view');
+
+        // ---- M26: Moderation & feedback ----
+        Route::middleware('permission:moderation.view')->group(function (): void {
+            Route::get('comments', [Admin\CommentModerationController::class, 'index'])->name('comments.index');
+            Route::post('comments/{comment}/moderate', [Admin\CommentModerationController::class, 'moderate'])
+                ->middleware('permission:moderation.manage')->name('comments.moderate');
+            Route::get('content-reports', [Admin\ContentReportController::class, 'index'])->name('content-reports.index');
+            Route::post('content-reports/{report}/resolve', [Admin\ContentReportController::class, 'resolve'])
+                ->middleware('permission:moderation.manage')->name('content-reports.resolve');
+        });
+        Route::get('issue-reports', [Admin\IssueReportController::class, 'index'])
+            ->middleware('permission:issues.view')->name('issue-reports.index');
+        Route::post('issue-reports/{report}/update-status', [Admin\IssueReportController::class, 'updateStatus'])
+            ->middleware('permission:issues.manage')->name('issue-reports.update-status');
+        Route::get('takedown-requests', [Admin\TakedownRequestController::class, 'index'])
+            ->middleware('permission:takedowns.view')->name('takedown-requests.index');
+        Route::post('takedown-requests/{takedown}/update', [Admin\TakedownRequestController::class, 'update'])
+            ->middleware('permission:takedowns.manage')->name('takedown-requests.update');
+        Route::get('feedback', [Admin\FeedbackController::class, 'index'])
+            ->middleware('permission:feedback.view')->name('feedback.index');
+        Route::post('feedback/{feedback}/update-status', [Admin\FeedbackController::class, 'updateStatus'])
+            ->middleware('permission:feedback.manage')->name('feedback.update-status');
+
+        // ---- M18: Plans, subscriptions, payments ----
+        Route::resource('plans', Admin\PlanController::class)->only(['index', 'edit', 'update'])
+            ->middleware('permission:plans.view');
+        Route::resource('promo-codes', Admin\PromoCodeController::class)->except('show')
+            ->middleware('permission:plans.view');
+        Route::get('subscriptions', [Admin\SubscriptionController::class, 'index'])
+            ->middleware('permission:subscriptions.view')->name('subscriptions.index');
+        Route::post('subscriptions/{subscription}/cancel', [Admin\SubscriptionController::class, 'cancel'])
+            ->middleware('permission:subscriptions.manage')->name('subscriptions.cancel');
+        Route::get('payments', [Admin\PaymentController::class, 'index'])
+            ->middleware('permission:payments.view')->name('payments.index');
+        Route::post('payments/{payment}/refund', [Admin\PaymentController::class, 'refund'])
+            ->middleware('permission:payments.refund')->name('payments.refund');
+
+        // ---- M27: Advertisements ----
+        Route::middleware('permission:ads.view')->group(function (): void {
+            Route::resource('advertisers', Admin\AdvertiserController::class)->except('show');
+            Route::resource('ad-campaigns', Admin\AdCampaignController::class)->except('show');
+            Route::resource('ad-assets', Admin\AdAssetController::class)->except('show');
+        });
+
+        // ---- M19/M20: Analytics ----
+        Route::get('analytics', [Admin\AnalyticsController::class, 'index'])
+            ->middleware('permission:analytics.view')->name('analytics.index');
+        Route::get('analytics/assets/{asset}', [Admin\AnalyticsController::class, 'asset'])
+            ->middleware('permission:analytics.view')->name('analytics.asset');
+
+        // ---- M21/M22: Audit & preservation ----
+        Route::get('audit-logs', [Admin\AuditLogController::class, 'index'])
+            ->middleware('permission:audit.view')->name('audit-logs.index');
+        Route::get('backups', [Admin\BackupController::class, 'index'])
+            ->middleware('permission:backups.view')->name('backups.index');
+
+        // ---- Settings (incl. theme) ----
+        Route::get('settings', [Admin\SettingController::class, 'edit'])
+            ->middleware('permission:settings.view')->name('settings.edit');
+        Route::put('settings', [Admin\SettingController::class, 'update'])
+            ->middleware('permission:settings.manage')->name('settings.update');
+    });
+});
