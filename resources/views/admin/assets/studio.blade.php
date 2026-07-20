@@ -58,17 +58,25 @@
                     <span id="silence-count" class="text-xs text-slate-400"></span>
                 </div>
             </div>
-            <div class="bg-slate-900 p-4 dark:bg-slate-950">
+            {{-- position: relative anchors the width-preserving hide so WaveSurfer
+                 never sees a 0-width resize when switching tabs. --}}
+            <div class="relative bg-slate-900 p-4 dark:bg-slate-950">
                 {{-- Waveform view --}}
                 <div id="waveform-view">
                     <div id="waveform" class="w-full"></div>
                     <div id="timeline" class="mt-1"></div>
                     <div id="minimap" class="mt-2 opacity-70"></div>
                 </div>
-                {{-- Spectrogram view --}}
-                <div id="spectrogram-view" class="hidden">
-                    <div id="spectrogram" class="w-full overflow-x-auto scrollbar-slim"></div>
-                    <p id="spectrogram-hint" class="mt-2 text-xs text-slate-400">Frequency (vertical, mel) × time (horizontal) × intensity (colour) — reveals noise, hiss, silence and clipping.</p>
+                {{-- Spectrogram view (starts width-preserved-hidden, not display:none) --}}
+                <div id="spectrogram-view" class="viz-hidden">
+                    <div class="relative isolate">
+                        <div id="spectrogram" class="relative z-0 w-full cursor-pointer overflow-x-auto scrollbar-slim"></div>
+                        {{-- Playhead: vertical cursor tracking the current playback time, above the canvas --}}
+                        <div id="spectrogram-playhead" class="pointer-events-none absolute inset-y-0 z-20 w-0.5 bg-accent-400 shadow-[0_0_6px_1px] shadow-accent-500/70 transition-none" style="left:0; display:none">
+                            <span class="absolute -top-1 left-1/2 size-2.5 -translate-x-1/2 rounded-full bg-accent-400"></span>
+                        </div>
+                    </div>
+                    <p id="spectrogram-hint" class="mt-2 text-xs text-slate-400">Frequency (vertical, mel) × time (horizontal) × intensity (colour). The amber line marks the moment currently playing — click to seek.</p>
                 </div>
             </div>
 
@@ -268,5 +276,12 @@
 <style>
     .tab-active { background: var(--primary-600); color: #fff; }
     #waveform ::part(region-content) { font-size: 10px; padding: 1px 4px; }
+    /* Hide the inactive tab WITHOUT collapsing width — keeps the WaveSurfer
+       wrapper at full width so no 0-width redraw wipes the spectrogram. */
+    .viz-hidden {
+        position: absolute;
+        left: 1rem; right: 1rem; top: 1rem;
+        height: 0; overflow: hidden; opacity: 0; pointer-events: none;
+    }
 </style>
 @endsection

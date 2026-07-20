@@ -101,7 +101,20 @@ function boot() {
         drawStaticData();
     });
 
-    ws.on('timeupdate', (t) => { $('#cur-time').textContent = fmt(t); });
+    ws.on('timeupdate', (t) => {
+        $('#cur-time').textContent = fmt(t);
+        updateSpectrogramPlayhead(t);
+    });
+
+    // Move the spectrogram playhead to the current time (percentage of duration,
+    // matching the spectrogram which spans the container width).
+    function updateSpectrogramPlayhead(t) {
+        const ph = $('#spectrogram-playhead');
+        if (!ph) return;
+        const dur = ws.getDuration() || CFG.duration || 0;
+        if (!dur) return;
+        ph.style.left = Math.max(0, Math.min(100, (t / dur) * 100)) + '%';
+    }
     ws.on('play', () => { setPlayIcon(true); ensureAudio().then(startLoop); });
     ws.on('pause', () => { setPlayIcon(false); state.running = false; });
     ws.on('finish', () => { setPlayIcon(false); state.running = false; });
@@ -134,8 +147,11 @@ function boot() {
 
     function switchView(view) {
         const showSpec = view === 'spectrogram';
-        $('#waveform-view')?.classList.toggle('hidden', showSpec);
-        $('#spectrogram-view')?.classList.toggle('hidden', !showSpec);
+        // Use the width-preserving hide (not `hidden`/display:none) so the
+        // WaveSurfer wrapper never collapses to 0 width — which would fire a
+        // redraw that re-renders the spectrogram at zero size and blanks it.
+        $('#waveform-view')?.classList.toggle('viz-hidden', showSpec);
+        $('#spectrogram-view')?.classList.toggle('viz-hidden', !showSpec);
         $('#tab-waveform')?.classList.toggle('tab-active', !showSpec);
         $('#tab-spectrogram')?.classList.toggle('tab-active', showSpec);
 
@@ -146,13 +162,24 @@ function boot() {
             spectrogram = ws.registerPlugin(SpectrogramPlugin.create({
                 container: '#spectrogram', labels: true, height: 220, scale: 'mel', fftSamples: 512,
             }));
-            const hint = $('#spectrogram-hint');
-            if (hint) {
-                if (ws.getDecodedData()) hint.classList.add('hidden');
-                else { hint.textContent = 'Decoding audio for the spectrogram…'; ws.once('decode', () => hint.classList.add('hidden')); }
-            }
+        }
+        // Show/track the playhead only while the spectrogram tab is active.
+        const ph = $('#spectrogram-playhead');
+        if (ph) {
+            ph.style.display = showSpec ? 'block' : 'none';
+            if (showSpec) updateSpectrogramPlayhead(ws.getCurrentTime());
         }
     }
+
+    // Click the spectrogram to seek (maps click X → time, honouring scroll).
+    $('#spectrogram')?.addEventListener('click', (e) => {
+        const el = e.currentTarget, dur = ws.getDuration() || CFG.duration || 0;
+        if (!dur) return;
+        const rect = el.getBoundingClientRect();
+        const frac = Math.max(0, Math.min(1, (e.clientX - rect.left + el.scrollLeft) / (el.scrollWidth || el.clientWidth)));
+        ws.setTime(frac * dur);
+        updateSpectrogramPlayhead(frac * dur);
+    });
 
     /* ---------------- real-time audio engine + visualizers ------------ */
 
