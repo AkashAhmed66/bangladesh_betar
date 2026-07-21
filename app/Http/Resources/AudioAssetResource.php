@@ -38,6 +38,7 @@ class AudioAssetResource extends JsonResource
             'allow_comments' => (bool) $this->allow_comments,
             'waveform' => $this->when($request->routeIs('*.show'), $this->waveform_peaks),
             'is_favorited' => $this->when(isset($this->is_favorited), fn () => (bool) $this->is_favorited),
+            'my_rating' => $this->when(isset($this->my_rating), fn () => $this->my_rating),
         ];
     }
 }

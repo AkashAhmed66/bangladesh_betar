@@ -298,18 +298,42 @@ All require a listener token.
 ## Engagement
 
 ### `GET /assets/{asset}/comments`
-Public list of **approved** comments (FR-ENG-01). Paginated.
+Public list of **approved** comments and ratings (FR-ENG-01/02). Paginated. Each entry
+carries the star rating (`rating`, 1–5 or `null`) the listener gave at the time they
+posted, alongside the comment `body`.
 
 ### `POST /assets/{asset}/comments` 🔒
-Body `{ "body": "..." }`. Subject to moderation policy (pre/post) and profanity filter
-(FR-ENG-03) — response indicates whether the comment is live or pending.
+Unified **Comments & Ratings** submission. Body: `{ "body"?: "...", "rating"?: 1..5 }` —
+at least one of `body` / `rating` is required, both may be sent together in one request.
+
+- If `rating` is present, it is upserted into the listener's per-asset rating (one per
+  user, changeable — FR-ENG-02) and the asset's `avg_rating` / `rating_count` are
+  recomputed immediately.
+- If `body` is present (non-empty), a comment is created — subject to the moderation
+  policy (pre/post) and profanity filter (FR-ENG-03); the response indicates whether it
+  is live or pending. Comments require `allow_comments` on the asset; a rating-only
+  submission does not.
+
+**200/201** →
+```json
+{
+  "message": "Rating saved. Comment posted.",
+  "data": { "id": 12, "body": "...", "rating": 4, "status": "approved", "...": "..." },
+  "rating": { "avg_rating": 4.32, "rating_count": 89, "your_rating": 4 }
+}
+```
+`data` is `null` for a rating-only submission (no comment row is created); `rating` is
+`null` when no rating was included in the request.
 
 ### `DELETE /comments/{comment}` 🔒
-Delete your own comment.
+Delete your own comment. (The rating you gave, if any, is unaffected — ratings are
+managed independently of the comment that displayed them.)
 
 ### `POST /assets/{asset}/rate` 🔒
-Body `{ "rating": 1..5 }`. One rating per user per item, changeable (FR-ENG-02).
-Returns updated `avg_rating` + `rating_count`.
+Standalone rating endpoint, kept for API completeness. Body `{ "rating": 1..5 }`. One
+rating per user per item, changeable (FR-ENG-02). Returns updated `avg_rating` +
+`rating_count`. Prefer `POST /assets/{asset}/comments` with a `rating` field so a rating
+can be given alongside a comment in one request — that is what the web portal uses.
 
 ### `POST /reports` 🔒
 Report a comment or content item (FR-ENG-04): `{ reportable_type: comment|audio_asset, reportable_id, reason, details? }`.
@@ -362,7 +386,8 @@ Payment/transaction history (FR-SUB-04).
   "is_premium": false, "is_public_service": false, "content_warning": null,
   "first_broadcast_on": "1978-05-12", "play_count": 12345, "favorite_count": 210,
   "avg_rating": 4.3, "rating_count": 88, "allow_comments": true,
-  "waveform": [0.3, 0.6, ...] /* detail only */, "is_favorited": false /* when authed */ }
+  "waveform": [0.3, 0.6, ...] /* detail only */, "is_favorited": false /* when authed */,
+  "my_rating": null /* 1..5 when authed and previously rated, else omitted */ }
 ```
 
 ### Song

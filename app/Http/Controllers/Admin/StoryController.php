@@ -9,13 +9,17 @@ use App\Models\Category;
 use App\Models\Episode;
 use App\Models\Language;
 use App\Models\Story;
+use App\Models\StorySubmission;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 /**
- * M10 — individually addressable stories inside an episode.
+ * M10 — individually addressable stories inside an episode, plus the
+ * listener submissions review queue (FR-EVT-05) on the same page. The
+ * submissions section only appears for users who can view it, and the
+ * review action inside it only for users who can act on it.
  */
 class StoryController extends Controller
 {
@@ -28,10 +32,20 @@ class StoryController extends Controller
                 ->orWhere('storyteller_name', 'like', '%'.$request->string('q').'%')))
             ->when($request->filled('episode'), fn ($q) => $q->where('episode_id', $request->integer('episode')))
             ->orderByDesc('id')
-            ->paginate(12)
+            ->paginate(12, ['*'], 'stories_page')
             ->withQueryString();
 
-        return view('admin.stories.index', compact('stories'));
+        $submissions = null;
+        if ($request->user()->can('submissions.view')) {
+            $submissions = StorySubmission::query()
+                ->with(['user', 'reviewer'])
+                ->when($request->filled('submission_status'), fn ($q) => $q->where('status', $request->string('submission_status')))
+                ->orderByDesc('id')
+                ->paginate(10, ['*'], 'submissions_page')
+                ->withQueryString();
+        }
+
+        return view('admin.stories.index', compact('stories', 'submissions'));
     }
 
     public function create(): View

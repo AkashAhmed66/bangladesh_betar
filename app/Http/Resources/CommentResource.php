@@ -14,6 +14,7 @@ class CommentResource extends JsonResource
         return [
             'id' => $this->id,
             'body' => $this->body,
+            'rating' => $this->rating,
             'status' => $this->status,
             'author' => $this->whenLoaded('user', fn () => $this->user?->name),
             'user_id' => $this->user_id,

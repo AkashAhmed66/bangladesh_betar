@@ -16,7 +16,7 @@ class Comment extends Model
 
     protected $guarded = [];
 
-    protected $casts = ['moderated_at' => 'datetime'];
+    protected $casts = ['moderated_at' => 'datetime', 'rating' => 'integer'];
 
     public function user(): BelongsTo
     {

@@ -9,25 +9,15 @@ use App\Models\StorySubmission;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
-use Illuminate\View\View;
 
 /**
  * M10 — listener story submissions review queue (FR-EVT-05).
+ * The submissions list itself is rendered by StoryController@index
+ * (Stories + Submissions share one admin page); this controller only
+ * handles the review action.
  */
 class StorySubmissionController extends Controller
 {
-    public function index(Request $request): View
-    {
-        $submissions = StorySubmission::query()
-            ->with(['user', 'reviewer'])
-            ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
-            ->orderByDesc('id')
-            ->paginate(15)
-            ->withQueryString();
-
-        return view('admin.story-submissions.index', compact('submissions'));
-    }
-
     public function review(Request $request, StorySubmission $submission): RedirectResponse
     {
         $this->authorize('submissions.review');

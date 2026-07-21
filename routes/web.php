@@ -123,10 +123,10 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
         // ---- M10: Event programmes (Bhoot FM) ----
         Route::resource('episodes', Admin\EpisodeController::class)->except('show')
             ->middleware('permission:episodes.view');
+        // Stories + listener submissions share one admin page (index shows both,
+        // gated separately per-section by stories.view / submissions.view).
         Route::resource('stories', Admin\StoryController::class)->except('show')
-            ->middleware('permission:stories.view');
-        Route::get('story-submissions', [Admin\StorySubmissionController::class, 'index'])
-            ->middleware('permission:submissions.view')->name('story-submissions.index');
+            ->middleware('permission:stories.view|submissions.view');
         Route::post('story-submissions/{submission}/review', [Admin\StorySubmissionController::class, 'review'])
             ->middleware('permission:submissions.review')->name('story-submissions.review');
 

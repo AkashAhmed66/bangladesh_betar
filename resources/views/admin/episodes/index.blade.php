@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', 'Episodes')
+@section('title', 'Programme Episodes')
 
 @section('content')
 <x-page-header title="Programme Episodes" subtitle="Event-programme episodes such as Bhoot FM (M10 / FR-EVT-01)">

@@ -9,7 +9,6 @@
             ['assets.view', 'admin.assets.index', 'archive', 'Audio Assets', ['admin.assets.']],
             ['digitization.view', 'admin.media-items.index', 'disc', 'Digitization', ['admin.media-items.']],
             ['stations.view', 'admin.stations.index', 'radio', 'Stations', ['admin.stations.']],
-            ['programmes.view', 'admin.programmes.index', 'squares', 'Programmes', ['admin.programmes.']],
             ['editing.view', 'admin.edit-sessions.index', 'scissors', 'Edit Sessions', ['admin.edit-sessions.']],
         ],
         'Catalogue' => [
@@ -22,9 +21,9 @@
         'Content' => [
             ['podcasts.view', 'admin.podcast-channels.index', 'microphone', 'Podcast Channels', ['admin.podcast-channels.']],
             ['podcasts.view', 'admin.podcast-episodes.index', 'play', 'Podcast Episodes', ['admin.podcast-episodes.']],
-            ['episodes.view', 'admin.episodes.index', 'ghost', 'Event Episodes', ['admin.episodes.']],
-            ['stories.view', 'admin.stories.index', 'chat', 'Stories', ['admin.stories.']],
-            ['submissions.view', 'admin.story-submissions.index', 'inbox', 'Story Submissions', ['admin.story-submissions.']],
+            ['programmes.view', 'admin.programmes.index', 'squares', 'Programmes', ['admin.programmes.']],
+            ['episodes.view', 'admin.episodes.index', 'ghost', 'Programme Episodes', ['admin.episodes.']],
+            [['stories.view', 'submissions.view'], 'admin.stories.index', 'chat', 'Stories & Submissions', ['admin.stories.']],
         ],
         'Governance' => [
             ['workflows.view', 'admin.workflows.index', 'workflow', 'Workflows', ['admin.workflows.']],
@@ -35,7 +34,7 @@
             ['ai-suggestions.view', 'admin.ai-suggestions.index', 'sparkles', 'AI Review', ['admin.ai-suggestions.']],
         ],
         'Community' => [
-            ['moderation.view', 'admin.comments.index', 'chat', 'Comments', ['admin.comments.']],
+            ['moderation.view', 'admin.comments.index', 'chat', 'Comments and Ratings', ['admin.comments.']],
             ['moderation.view', 'admin.content-reports.index', 'flag', 'Reported Content', ['admin.content-reports.']],
             ['issues.view', 'admin.issue-reports.index', 'exclamation', 'Issue Reports', ['admin.issue-reports.']],
             ['takedowns.view', 'admin.takedown-requests.index', 'shield', 'Takedowns', ['admin.takedown-requests.']],
@@ -68,7 +67,13 @@
 
 @foreach ($nav as $section => $items)
     @php
-        $visible = array_filter($items, fn ($item) => auth()->user()->can($item[0]));
+        $visible = array_filter($items, function ($item) {
+            $permission = $item[0];
+
+            return is_array($permission)
+                ? collect($permission)->contains(fn ($p) => auth()->user()->can($p))
+                : auth()->user()->can($permission);
+        });
     @endphp
     @if ($visible !== [])
         @if ($section !== '')

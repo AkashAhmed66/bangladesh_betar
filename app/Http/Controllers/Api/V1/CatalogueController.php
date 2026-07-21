@@ -194,6 +194,7 @@ class CatalogueController extends Controller
         abort_unless($asset->isPublished(), 404);
         $asset->load(['category', 'language', 'station', 'programme', 'artists']);
         $this->markFavorited($asset, $request->user());
+        $this->markMyRating($asset, $request->user());
 
         return (new AudioAssetResource($asset))->response();
     }
@@ -205,6 +206,15 @@ class CatalogueController extends Controller
         if ($asset && $user) {
             $asset->is_favorited = Favorite::query()->where('user_id', $user->id)
                 ->where('favoritable_type', 'audio_asset')->where('favoritable_id', $asset->id)->exists();
+        }
+    }
+
+    /** Attaches the signed-in listener's own rating for this asset, if any. */
+    private function markMyRating(?AudioAsset $asset, ?\App\Models\User $user): void
+    {
+        if ($asset && $user) {
+            $asset->my_rating = \App\Models\Rating::query()->where('user_id', $user->id)
+                ->where('ratable_type', 'audio_asset')->where('ratable_id', $asset->id)->value('rating');
         }
     }
 

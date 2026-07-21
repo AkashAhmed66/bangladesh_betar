@@ -30,6 +30,13 @@
                 @forelse ($comments as $comment)
                     <tr>
                         <td class="max-w-md">
+                            @if ($comment->rating)
+                                <span class="mb-1 inline-flex items-center gap-0.5" title="{{ $comment->rating }} / 5">
+                                    @for ($i = 1; $i <= 5; $i++)
+                                        <x-icon name="star" class="size-3.5 {{ $i <= $comment->rating ? 'text-amber-500' : 'text-slate-300 dark:text-slate-600' }}" style="{{ $i <= $comment->rating ? 'fill: currentColor' : '' }}" />
+                                    @endfor
+                                </span>
+                            @endif
                             <p class="text-sm text-slate-700 dark:text-slate-200">{{ Str::limit($comment->body, 160) }}</p>
                             <p class="mt-1 text-xs text-slate-400 dark:text-slate-500">{{ $comment->created_at?->format('d M Y H:i') }}</p>
                         </td>
