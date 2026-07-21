@@ -50,17 +50,10 @@ class MusicSeeder extends Seeder
         $songs = [
             // [title, title_bn, album, genre, mood, singer, composer, lyricist, year]
             ['Mora Ekti Phulke Bachabo', 'মোরা একটি ফুলকে বাঁচাবো', 'Ekattorer Gaan', 'patriotic', 'inspirational', 'Alam Chowdhury', 'Ustad Momtaz Ali', 'Jasimuddin Mondal', 1971],
-            ['Purbo Digante Surjo Utheche', 'পূর্ব দিগন্তে সূর্য উঠেছে', 'Ekattorer Gaan', 'patriotic', 'energetic', 'Shabnam Mustari', 'Ustad Momtaz Ali', 'Sufia Khatun', 1971],
-            ['Ei Padma Ei Meghna', 'এই পদ্মা এই মেঘনা', 'Ekattorer Gaan', 'patriotic', 'nostalgic', 'Ferdous Ara Begum', 'Debashish Barua', 'Jasimuddin Mondal', 1972],
-            ['Nodir Naam Modhumoti', 'নদীর নাম মধুমতী', 'Palli Geeti Collection', 'folk', 'calm', 'Kabir Uddin', 'Anwarul Karim', 'Jasimuddin Mondal', 1978],
-            ['Sonar Moyna Pakhi', 'সোনার ময়না পাখি', 'Palli Geeti Collection', 'folk', 'joyful', 'Rina Sarkar', 'Anwarul Karim', 'Sufia Khatun', 1979],
-            ['Majhi Baiya Jao Re', 'মাঝি বাইয়া যাও রে', 'Palli Geeti Collection', 'folk', 'nostalgic', 'Kabir Uddin', 'Anwarul Karim', 'Jasimuddin Mondal', 1977],
-            ['Akash Bhora Surjo Tara', 'আকাশ ভরা সূর্য তারা', 'Rabindra Smarane', 'rabindra-sangeet', 'calm', 'Ferdous Ara Begum', 'Debashish Barua', 'Sufia Khatun', 1990],
-            ['Amar Sonar Bangla (Archive Recording)', 'আমার সোনার বাংলা', 'Rabindra Smarane', 'rabindra-sangeet', 'devotional', 'Shabnam Mustari', 'Debashish Barua', 'Sufia Khatun', 1988],
-            ['Ei Raat Tomar Amar', 'এই রাত তোমার আমার', 'Golden Melodies of Betar', 'modern-bangla', 'romantic', 'Mahbub Anam', 'Ustad Momtaz Ali', 'Jasimuddin Mondal', 1984],
-            ['Shurer Bhubane', 'সুরের ভুবনে', 'Golden Melodies of Betar', 'modern-bangla', 'joyful', 'Laila Nahar', 'Debashish Barua', 'Sufia Khatun', 1986],
-            ['Brishti Bheja Bikel', 'বৃষ্টি ভেজা বিকেল', 'Golden Melodies of Betar', 'modern-bangla', 'melancholic', 'Sohel Rana', 'Anwarul Karim', 'Jasimuddin Mondal', 1987],
-            ['Chol Chol Chol (Archive Recording)', 'চল্‌ চল্‌ চল্‌', 'Ekattorer Gaan', 'nazrul-sangeet', 'energetic', 'Alam Chowdhury', 'Ustad Momtaz Ali', 'Sufia Khatun', 1972],
+            ['Chol Chol Chol (Archive Recording)', 'চল্‌ চল্‌ চল্‌', 'Ekattorer Gaan', 'nazrul-sangeet', 'energetic', 'Alam Chowdhury', 'Ustad Momtaz Ali', 'Jasimuddin Mondal', 1972],
+            ['Nodir Naam Modhumoti', 'নদীর নাম মধুমতী', 'Palli Geeti Collection', 'folk', 'calm', 'Ferdous Ara Begum', 'Ustad Momtaz Ali', 'Jasimuddin Mondal', 1978],
+            ['Ei Raat Tomar Amar', 'এই রাত তোমার আমার', 'Golden Melodies of Betar', 'modern-bangla', 'joyful', 'Ferdous Ara Begum', 'Ustad Momtaz Ali', 'Jasimuddin Mondal', 1984],
+            ['Akash Bhora Surjo Tara', 'আকাশ ভরা সূর্য তারা', 'Rabindra Smarane', 'rabindra-sangeet', 'nostalgic', 'Ferdous Ara Begum', 'Ustad Momtaz Ali', 'Jasimuddin Mondal', 1990],
         ];
 
         $order = [];
@@ -116,7 +109,7 @@ class MusicSeeder extends Seeder
                 'release_year' => 1982,
                 'mood_genre_verified' => true,
             ]);
-            $live->artists()->attach(Artist::query()->where('name', 'Kabir Uddin')->value('id'), ['role' => 'singer']);
+            $live->artists()->attach(Artist::query()->where('name', 'Alam Chowdhury')->value('id'), ['role' => 'singer']);
         }
 
         $this->command?->info('Music: '.count($albums).' albums, '.(count($songs) + 1).' songs seeded');

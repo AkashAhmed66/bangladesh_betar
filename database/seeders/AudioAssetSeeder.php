@@ -25,19 +25,9 @@ class AudioAssetSeeder extends Seeder
         $assets = [
             ['7th March Speech — Archival Restoration', 'speech', 'historical-recordings', ['Liberation War', '1971', 'Rare Recording'], true],
             ['Victory Day Special Broadcast 1971', 'historical', 'historical-recordings', ['Liberation War', 'Victory Day', 'Archive Gem'], true],
-            ['Swadhin Bangla Betar Kendra — Charampatra Episode', 'historical', 'historical-recordings', ['Liberation War', '1971'], true],
-            ['Ekushey February Dawn Programme 1985', 'historical', 'historical-recordings', ['Ekushey February', 'Golden Era'], false],
-            ['Interview: Freedom Fighter Recollections', 'interview', 'interviews', ['Liberation War'], false],
-            ['Interview: Folk Legend on Village Music', 'interview', 'interviews', ['Golden Era'], false],
             ['Morning News Bulletin — 16 December 2025', 'news', 'news', [], false],
-            ['Evening News Bulletin — 26 March 2026', 'news', 'news', [], false],
             ['Radio Drama: Kobor', 'drama', 'drama', ['Golden Era'], false],
-            ['Radio Drama: Ora Egaro Jon', 'drama', 'drama', ['Liberation War'], false],
-            ['Cyclone Preparedness PSA', 'psa', 'public-service', [], false],
-            ['Vaccination Awareness Announcement', 'psa', 'public-service', [], false],
-            ['Pahela Baishakh Live Celebration 2025', 'programme', 'radio-programmes', ['Pahela Baishakh', 'Live Performance'], false],
-            ['Eid Special Magazine Programme 2025', 'programme', 'radio-programmes', ['Eid Special'], false],
-            ['Monsoon Melodies — Studio Session', 'programme', 'songs', ['Monsoon', 'Studio Session'], false],
+            ['Pahela Baishakh Live Celebration 2025', 'programme', 'radio-programmes', [], false],
         ];
 
         foreach ($assets as [$title, $type, $catSlug, $tagNames, $historic]) {

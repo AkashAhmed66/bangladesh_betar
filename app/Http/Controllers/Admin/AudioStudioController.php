@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\RenderEditSession;
 use App\Models\AudioAsset;
 use App\Models\AudioMarker;
 use App\Models\AudioVersion;
 use App\Models\AuditLog;
 use App\Models\EditSession;
+use App\Services\AudioRenderService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -27,9 +29,15 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  */
 class AudioStudioController extends Controller
 {
-    public function show(AudioAsset $asset): View
+    public function show(Request $request, AudioAsset $asset): View
     {
         $asset->load(['versions' => fn ($q) => $q->orderByDesc('is_default')->orderBy('id'), 'song', 'programme']);
+
+        // The version to load into the Studio — ?version=<id> lets the operator
+        // open any version of the family (master, online, edited, restored…).
+        $selected = ($request->integer('version') ? $asset->versions->firstWhere('id', $request->integer('version')) : null)
+            ?? $asset->versions->firstWhere('is_default', true)
+            ?? $asset->versions->first();
 
         // Speaker/segment strips from verified & draft transcripts (FR-AIF).
         $segments = $asset->transcripts()->get()->flatMap(function ($t) {
@@ -56,12 +64,15 @@ class AudioStudioController extends Controller
         return view('admin.assets.studio', [
             'asset' => $asset,
             'versions' => $asset->versions,
-            'defaultVersion' => $asset->versions->firstWhere('is_default', true) ?? $asset->versions->first(),
+            'defaultVersion' => $selected,
+            'selectedVersionId' => $selected?->id,
             'segments' => $segments,
             'chapters' => $chapters,
             'markers' => $markers,
             'markersData' => $markers->map($this->markerArray())->values(),
-            'needsPeaks' => empty($asset->waveform_peaks),
+            // Only persist browser-computed peaks back to the asset when viewing
+            // its primary version (avoid overwriting with a derived version's shape).
+            'needsPeaks' => empty($asset->waveform_peaks) && ($selected?->is_default ?? false),
             'heatmap' => array_values($heatmap ?: []),
             'editSessions' => $editSessions,
             'markerTypes' => array_keys(AudioMarker::COLORS),
@@ -228,6 +239,153 @@ class AudioStudioController extends Controller
             'edit_session_id' => $session->id,
             'output_version_id' => $output->id,
         ], 201);
+    }
+
+    /** Allowed operations for the render pipeline (M12 editing & restoration). */
+    private const RENDER_OPS = [
+        'trim', 'cut', 'reverse', 'gain', 'normalize', 'fade', 'eq', 'denoise',
+        'dehum', 'declick', 'declip', 'compress', 'limit', 'exciter', 'pitch',
+        'tempo', 'silence_remove', 'channels', 'resample', 'export',
+    ];
+
+    /**
+     * Submit an edit/enhancement chain to be rendered by ffmpeg into a new
+     * derived version (queued). The source/master are never modified.
+     */
+    public function submitRender(Request $request, AudioAsset $asset, AudioRenderService $renderer): JsonResponse
+    {
+        $this->authorize('editing.use');
+
+        $request->validate([
+            'title' => ['nullable', 'string', 'max:255'],
+            'source_version_id' => ['nullable', 'integer'],
+            'target' => ['nullable', Rule::in(['new', 'current'])],
+            'ops' => ['required', 'array', 'min:1'],
+            'ops.*.op' => ['required', Rule::in(self::RENDER_OPS)],
+        ]);
+
+        // Use the RAW ops (validate() strips keys without rules). Every value is
+        // cast, clamped and escapeshellarg'd inside AudioRenderService, and each
+        // op name is allow-listed above, so raw params are safe to render.
+        $ops = array_values($request->input('ops', []));
+        $sourceVersionId = $request->integer('source_version_id') ?: null;
+
+        $source = $asset->versions()
+            ->when($sourceVersionId, fn ($q) => $q->where('id', $sourceVersionId))
+            ->when(! $sourceVersionId, fn ($q) => $q->orderByDesc('is_default'))
+            ->first();
+
+        // Never overwrite the immutable master — fall back to a new version.
+        $target = $request->input('target') === 'current'
+            && $source && $source->version_type !== 'preservation_master'
+                ? 'current' : 'new';
+
+        $session = EditSession::query()->create([
+            'audio_asset_id' => $asset->id,
+            'source_version_id' => $source?->id,
+            'editor_id' => $request->user()->id,
+            'title' => $request->string('title')->toString() ?: 'Studio render '.now()->format('Y-m-d H:i'),
+            'edl' => $ops,
+            'status' => 'in_progress',
+            'render_status' => 'queued',
+            'progress' => 0,
+        ]);
+
+        RenderEditSession::dispatch($session->id, $target);
+
+        return response()->json([
+            'message' => 'Render queued.',
+            'edit_session_id' => $session->id,
+            'target' => $target,
+            'ffmpeg_available' => $renderer->available(),
+        ], 202);
+    }
+
+    /** Poll the status of a render (for the Studio progress UI). */
+    public function renderStatus(AudioAsset $asset, EditSession $editSession): JsonResponse
+    {
+        abort_unless($editSession->audio_asset_id === $asset->id, 404);
+        $editSession->load('outputVersion');
+        $version = $editSession->outputVersion;
+
+        return response()->json([
+            'render_status' => $editSession->render_status,
+            'progress' => $editSession->progress,
+            'error' => $editSession->error,
+            'version' => $version ? [
+                'id' => $version->id,
+                'label' => $version->label,
+                'type' => $version->version_type,
+                'duration' => $version->duration_seconds,
+                'stream_url' => route('admin.assets.stream', ['asset' => $asset->id, 'version' => $version->id], false),
+            ] : null,
+        ]);
+    }
+
+    /**
+     * Fast synchronous PREVIEW render: applies the sound-shaping effects to a
+     * short window (from the playhead) and returns a URL the editor plays
+     * immediately — so the operator hears denoise/pitch/etc. live without saving.
+     */
+    public function previewRender(Request $request, AudioAsset $asset, AudioRenderService $renderer): JsonResponse
+    {
+        $this->authorize('editing.use');
+
+        $request->validate([
+            'ops' => ['required', 'array', 'min:1'],
+            'ops.*.op' => ['required', Rule::in(self::RENDER_OPS)],
+            'start' => ['nullable', 'numeric', 'min:0'],
+            'source_version_id' => ['nullable', 'integer'],
+        ]);
+
+        $ops = array_values($request->input('ops', []));
+        $start = (float) $request->input('start', 0);
+        $vid = $request->integer('source_version_id') ?: null;
+
+        $source = $asset->versions()
+            ->when($vid, fn ($q) => $q->where('id', $vid))
+            ->when(! $vid, fn ($q) => $q->orderByDesc('is_default'))
+            ->first();
+
+        $disk = Storage::disk('local');
+        $inputRel = $source && $source->file_path && $disk->exists($source->file_path)
+            ? $source->file_path
+            : $this->demoTrackFor($asset->id, $disk);
+
+        if (! $inputRel || ! $disk->exists($inputRel)) {
+            return response()->json(['error' => 'No source audio available for preview.'], 422);
+        }
+
+        $outRel = "previews/pv-{$asset->id}-{$request->user()->id}.mp3";
+        // Full-file render (duration 0) so the previewed waveform stays aligned
+        // with markers/segments; only duration-preserving effects are sent.
+        $res = $renderer->renderPreview(
+            $disk->path($inputRel), $disk->path($outRel), $ops,
+            ['sample_rate' => $asset->sample_rate ?: 44100, 'duration' => $asset->duration_seconds ?: 0],
+        );
+
+        if (! $res['ok']) {
+            return response()->json(['error' => $res['error']], 422);
+        }
+
+        return response()->json([
+            'url' => route('admin.assets.preview-audio', $asset, false).'?t='.now()->timestamp,
+        ]);
+    }
+
+    /** Serve the caller's latest preview clip for this asset. */
+    public function previewAudio(Request $request, AudioAsset $asset): BinaryFileResponse
+    {
+        $this->authorize('editing.use');
+        $disk = Storage::disk('local');
+        $rel = "previews/pv-{$asset->id}-{$request->user()->id}.mp3";
+        abort_unless($disk->exists($rel), 404, 'No preview available yet.');
+
+        return response()->file($disk->path($rel), [
+            'Content-Type' => 'audio/mpeg',
+            'Accept-Ranges' => 'bytes',
+            'Cache-Control' => 'no-store',
+        ]);
     }
 
     private function estimateEditedDuration(int $original, array $edl): int

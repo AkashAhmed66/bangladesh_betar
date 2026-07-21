@@ -23,13 +23,11 @@ class ProgrammeSeeder extends Seeder
 
         $programmes = [
             // [title, title_bn, type, category-slug, station, seasons]
-            ['Bhoot FM', 'ভূত এফএম', 'event', 'event-programmes', $dhaka, [2022, 2023, 2024, 2025]],
+            ['Bhoot FM', 'ভূত এফএম', 'event', null, $dhaka, [2023, 2024, 2025]],
             ['Durbar Sangeet', 'দুর্বার সঙ্গীত', 'programme', 'songs', $dhaka, [2024, 2025]],
             ['Shonar Bangla Magazine', 'সোনার বাংলা ম্যাগাজিন', 'magazine', 'radio-programmes', $dhaka, [2024, 2025]],
             ['Ratri Natok', 'রাত্রি নাটক', 'drama', 'drama', $dhaka, [2023, 2024]],
             ['Probhati Sangbad', 'প্রভাতী সংবাদ', 'news', 'news', $dhaka, [2025]],
-            ['Sagor Pare', 'সাগর পাড়ে', 'programme', 'radio-programmes', $ctg, [2024]],
-            ['Muktijuddher Smriti', 'মুক্তিযুদ্ধের স্মৃতি', 'talk_show', 'historical-recordings', $dhaka, [2021, 2022]],
         ];
 
         foreach ($programmes as [$title, $titleBn, $type, $categorySlug, $station, $seasonYears]) {

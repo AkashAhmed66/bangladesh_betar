@@ -29,7 +29,6 @@ class UserSeeder extends Seeder
             ['Imran Chowdhury', 'curator@betar.gov.bd', 'Content Curator'],
             ['Shirin Akter', 'moderator@betar.gov.bd', 'Moderator'],
             ['Habibur Rahman', 'ads@betar.gov.bd', 'Advertisement Manager'],
-            ['Maruf Khan', 'marketing@betar.gov.bd', 'Marketing User'],
             ['Rehana Parvin', 'copyright@betar.gov.bd', 'Copyright Officer'],
             ['Director General', 'approver@betar.gov.bd', 'Approver'],
             ['Dr. Anisur Rahman', 'researcher@betar.gov.bd', 'Researcher'],
@@ -58,7 +57,6 @@ class UserSeeder extends Seeder
             ['Jewel Mia', 'listener3@example.com'],
             ['Sadia Afrin', 'listener4@example.com'],
             ['Rasel Ahmed', 'listener5@example.com'],
-            ['Tania Akter', 'listener6@example.com'],
         ];
 
         foreach ($listeners as [$name, $email]) {

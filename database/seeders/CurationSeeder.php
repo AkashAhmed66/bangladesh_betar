@@ -81,11 +81,8 @@ class CurationSeeder extends Seeder
             ['Trending Now', 'এখন ট্রেন্ডিং', 'trending', 'row', 1, null],
             ['New Releases', 'নতুন প্রকাশ', 'new_releases', 'row', 2, null],
             ['Curated Collections', 'নির্বাচিত সংগ্রহ', 'curated_playlists', 'row', 3, 'playlist'],
-            ['Featured Artists', 'বিশেষ শিল্পী', 'featured_artists', 'spotlight', 4, 'artist'],
-            ['Albums from the Archive', 'আর্কাইভের অ্যালবাম', 'featured_albums', 'grid', 5, 'album'],
-            ['Podcasts for You', 'আপনার জন্য পডকাস্ট', 'custom', 'row', 6, 'podcast_channel'],
-            ['On This Day', 'ইতিহাসের এই দিনে', 'on_this_day', 'row', 7, null],
-            ['Top Played', 'সর্বাধিক শোনা', 'top_played', 'row', 8, null],
+            ['On This Day', 'ইতিহাসের এই দিনে', 'on_this_day', 'row', 4, null],
+            ['Top Played', 'সর্বাধিক শোনা', 'top_played', 'row', 5, null],
         ];
 
         foreach ($sections as [$title, $titleBn, $type, $layout, $position, $curatableType]) {

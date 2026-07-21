@@ -22,7 +22,7 @@ class AudioMarkerSeeder extends Seeder
 
         $assets = AudioAsset::query()
             ->whereIn('content_type', ['speech', 'interview', 'historical', 'podcast', 'drama', 'story', 'song'])
-            ->orderBy('id')->take(10)->get();
+            ->orderBy('id')->take(5)->get();
 
         foreach ($assets as $asset) {
             if ($asset->markers()->exists() || $asset->duration_seconds < 30) {
@@ -33,9 +33,7 @@ class AudioMarkerSeeder extends Seeder
             $markers = [
                 ['intro', 'Introduction', 0, min(15, $d * 0.05)],
                 ['music', 'Signature tune', min(15, $d * 0.05), min(30, $d * 0.1)],
-                ['speech', 'Main segment', $d * 0.12, $d * 0.6],
                 ['keyword', 'Liberation War', $d * 0.3, null],
-                ['applause', 'Applause', $d * 0.62, $d * 0.64],
                 ['emotion', 'Emotional peak', $d * 0.7, null],
                 ['outro', 'Closing', $d * 0.9, $d],
             ];

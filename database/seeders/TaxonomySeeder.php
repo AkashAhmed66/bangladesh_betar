@@ -51,18 +51,9 @@ class TaxonomySeeder extends Seeder
         $categories = [
             ['Songs', 'গান', 'content'],
             ['Radio Programmes', 'বেতার অনুষ্ঠান', 'content'],
-            ['Podcasts', 'পডকাস্ট', 'content'],
             ['News', 'সংবাদ', 'content'],
-            ['Interviews', 'সাক্ষাৎকার', 'content'],
             ['Drama', 'নাটক', 'content'],
             ['Historical Recordings', 'ঐতিহাসিক রেকর্ডিং', 'content'],
-            ['Speeches', 'ভাষণ', 'content'],
-            ['Event Programmes', 'ইভেন্ট অনুষ্ঠান', 'content'],
-            ['Horror', 'ভৌতিক', 'story'],
-            ['Paranormal Experience', 'অলৌকিক অভিজ্ঞতা', 'story'],
-            ['Village Tales', 'গ্রামের গল্প', 'story'],
-            ['Consumer Products', 'ভোগ্যপণ্য', 'ad'],
-            ['Public Service', 'জনসেবা', 'ad'],
         ];
 
         foreach ($categories as [$name, $nameBn, $type]) {
@@ -74,9 +65,7 @@ class TaxonomySeeder extends Seeder
 
         $genres = [
             ['Modern Bangla', 'আধুনিক বাংলা'], ['Folk', 'লোকগীতি'], ['Rabindra Sangeet', 'রবীন্দ্রসঙ্গীত'],
-            ['Nazrul Sangeet', 'নজরুলসঙ্গীত'], ['Classical', 'উচ্চাঙ্গসঙ্গীত'], ['Patriotic', 'দেশাত্মবোধক'],
-            ['Regional', 'আঞ্চলিক'], ['Instrumental', 'যন্ত্রসঙ্গীত'], ["Children's", 'শিশুতোষ'],
-            ['Religious', 'ধর্মীয়'], ['International', 'আন্তর্জাতিক'],
+            ['Nazrul Sangeet', 'নজরুলসঙ্গীত'], ['Patriotic', 'দেশাত্মবোধক'],
         ];
 
         foreach ($genres as [$name, $nameBn]) {
@@ -84,8 +73,7 @@ class TaxonomySeeder extends Seeder
         }
 
         $moods = [
-            ['Joyful', 'আনন্দময়'], ['Melancholic', 'বিষণ্ণ'], ['Romantic', 'রোমান্টিক'],
-            ['Energetic', 'প্রাণবন্ত'], ['Calm', 'শান্ত'], ['Devotional', 'ভক্তিমূলক'],
+            ['Joyful', 'আনন্দময়'], ['Energetic', 'প্রাণবন্ত'], ['Calm', 'শান্ত'],
             ['Inspirational', 'অনুপ্রেরণামূলক'], ['Nostalgic', 'স্মৃতিমধুর'],
         ];
 
@@ -95,7 +83,7 @@ class TaxonomySeeder extends Seeder
 
         $languages = [
             ['Bangla', 'বাংলা', 'bn'], ['English', 'ইংরেজি', 'en'], ['Chattogram Dialect', 'চাটগাঁইয়া', 'bn-ctg'],
-            ['Sylheti', 'সিলেটি', 'bn-syl'], ['Urdu', 'উর্দু', 'ur'], ['Arabic', 'আরবি', 'ar'],
+            ['Sylheti', 'সিলেটি', 'bn-syl'], ['Urdu', 'উর্দু', 'ur'],
         ];
 
         foreach ($languages as [$name, $nameBn, $code]) {
@@ -103,9 +91,7 @@ class TaxonomySeeder extends Seeder
         }
 
         $tags = [
-            'Liberation War', '1971', 'Ekushey February', 'Independence Day', 'Victory Day',
-            'Pahela Baishakh', 'Eid Special', 'Puja Special', 'Monsoon', 'Golden Era',
-            'Rare Recording', 'Live Performance', 'Studio Session', 'Archive Gem',
+            'Liberation War', '1971', 'Victory Day', 'Golden Era', 'Rare Recording',
         ];
 
         foreach ($tags as $tag) {

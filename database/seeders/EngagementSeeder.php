@@ -42,7 +42,6 @@ class EngagementSeeder extends Seeder
             'This recording quality is amazing for its age.',
             'বেতারের এই আর্কাইভ সত্যিই জাতীয় সম্পদ।',
             'Listened with my family — thank you Betar!',
-            'আরও পুরনো গান চাই এই অ্যাপে।',
             'The restoration work on this is incredible.',
         ];
 

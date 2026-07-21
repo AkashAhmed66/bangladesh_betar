@@ -63,6 +63,7 @@ function boot() {
     const state = {
         ws, regions, zoom: 0, edl: [], redo: [], compareWs: null,
         ctx: null, analyserMain: null, analyserL: null, analyserR: null,
+        fx: null, previewSettings: null,
         buf: null, running: false, frame: 0, holdL: 0, holdR: 0, eqHold: null,
         overlays: { heatmap: true, segments: true, silence: false },
     };
@@ -190,21 +191,53 @@ function boot() {
         try {
             const media = ws.getMediaElement();
             const AC = window.AudioContext || window.webkitAudioContext;
-            state.ctx = new AC();
-            const source = state.ctx.createMediaElementSource(media);
-            source.connect(state.ctx.destination); // audible even if analysers fail
+            const ctx = new AC();
+            state.ctx = ctx;
+            const source = ctx.createMediaElementSource(media);
+
+            // Live effect chain (Layer-1 preview). Each node is neutral by
+            // default; the editor updates them via window.studioPreview so
+            // gain / EQ / de-hum / compressor / limiter / tempo are heard live.
+            const biquad = (type, freq, q) => {
+                const n = ctx.createBiquadFilter();
+                n.type = type;
+                n.frequency.value = freq;           // AudioParams: set .value, never reassign
+                if (q != null) n.Q.value = q;
+                return n;
+            };
+            const fx = {
+                gain: ctx.createGain(),
+                bass: biquad('lowshelf', 120),
+                mid: biquad('peaking', 1500, 1),
+                treble: biquad('highshelf', 3500),
+                notch: biquad('allpass', 60, 6),    // de-hum (allpass = off)
+                comp: ctx.createDynamicsCompressor(),
+                limit: ctx.createDynamicsCompressor(),
+                out: ctx.createGain(),
+            };
+            fx.comp.ratio.value = 1; fx.comp.threshold.value = 0;   // bypassed
+            fx.limit.ratio.value = 1; fx.limit.threshold.value = 0; // bypassed
+            state.fx = fx;
+
+            // source → gain → bass → mid → treble → notch → comp → limit → out → destination
+            source.connect(fx.gain); fx.gain.connect(fx.bass); fx.bass.connect(fx.mid);
+            fx.mid.connect(fx.treble); fx.treble.connect(fx.notch); fx.notch.connect(fx.comp);
+            fx.comp.connect(fx.limit); fx.limit.connect(fx.out);
+            fx.out.connect(ctx.destination); // audible
 
             const channels = ws.getDecodedData()?.numberOfChannels || 2;
 
-            state.analyserMain = state.ctx.createAnalyser();
+            // Analysers tap the PROCESSED signal so the visualizers reflect the
+            // effects you hear.
+            state.analyserMain = ctx.createAnalyser();
             state.analyserMain.fftSize = 2048;
             state.analyserMain.smoothingTimeConstant = 0.82;
-            source.connect(state.analyserMain);
+            fx.out.connect(state.analyserMain);
 
-            const splitter = state.ctx.createChannelSplitter(2);
-            source.connect(splitter);
-            state.analyserL = state.ctx.createAnalyser();
-            state.analyserR = state.ctx.createAnalyser();
+            const splitter = ctx.createChannelSplitter(2);
+            fx.out.connect(splitter);
+            state.analyserL = ctx.createAnalyser();
+            state.analyserR = ctx.createAnalyser();
             [state.analyserL, state.analyserR].forEach((a) => { a.fftSize = 2048; a.smoothingTimeConstant = 0.8; });
             splitter.connect(state.analyserL, 0);
             splitter.connect(state.analyserR, channels > 1 ? 1 : 0); // mono → mirror
@@ -215,10 +248,42 @@ function boot() {
                 timeL: new Float32Array(state.analyserL.fftSize),
                 timeR: new Float32Array(state.analyserR.fftSize),
             };
+
+            applyPreview(state.previewSettings); // apply any settings set before playback
         } catch (e) {
-            console.warn('Audio visualizers unavailable:', e);
+            console.warn('Audio engine unavailable:', e);
         }
     }
+
+    // Apply live-previewable effect settings to the Web Audio chain.
+    function applyPreview(s) {
+        state.previewSettings = s || state.previewSettings;
+        const fx = state.fx;
+        if (!fx || !state.previewSettings) return;
+        const p = state.previewSettings;
+        const on = p.enabled !== false;
+        const dbToGain = (db) => Math.pow(10, (db || 0) / 20);
+
+        fx.gain.gain.value = on ? dbToGain(p.gain) : 1;
+        fx.bass.gain.value = on ? (p.bass || 0) : 0;   // shelf/peaking gains are in dB
+        fx.mid.gain.value = on ? (p.mid || 0) : 0;
+        fx.treble.gain.value = on ? (p.treble || 0) : 0;
+
+        if (on && p.dehum) { fx.notch.type = 'notch'; fx.notch.frequency.value = p.dehumFreq || 50; fx.notch.Q.value = 6; }
+        else { fx.notch.type = 'allpass'; }
+
+        if (on && p.compress) { fx.comp.threshold.value = -18; fx.comp.ratio.value = 3; fx.comp.knee.value = 6; fx.comp.attack.value = 0.02; fx.comp.release.value = 0.25; }
+        else { fx.comp.threshold.value = 0; fx.comp.ratio.value = 1; }
+
+        if (on && p.limit) { fx.limit.threshold.value = -1; fx.limit.ratio.value = 20; fx.limit.knee.value = 0; fx.limit.attack.value = 0.001; fx.limit.release.value = 0.05; }
+        else { fx.limit.threshold.value = 0; fx.limit.ratio.value = 1; }
+
+        const media = ws.getMediaElement();
+        if (media) { media.preservesPitch = true; media.playbackRate = on ? (p.tempo || 1) : 1; }
+    }
+
+    // Exposed so the Alpine editor can push live settings.
+    window.studioPreview = (settings) => applyPreview(settings);
 
     function startLoop() {
         if (state.running || !state.analyserMain) return;
@@ -554,7 +619,8 @@ function boot() {
         const box = $('#edl-list');
         if (box) box.innerHTML = state.edl.map((e, i) =>
             `<li class="flex justify-between"><span>${i + 1}. ${e.op.replace('_', ' ')}</span><span class="text-slate-400">${fmt(e.start)}${e.end ? '–' + fmt(e.end) : ''}</span></li>`).join('') || '<li class="text-slate-400">No operations yet.</li>';
-        $('#edl-count').textContent = state.edl.length;
+        const c = $('#edl-count');
+        if (c) c.textContent = state.edl.length;
     }
 
     async function saveEdit() {
@@ -617,6 +683,75 @@ function boot() {
             await api('POST', CFG.urls.peaks, { peaks: norm });
         } catch (_) {}
     }
+
+    /* -------------------- render pipeline (ffmpeg) -------------------- */
+
+    // Submit an edit/enhancement op-chain to be rendered into a new version,
+    // then poll status. Exposed globally so the Alpine editor panel can call it.
+    window.studioRender = async (ops, title, cb = {}, target = 'new') => {
+        // Render FROM the version currently loaded in the Studio.
+        const res = await api('POST', CFG.urls.render, { title, ops, source_version_id: CFG.defaultVersionId, target });
+        if (!res || !res.edit_session_id) { cb.onError?.('Could not queue the render.'); return; }
+        if (res.ffmpeg_available === false) {
+            cb.onProgress?.(5, 'queued — note: ffmpeg must be available on the server (Docker) to render');
+        }
+        const statusUrl = CFG.urls.renderStatus.replace('__ID__', res.edit_session_id);
+        const poll = async () => {
+            let s = null;
+            try { s = await fetch(statusUrl, { headers: { Accept: 'application/json' } }).then((r) => r.json()); } catch (_) {}
+            if (!s) { cb.onError?.('Status check failed.'); return; }
+            cb.onProgress?.(s.progress ?? 0, s.render_status);
+            if (s.render_status === 'done') { cb.onDone?.(s.version); return; }
+            if (s.render_status === 'failed') { cb.onError?.(s.error || 'Render failed.'); return; }
+            setTimeout(poll, 1500);
+        };
+        setTimeout(poll, 1200);
+    };
+
+    // Auto-preview render (heavy sound effects, full file) → returns {url}|{error}.
+    window.studioPreviewRender = async (ops, start) => {
+        try {
+            const res = await fetch(CFG.urls.preview, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CFG.csrf, Accept: 'application/json' },
+                body: JSON.stringify({ ops, start, source_version_id: CFG.defaultVersionId }),
+            });
+            return await res.json();
+        } catch (e) { return { error: 'Preview request failed.' }; }
+    };
+
+    // Swap the MAIN waveform's audio (heavy-effects preview or back to original),
+    // preserving position + playing state and re-drawing the overlays. The media
+    // element is reused, so the live Web Audio (cheap) effect chain persists.
+    window.studioOriginalUrl = () => audioUrl(CFG.defaultVersionId);
+    window.studioSetBusy = (on) => { $('#waveform-busy')?.classList.toggle('hidden', !on); };
+    window.studioLoadAudio = async (url) => {
+        if (!url) return;
+        window.studioSetBusy(true);
+        const wasPlaying = ws.isPlaying();
+        const pos = ws.getCurrentTime();
+        try { await ws.load(url); } catch (e) { console.warn('Studio load failed:', e); }
+        try { regions.getRegions().forEach((r) => r.remove()); } catch (_) {}
+        dataDrawn = false;
+        drawStaticData();                 // re-draw segment + marker overlays
+        try { if (pos) ws.setTime(Math.min(pos, ws.getDuration() || pos)); } catch (_) {}
+        if (wasPlaying) { try { await ws.play(); } catch (_) {} }
+        window.studioSetBusy(false);
+    };
+
+    // Let the editor panel read the current waveform selection / cursor.
+    window.studioSelection = () => {
+        const sel = activeSelection();
+        return sel ? { start: +sel.start.toFixed(2), end: +sel.end.toFixed(2) } : null;
+    };
+    window.studioCursor = () => +ws.getCurrentTime().toFixed(2);
+    window.studioEnableSelect = (on) => {
+        if (on && !dragDisable) dragDisable = regions.enableDragSelection({ color: 'rgba(217,119,6,0.20)' });
+        else if (!on && dragDisable) { dragDisable(); dragDisable = null; }
+    };
+
+    // Enable drag-to-select on the waveform (feeds the editor's trim/cut).
+    window.studioEnableSelect(true);
 
     // Initialise EDL/marker lists on load
     renderEdl();

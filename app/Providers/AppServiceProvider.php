@@ -48,7 +48,6 @@ class AppServiceProvider extends ServiceProvider
             'comment' => \App\Models\Comment::class,
             'edit_session' => \App\Models\EditSession::class,
             'ad_asset' => \App\Models\AdAsset::class,
-            'marketing_campaign' => \App\Models\MarketingCampaign::class,
             'media_item' => \App\Models\MediaItem::class,
             'rights_record' => \App\Models\RightsRecord::class,
             'station' => \App\Models\Station::class,

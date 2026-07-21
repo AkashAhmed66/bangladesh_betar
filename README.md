@@ -2,13 +2,13 @@
 
 A centralized digital system to **preserve, manage, catalogue, govern and publish**
 Bangladesh Betar's complete audio collection — songs, radio programmes, podcasts, Bhoot FM
-event stories, news, dramas, historic recordings, marketing voice-overs and advertisements.
+event stories, news, dramas, historic recordings and advertisements.
 
 The solution is **one Laravel application with two faces**:
 
 - **Admin Web Portal** (`/admin`) — the back office where staff upload, digitize, catalogue
   (Bangla + English), edit, run quality control, clear rights, approve, curate, moderate and
-  publish content, and manage subscriptions, advertising and analytics.
+  publish content, and manage subscriptions and advertising.
 - **Public Portal API** (`/api/v1`) — a secured REST API that powers a Spotify-style public
   listening app (web + Android/iOS) with browsing, search, streaming, playlists, favourites,
   follows, recommendations, comments/ratings and a freemium subscription model.
@@ -20,7 +20,7 @@ Built to the *FRS — Bangladesh Betar Audio Archive Platform v1.1*, covering al
 
 ## Highlights
 
-- **RBAC everywhere** — Spatie Laravel-Permission; 14 staff roles + Listener, ~40
+- **RBAC everywhere** — Spatie Laravel-Permission; 13 staff roles + Listener, ~40
   permission groups, every action gated.
 - **Professional UI** — Tailwind CSS 4 + Blade + Vite + Alpine, collapsible sidebar,
   light/dark/system theme, semi-flat responsive design, Bangla-aware fonts.

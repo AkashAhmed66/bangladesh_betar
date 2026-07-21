@@ -36,7 +36,6 @@ class RolePermissionSeeder extends Seeder
         'stories' => ['view', 'manage'],
         'submissions' => ['view', 'review'],
         'podcasts' => ['view', 'manage'],
-        'marketing' => ['view', 'manage'],
         'editing' => ['view', 'use'],
         'workflows' => ['view', 'manage'],
         'approvals' => ['view', 'act'],
@@ -54,7 +53,6 @@ class RolePermissionSeeder extends Seeder
         'plans' => ['view', 'manage'],
         'subscriptions' => ['view', 'manage'],
         'payments' => ['view', 'refund'],
-        'analytics' => ['view', 'export'],
         'audit' => ['view'],
         'backups' => ['view', 'manage'],
         'settings' => ['view', 'manage'],
@@ -71,7 +69,7 @@ class RolePermissionSeeder extends Seeder
             'albums.view', 'songs.view', 'programmes.*', 'episodes.*', 'stories.*',
             'workflows.view', 'approvals.*', 'rights.view', 'qc.*',
             'transcripts.*', 'ai-suggestions.*', 'audit.view', 'backups.*',
-            'analytics.view', 'submissions.view', 'issues.*', 'notifications.view',
+            'submissions.view', 'issues.*', 'notifications.view',
         ],
 
         'Archivist' => [ // Audio Archivist / Digitization Operator
@@ -90,24 +88,24 @@ class RolePermissionSeeder extends Seeder
         'Programme Producer' => [
             'dashboard.view', 'programmes.*', 'episodes.*', 'stories.view',
             'assets.view', 'assets.upload', 'playlists.view', 'playlists.manage',
-            'analytics.view', 'approvals.view', 'notifications.view',
+            'approvals.view', 'notifications.view',
         ],
 
         'Podcast Manager' => [
             'dashboard.view', 'podcasts.*', 'assets.view', 'assets.upload',
-            'artists.view', 'analytics.view', 'approvals.view', 'transcripts.view', 'notifications.view',
+            'artists.view', 'approvals.view', 'transcripts.view', 'notifications.view',
         ],
 
         'Music Library Manager' => [
             'dashboard.view', 'songs.*', 'albums.*', 'artists.*', 'assets.view', 'assets.upload',
-            'metadata.edit', 'playlists.*', 'taxonomies.view', 'analytics.view',
+            'metadata.edit', 'playlists.*', 'taxonomies.view',
             'ai-suggestions.*', 'notifications.view',
         ],
 
         'Content Curator' => [
             'dashboard.view', 'curation.*', 'playlists.*', 'assets.view',
             'songs.view', 'albums.view', 'artists.view', 'podcasts.view',
-            'programmes.view', 'episodes.view', 'analytics.view', 'notifications.view',
+            'programmes.view', 'episodes.view', 'notifications.view',
         ],
 
         'Moderator' => [
@@ -116,12 +114,7 @@ class RolePermissionSeeder extends Seeder
         ],
 
         'Advertisement Manager' => [
-            'dashboard.view', 'ads.*', 'analytics.view', 'approvals.view', 'notifications.view',
-        ],
-
-        'Marketing User' => [
-            'dashboard.view', 'marketing.*', 'assets.view', 'assets.download',
-            'artists.view', 'approvals.view', 'notifications.view',
+            'dashboard.view', 'ads.*', 'approvals.view', 'notifications.view',
         ],
 
         'Copyright Officer' => [
@@ -131,7 +124,7 @@ class RolePermissionSeeder extends Seeder
 
         'Approver' => [ // Management
             'dashboard.view', 'approvals.*', 'workflows.view', 'assets.view', 'assets.publish',
-            'analytics.*', 'subscriptions.view', 'payments.view', 'ads.reports', 'notifications.view',
+            'subscriptions.view', 'payments.view', 'ads.reports', 'notifications.view',
         ],
 
         'Researcher' => [

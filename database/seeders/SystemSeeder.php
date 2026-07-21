@@ -16,10 +16,10 @@ class SystemSeeder extends Seeder
 {
     public function run(): void
     {
-        for ($day = 1; $day <= 10; $day++) {
+        for ($day = 1; $day <= 5; $day++) {
             foreach ([['database', 'local'], ['audio', 'local'], ['full', 'offsite']] as [$type, $target]) {
-                if ($type === 'full' && $day % 7 !== 0) {
-                    continue; // weekly off-site full backup
+                if ($type === 'full' && $day % 3 !== 0) {
+                    continue; // periodic off-site full backup
                 }
                 BackupRun::query()->firstOrCreate(
                     [
@@ -37,7 +37,7 @@ class SystemSeeder extends Seeder
             }
         }
 
-        foreach (AudioAsset::query()->inRandomOrder()->take(12)->get() as $index => $asset) {
+        foreach (AudioAsset::query()->inRandomOrder()->take(5)->get() as $index => $asset) {
             IntegrityCheck::query()->firstOrCreate(
                 ['audio_asset_id' => $asset->id],
                 [

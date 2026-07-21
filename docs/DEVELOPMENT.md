@@ -148,7 +148,7 @@ docker/                 # nginx.conf, supervisord.conf, entrypoint.sh
 | M08 | Music library | `SongController`, `AlbumController`, `ArtistController`, `PlaylistController` |
 | M09 | Podcasts | `PodcastChannelController`, `PodcastEpisodeController` |
 | M10 | Event programmes (Bhoot FM) | `EpisodeController`, `StoryController`, `StorySubmissionController` |
-| M11 | Marketing production | `VoiceArtistController`, `ScriptController`, `MarketingCampaignController` |
+| M11 | Marketing production | *removed* |
 | M12 | Editing | `EditSessionController`, `edit_sessions` |
 | M13 | Workflow / approval | `WorkflowController`, `ApprovalController`, `Workflow`/`Approval` models |
 | M14 | Rights | `RightsHolderController`, `RightsRecordController` |
@@ -156,7 +156,7 @@ docker/                 # nginx.conf, supervisord.conf, entrypoint.sh
 | M16 | AI features | `TranscriptController`, `AiSuggestionController` |
 | M17 | Public portal | `Api\V1\BrowseController`, `CatalogueController`, `LibraryController` |
 | M18 | Freemium / payments | `PlanController`, `SubscriptionController`, `PaymentController`, `Api\V1\SubscriptionController`, `EntitlementService` |
-| M19/M20 | Analytics / dashboards | `AnalyticsController`, `DashboardController` |
+| M19/M20 | Play events / dashboards | `Api\V1\PlaybackController@event`, `DashboardController` |
 | M21 | Audit trail | `AuditLogController`, `Concerns\Auditable`, `AuditLog` |
 | M22 | Backup / preservation | `BackupController`, `BackupRun`, `IntegrityCheck` |
 | M23 | Integration / API | `routes/api.php`, Sanctum, `docs/API_DOCUMENTATION.md` |
@@ -185,7 +185,6 @@ All seeded accounts use password **`123456`**.
 | Content Curator | `curator@betar.gov.bd` |
 | Moderator | `moderator@betar.gov.bd` |
 | Advertisement Manager | `ads@betar.gov.bd` |
-| Marketing User | `marketing@betar.gov.bd` |
 | Copyright Officer | `copyright@betar.gov.bd` |
 | Approver / Management | `approver@betar.gov.bd` |
 | Researcher | `researcher@betar.gov.bd` |

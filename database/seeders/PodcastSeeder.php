@@ -35,7 +35,6 @@ class PodcastSeeder extends Seeder
                 'episodes' => [
                     ['The Birth of Radio Dhaka', 1, 1, false],
                     ['Broadcasting Through 1971', 1, 2, false],
-                    ['The Golden Age of Radio Drama', 1, 3, false],
                     ['Voices That Shaped a Nation', 2, 1, true],
                 ],
             ],

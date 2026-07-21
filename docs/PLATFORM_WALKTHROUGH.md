@@ -42,7 +42,7 @@ flowchart LR
     subgraph Public["PUBLIC PORTAL API  (/api/v1 — listeners)"]
         API["Browse · Search · Stream<br/>M06 M07 M17"] --> LIB["Library · Follow · Rate<br/>M18 M25 M26"]
     end
-    LIB -->|"play events, ratings, reports"| ANALYTICS["Analytics & Heat-maps<br/>M19 M20"]
+    LIB -->|"play events, ratings, reports"| ANALYTICS["Play-event aggregates & heat-maps<br/>M19 M20"]
     ANALYTICS -.->|"trending, recommendations"| API
     ANALYTICS -.-> Admin
 ```
@@ -308,23 +308,6 @@ Browser → route (web.php) → middleware chain → Controller → Model (Eloqu
 
 ---
 
-### Marketing — voice & advertisement production (M11)
-
-#### 🎙️ Voice Artists · 📄 Scripts · 📣 Campaigns
-- **Module** M11 · **Routes** `/admin/voice-artists`, `/admin/scripts`, `/admin/marketing-campaigns`
-- **What** The production side for marketing spots: searchable **voice-artist** profiles
-  (language/accent/tone), **scripts** with version control, and **campaigns** with client
-  approval, recording takes/channel variants, and usage-rights periods with expiry alerts.
-- **Data** `voice_artists`, `scripts` (version chain), `marketing_campaigns` + `campaign_assets`.
-- **Roles** Marketing User (`marketing.view/manage`).
-- **View** tables; campaigns highlight **usage rights expiring within 30 days** (FR-MKT-06).
-- **Post** create voices, scripts, then a campaign; attach takes.
-- **Publish** the finished master goes through approval like any asset; **serving** to
-  listeners is handled by *Ad Assets/Campaigns* (M27), not here. **Public surface** — (the
-  produced spot surfaces only as an ad via M27).
-
----
-
 ### Governance — the quality & rights gate
 
 #### 🔀 Workflows
@@ -454,15 +437,6 @@ Browser → route (web.php) → middleware chain → Controller → Model (Eloqu
 
 ### Insights — measurement & protection (M19–M22)
 
-#### 📊 Analytics
-- **Route** `/admin/analytics` · **What** Plays, unique listeners, completion/skip/replay
-  rates, per-asset **second-by-second heat-maps** (most-replayed sections), platform &
-  regional breakdowns, trending. Feeds the public trending/recommendation rows.
-- **Data** `play_events` (raw) → `asset_stats_dailies` (aggregates + heatmap JSON).
-- **Roles** Approver, managers (`analytics.view`). **View** dashboard + per-asset drill-down.
-- **Post** rows arrive from `POST /api/v1/assets/{id}/events`. **Public surface**
-  drives `GET /api/v1/trending`, `…/top-played`, `…/recommendations/for-you`.
-
 #### 🕒 Audit Trail
 - **Route** `/admin/audit-logs` · **Module** M21 · **What** Immutable, append-only log of
   every significant action (who/what/when/before-after). Searchable & filterable.
@@ -542,8 +516,8 @@ POST /api/v1/assets/108/rate {rating:5} → rate it → updates avg on the admin
 
 A **free** listener gets a preview for premium-flagged content + an ad; a **premium**
 listener (after `POST /api/v1/me/subscription/subscribe`) gets the full-length, ad-free,
-high-quality stream. Those play events flow back into **Analytics**, which powers the
-**trending** and **recommendation** rows — closing the loop.
+high-quality stream. Those play events flow back into the play-event aggregates, which
+power the **trending** and **recommendation** rows — closing the loop.
 
 ---
 

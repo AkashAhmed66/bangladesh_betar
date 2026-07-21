@@ -39,7 +39,6 @@ The portal uses role-based access control — you see only what your role permit
 | Content Curator | Home sections, banners, curated collections |
 | Moderator | Comments, reported content, issues, feedback |
 | Advertisement Manager | Advertisers, campaigns, ad assets, delivery reports |
-| Marketing User | Voice artists, scripts, campaigns |
 | Copyright Officer | Rights records, takedowns |
 | Approver / Management | Approvals, dashboards, subscription & revenue reports |
 | Researcher | Browsing permitted content |
@@ -173,9 +172,6 @@ Content Curators shape what listeners see:
 
 ## 12. Insights & protection (Insights menu)
 
-- **Analytics** — plays, unique listeners, completion/skip/replay rates, per-asset
-  second-by-second **heat maps** (most-replayed sections), platform and regional breakdowns,
-  and trending rankings.
 - **Audit Trail** — an immutable, searchable log of every significant action (who, what,
   when, before/after). Filter by user, action and date.
 - **Backups** — status of scheduled backups (three-copy rule) and file **integrity checks**;

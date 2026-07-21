@@ -27,7 +27,6 @@ class DatabaseSeeder extends Seeder
             MusicSeeder::class,            // albums, songs, artist links
             EpisodeStorySeeder::class,     // Bhoot FM episodes, stories, submissions
             PodcastSeeder::class,          // podcast channels & episodes
-            MarketingSeeder::class,        // voice artists, scripts, campaigns
             WorkflowSeeder::class,         // approval workflows + live instances
             RightsSeeder::class,           // rights holders & records
             QcAndDigitizationSeeder::class,// media items + QC reports

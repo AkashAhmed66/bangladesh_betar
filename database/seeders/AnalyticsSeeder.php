@@ -20,12 +20,12 @@ class AnalyticsSeeder extends Seeder
         $assets = AudioAsset::query()->where('status', 'published')->get();
         $listeners = User::query()->where('user_type', 'listener')->pluck('id');
         $platforms = ['web', 'android', 'android', 'ios'];
-        $regions = ['Dhaka', 'Chattogram', 'Khulna', 'Rajshahi', 'Sylhet', 'Barisal', 'Rangpur'];
+        $regions = ['Dhaka', 'Chattogram', 'Khulna', 'Sylhet', 'Rajshahi'];
 
         foreach ($assets as $asset) {
-            // Raw events for the last 7 days (sample volume).
+            // Raw events for the last few days (sample volume).
             $events = [];
-            for ($i = 0; $i < 40; $i++) {
+            for ($i = 0; $i < 10; $i++) {
                 $type = ['play', 'play', 'play', 'progress', 'complete', 'skip', 'seek', 'replay'][random_int(0, 7)];
                 $events[] = [
                     'audio_asset_id' => $asset->id,
@@ -35,14 +35,14 @@ class AnalyticsSeeder extends Seeder
                     'position_seconds' => random_int(0, max(1, $asset->duration_seconds)),
                     'platform' => $platforms[random_int(0, 3)],
                     'device' => null,
-                    'region' => $regions[random_int(0, 6)],
-                    'created_at' => now()->subDays(random_int(0, 6))->subMinutes(random_int(0, 1440)),
+                    'region' => $regions[random_int(0, 4)],
+                    'created_at' => now()->subDays(random_int(0, 4))->subMinutes(random_int(0, 1440)),
                 ];
             }
             PlayEvent::query()->insert($events);
 
-            // Daily aggregates for the last 14 days with a heat map curve.
-            for ($day = 0; $day < 14; $day++) {
+            // Daily aggregates for the last 5 days with a heat map curve.
+            for ($day = 0; $day < 5; $day++) {
                 $plays = random_int(50, 3000);
                 $completion = mt_rand(35, 92) / 1;
 
@@ -61,7 +61,7 @@ class AnalyticsSeeder extends Seeder
             }
         }
 
-        $this->command?->info('Analytics: events + 14-day aggregates for '.$assets->count().' assets seeded');
+        $this->command?->info('Analytics: events + 5-day aggregates for '.$assets->count().' assets seeded');
     }
 
     /** 60-bucket listening-density curve, denser at the start with replay spikes. */

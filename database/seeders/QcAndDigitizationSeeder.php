@@ -28,8 +28,6 @@ class QcAndDigitizationSeeder extends Seeder
             ['REEL-1971-0002', 'Liberation War Field Recordings — Reel 2', 'reel', 'poor', 'Vault A / Shelf 3', 'high', 'restored'],
             ['CAS-1985-0117', 'Golden Melodies Session Tapes', 'cassette', 'fair', 'Vault B / Shelf 12', 'medium', 'captured'],
             ['DAT-1994-0033', 'Drama Unit Master DAT — Kobor', 'dat', 'good', 'Vault B / Shelf 5', 'medium', 'in_progress'],
-            ['VNL-1968-0009', 'Palli Geeti 45rpm Pressings', 'vinyl', 'fair', 'Vault C / Drawer 2', 'low', 'registered'],
-            ['CD-2001-0456', 'Eid Special 2001 Broadcast CD', 'cd', 'good', 'Vault C / Shelf 1', 'low', 'registered'],
             ['REEL-1975-0044', 'Historic Speeches Compilation Reel', 'reel', 'poor', 'Vault A / Shelf 7', 'high', 'qc_pending'],
         ];
 

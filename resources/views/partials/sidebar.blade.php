@@ -26,11 +26,6 @@
             ['stories.view', 'admin.stories.index', 'chat', 'Stories', ['admin.stories.']],
             ['submissions.view', 'admin.story-submissions.index', 'inbox', 'Story Submissions', ['admin.story-submissions.']],
         ],
-        'Marketing' => [
-            ['marketing.view', 'admin.voice-artists.index', 'microphone', 'Voice Artists', ['admin.voice-artists.']],
-            ['marketing.view', 'admin.scripts.index', 'document-text', 'Scripts', ['admin.scripts.']],
-            ['marketing.view', 'admin.marketing-campaigns.index', 'megaphone', 'Campaigns', ['admin.marketing-campaigns.']],
-        ],
         'Governance' => [
             ['workflows.view', 'admin.workflows.index', 'workflow', 'Workflows', ['admin.workflows.']],
             ['rights.view', 'admin.rights-records.index', 'scale', 'Rights Records', ['admin.rights-records.']],
@@ -60,7 +55,6 @@
             ['ads.view', 'admin.advertisers.index', 'users', 'Advertisers', ['admin.advertisers.']],
         ],
         'Insights' => [
-            ['analytics.view', 'admin.analytics.index', 'chart-bar', 'Analytics', ['admin.analytics.']],
             ['audit.view', 'admin.audit-logs.index', 'clock', 'Audit Trail', ['admin.audit-logs.']],
             ['backups.view', 'admin.backups.index', 'server', 'Backups', ['admin.backups.']],
         ],

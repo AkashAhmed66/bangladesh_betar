@@ -88,6 +88,18 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
                 ->middleware('permission:assets.edit')->name('assets.markers.destroy');
             Route::post('assets/{asset}/edit-session', [Admin\AudioStudioController::class, 'saveEdit'])
                 ->middleware('permission:editing.use')->name('assets.edit-session');
+
+            // M12 — render an edit/enhancement chain into a new version (ffmpeg)
+            Route::post('assets/{asset}/render', [Admin\AudioStudioController::class, 'submitRender'])
+                ->middleware('permission:editing.use')->name('assets.render');
+            Route::get('assets/{asset}/render/{editSession}/status', [Admin\AudioStudioController::class, 'renderStatus'])
+                ->name('assets.render.status');
+
+            // Fast auto-preview render (sound effects over a short window)
+            Route::post('assets/{asset}/preview', [Admin\AudioStudioController::class, 'previewRender'])
+                ->middleware('permission:editing.use')->name('assets.preview');
+            Route::get('assets/{asset}/preview-audio', [Admin\AudioStudioController::class, 'previewAudio'])
+                ->middleware('permission:editing.use')->name('assets.preview-audio');
         });
 
         // ---- M03: Digitization ----
@@ -117,13 +129,6 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
             ->middleware('permission:submissions.view')->name('story-submissions.index');
         Route::post('story-submissions/{submission}/review', [Admin\StorySubmissionController::class, 'review'])
             ->middleware('permission:submissions.review')->name('story-submissions.review');
-
-        // ---- M11: Marketing production ----
-        Route::middleware('permission:marketing.view')->group(function (): void {
-            Route::resource('voice-artists', Admin\VoiceArtistController::class)->except('show');
-            Route::resource('scripts', Admin\ScriptController::class)->except('show');
-            Route::resource('marketing-campaigns', Admin\MarketingCampaignController::class)->except('show');
-        });
 
         // ---- M12: Edit sessions ----
         Route::get('edit-sessions', [Admin\EditSessionController::class, 'index'])
@@ -211,12 +216,6 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
             Route::resource('ad-campaigns', Admin\AdCampaignController::class)->except('show');
             Route::resource('ad-assets', Admin\AdAssetController::class)->except('show');
         });
-
-        // ---- M19/M20: Analytics ----
-        Route::get('analytics', [Admin\AnalyticsController::class, 'index'])
-            ->middleware('permission:analytics.view')->name('analytics.index');
-        Route::get('analytics/assets/{asset}', [Admin\AnalyticsController::class, 'asset'])
-            ->middleware('permission:analytics.view')->name('analytics.asset');
 
         // ---- M21/M22: Audit & preservation ----
         Route::get('audit-logs', [Admin\AuditLogController::class, 'index'])

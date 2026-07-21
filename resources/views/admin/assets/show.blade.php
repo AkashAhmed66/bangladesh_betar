@@ -101,7 +101,7 @@
             </div>
             <div class="table-shell">
                 <table class="table-app">
-                    <thead><tr><th>Version</th><th>Format</th><th>Bitrate</th><th>Duration</th><th>Derived From</th><th>Default</th></tr></thead>
+                    <thead><tr><th>Version</th><th>Format</th><th>Bitrate</th><th>Duration</th><th>Derived From</th><th>Default</th><th class="text-right">Studio</th></tr></thead>
                     <tbody>
                         @foreach ($asset->versions as $version)
                             <tr>
@@ -117,6 +117,14 @@
                                 <td class="text-sm tabular-nums">{{ gmdate('i:s', $version->duration_seconds) }}</td>
                                 <td class="text-xs text-slate-500">{{ $version->derivedFrom?->version_type ?? '—' }}</td>
                                 <td>@if ($version->is_default)<span class="badge-green">Streaming</span>@endif</td>
+                                <td class="text-right">
+                                    @can('assets.view')
+                                        <a href="{{ route('admin.assets.studio', $asset) }}?version={{ $version->id }}"
+                                           class="btn-ghost btn-sm" title="Open this version in the Studio">
+                                            <x-icon name="wave" class="size-4" /> Open
+                                        </a>
+                                    @endcan
+                                </td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -129,9 +137,6 @@
             <div class="card">
                 <div class="card-header">
                     <h3 class="font-semibold text-slate-800 dark:text-slate-100">Listening Heat Map — most replayed sections (M19)</h3>
-                    @can('analytics.view')
-                        <a href="{{ route('admin.analytics.asset', $asset) }}" class="text-sm font-medium text-primary-700 hover:underline dark:text-primary-300">Full analytics →</a>
-                    @endcan
                 </div>
                 <div class="card-body">
                     @php $heatmap = $stats->last()?->heatmap ?? []; $max = max(1, ...($heatmap ?: [1])); @endphp

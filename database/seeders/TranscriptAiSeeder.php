@@ -23,7 +23,7 @@ class TranscriptAiSeeder extends Seeder
 
         $speechAssets = AudioAsset::query()
             ->whereIn('content_type', ['speech', 'interview', 'historical', 'podcast'])
-            ->take(8)
+            ->take(5)
             ->get();
 
         foreach ($speechAssets as $index => $asset) {
@@ -48,14 +48,13 @@ class TranscriptAiSeeder extends Seeder
         }
 
         // AI suggestions pending review (FR-AIF-06 — draft until verified).
-        $targets = AudioAsset::query()->inRandomOrder()->take(6)->get();
+        $targets = AudioAsset::query()->inRandomOrder()->take(5)->get();
         $types = [
             ['summary', ['summary' => 'AI draft summary: this recording covers a cultural broadcast segment with music and narration.', 'confidence' => 0.87]],
             ['tags', ['tags' => ['heritage', 'culture', 'archive'], 'confidence' => 0.79]],
             ['genre', ['genre' => 'Folk', 'confidence' => 0.74]],
             ['mood', ['mood' => 'Nostalgic', 'confidence' => 0.81]],
             ['language', ['language' => 'Bangla', 'dialect' => 'Standard', 'confidence' => 0.96]],
-            ['speaker', ['speakers' => [['label' => 'Speaker 1', 'suggested' => 'Russell Chowdhury', 'confidence' => 0.68]]]],
         ];
 
         foreach ($targets as $index => $asset) {

@@ -75,9 +75,6 @@
     <div class="card">
         <div class="card-header">
             <h3 class="font-semibold text-slate-800 dark:text-slate-100">Most Played</h3>
-            @can('analytics.view')
-                <a href="{{ route('admin.analytics.index') }}" class="text-sm font-medium text-primary-700 hover:underline dark:text-primary-300">View analytics →</a>
-            @endcan
         </div>
         <ul class="divide-y divide-slate-100 dark:divide-slate-800">
             @foreach ($topPlayed as $index => $asset)

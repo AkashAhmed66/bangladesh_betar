@@ -70,7 +70,6 @@ class AdvertisementSeeder extends Seeder
             ['Northern Bank 30s Spot', 'commercial', 'Northern Bank — Savings Week', 30, 'pending_approval'],
             ['Betar Station ID — Dhaka', 'house', null, 10, 'active'],
             ['Flood Preparedness PSA', 'psa', null, 45, 'active'],
-            ['Vaccination Drive PSA', 'psa', null, 30, 'active'],
         ];
 
         $assetModels = [];
@@ -94,7 +93,7 @@ class AdvertisementSeeder extends Seeder
         $listeners = User::query()->where('user_type', 'listener')->pluck('id');
         foreach (['Rupali Soap 30s Spot', 'Padma 4G 20s Spot', 'Betar Station ID — Dhaka'] as $title) {
             $asset = $assetModels[$title];
-            for ($i = 0; $i < 60; $i++) {
+            for ($i = 0; $i < 15; $i++) {
                 AdImpression::query()->create([
                     'ad_asset_id' => $asset->id,
                     'ad_campaign_id' => $asset->ad_campaign_id,
@@ -108,6 +107,6 @@ class AdvertisementSeeder extends Seeder
             }
         }
 
-        $this->command?->info('Advertisements: advertisers, campaigns, assets + 180 impressions seeded');
+        $this->command?->info('Advertisements: advertisers, campaigns, assets + impressions seeded');
     }
 }

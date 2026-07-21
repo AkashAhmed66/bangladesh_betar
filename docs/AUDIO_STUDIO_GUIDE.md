@@ -121,13 +121,6 @@ server except the audio stream itself; the master is never modified by anything 
 - In **Compare Versions**, pick another version from the dropdown. A second waveform loads
   below the main one so you can **A/B the original against an edited version** visually.
 
-### 11. Real-time dashboard visualization
-- **Insights → Analytics** now shows **Recent Playback Activity** (live feed + active-listeners
-  count), a **By Device** breakdown and a **Playback by Time of Day** heat strip.
-- **Analytics → (an asset)** shows the per-asset heat-map plus a **Listener Retention &
-  Drop-off** curve that starts at 100% and flags the biggest drop-off point (red bar) for
-  editorial review.
-
 ---
 
 ## Spec → implementation map
@@ -137,13 +130,12 @@ server except the audio stream itself; the master is never modified by anything 
 | Interactive Waveform (zoom, click, drag, markers) | Studio waveform (WaveSurfer + Regions/Zoom/Minimap/Hover) |
 | Frequency Spectrum (real-time, L/R) | Studio right rail — `#spectrum` (Web Audio AnalyserNode + ChannelSplitter) |
 | Spectrogram | Studio Spectrogram tab (WaveSurfer Spectrogram plugin) |
-| Playback Heatmap | Studio heat strip + Analytics (from `asset_stats_dailies`) |
+| Playback Heatmap | Studio heat strip (from `asset_stats_dailies`) |
 | Audio Loudness Meter (peak/RMS/LUFS, clipping) | Studio Loudness Meter (live RMS/peak + ingest LUFS/peak) |
 | Silence & Noise Detection | Studio **Silence** button (decoded-audio scan) + ingest `silence %` |
 | Speaker & Segment Visualization | Studio Speakers & Segments (from transcripts) |
 | Editing Visualization (cut/trim/fade, undo/redo, master-preserving, compare) | Studio Editing + Compare (EDL → `edit_sessions` + new version) |
 | AI-Based Content Markers (chapters, keywords, applause…) | Studio Content Markers (`audio_markers`, `is_ai`) |
-| Real-Time Dashboard Visualization | Analytics index + asset (activity feed, device, time-of-day, drop-off) |
 
 ## Key files (for developers)
 
@@ -155,6 +147,62 @@ server except the audio stream itself; the master is never modified by anything 
 - Studio frontend: `resources/views/admin/assets/studio.blade.php`, `resources/js/studio.js`
   (Vite entry), `wavesurfer.js` dependency.
 - Docker: `ffmpeg` added to `Dockerfile` for full server-side extraction/transcoding.
+
+## Part 4 — Editor · Enhancement · Restoration (real ffmpeg rendering)
+
+The Studio's **Editor · Enhancement · Restoration** panel (needs the *Audio Editor*
+permission) applies real audio processing and renders a **new version** — the preservation
+master is never modified (FR-EDT-01). Processing runs server-side with **ffmpeg** in a
+background queue job.
+
+### Hearing your changes (all in the main waveform)
+- **Instant (Web Audio):** with **Live preview** on (default), **EQ, gain, de-hum, compressor,
+  limiter and tempo** change in real time on the main player — press play and move the sliders.
+- **Rendered into the waveform (ffmpeg):** **denoise, pitch, de-click, de-clip, normalize** and
+  exciter are rendered into the **main waveform** itself about a second after you change them
+  (with a brief "Rendering preview…" overlay), so the waveform, spectrogram and playback all
+  reflect the processed audio — and the instant Web Audio effects still play on top of it. Clear
+  those effects and the waveform reverts to the original. Toggle **auto** off to render on demand
+  with the **Preview** button.
+- **Applied on save only:** structural edits — **trim, cut, reverse, fades, silence removal,
+  channel/sample-rate/format changes** — apply when you **save** (they change the
+  timeline/output, so previewing them in place would misalign markers).
+- **Save** offers two targets: **Save as new version** (default) or **Update this version**
+  (overwrite the loaded version in place). The **preservation master is always locked** — you
+  can never overwrite it, only create a new version from it.
+- You can load **any version** of the family into the Studio (header **Version** switcher, or the
+  per-version **Open** button on the asset page) and edit/listen to each individually.
+
+### How to use it
+1. Open an asset → **Open Studio** → scroll to **Editor · Enhancement · Restoration**.
+2. Set any combination of operations across the sections:
+   - **Trim & Cut** — trim to a range, or add one/more cut ranges. Click **⤓ sel** to fill
+     the range from a waveform drag-selection.
+   - **Volume & Dynamics** — gain, loudness normalize (target LUFS), compressor, limiter.
+   - **Equalizer** — bass / mid / treble, with presets (Voice clarity, Warm, Bright, Flat).
+   - **Restoration** — noise reduction (strength), de-hum (50/60 Hz), de-click, de-clip/pop.
+   - **Pitch & Tempo** — pitch shift (semitones, keeps length) and tempo (keeps pitch).
+   - **Time FX** — reverse, fade in/out, remove silence.
+   - **Export Format** — WAV/FLAC/MP3/AAC/OGG, bit depth, sample rate, channels, bitrate.
+3. The **Processing Chain** on the right lists, in order, exactly what will be applied.
+4. Name the output (optional) and click **Render new version**. A progress bar polls the job;
+   when done the page reloads and the new version appears in the **version family** and the
+   **Compare Versions** picker (play it, or A/B it against the original).
+
+### How it works (for developers)
+- UI builds an operation list → `POST /admin/assets/{asset}/render` → creates an
+  `edit_sessions` row (`render_status=queued`) → dispatches `App\Jobs\RenderEditSession`.
+- `App\Services\AudioRenderService` compiles the ops into one deterministic ffmpeg
+  filtergraph (see the mapping in `docs/AUDIO_EDITING_ROADMAP.md`), runs it, and writes a new
+  `audio_versions` row (`edited` / `enhanced` / `restored`), analysed for real metadata.
+- The Studio polls `GET /admin/assets/{asset}/render/{editSession}/status` for progress.
+- Requires **ffmpeg** — present in the Docker image (and the supervisor runs a `queue:work`
+  worker, so renders process automatically). On a host without ffmpeg the render fails with a
+  clear message instead of silently breaking.
+
+> **AI features** (transcription, diarization, source separation, restoration-by-ML, moderation)
+> are the separate Python microservice described in `docs/AUDIO_EDITING_ROADMAP.md` (Phase 5),
+> not part of this ffmpeg pipeline.
 
 ## Notes & limits
 - Uploads are **one file at a time** by design for now (bulk/resumable is a later step).

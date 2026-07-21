@@ -287,6 +287,12 @@ class AudioProcessor
         return $peaks;
     }
 
+    /** Resolve the ffmpeg/ffprobe binary path (respects config('audio.ffmpeg_path')). */
+    public function binary(string $name): string
+    {
+        return $this->bin($name);
+    }
+
     private function bin(string $name): string
     {
         $configured = config('audio.ffmpeg_path');

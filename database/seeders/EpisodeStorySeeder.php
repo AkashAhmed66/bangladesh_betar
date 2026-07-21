@@ -56,13 +56,6 @@ class EpisodeStorySeeder extends Seeder
                     ['Whispers at Midnight', 'paranormal-experience', 'Pabna', 'Anonymous student', true],
                 ],
             ],
-            [
-                'title' => 'Bhoot FM — Episode 104: Monsoon Special',
-                'stories' => [
-                    ['The Ferryman of Padma', 'village-tales', 'Rajbari', 'Boatman Jalil', false],
-                    ['Rain on the Tin Roof', 'horror', 'Mymensingh', 'Tuhin from Mymensingh', false],
-                ],
-            ],
         ];
 
         $number = 101;

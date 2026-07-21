@@ -19,6 +19,17 @@
         <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">{{ $asset->title }} · {{ $asset->archive_no }} · {{ strtoupper($asset->format ?? '—') }} · {{ $asset->channels == 1 ? 'Mono' : 'Stereo' }} · {{ $asset->sample_rate ? $asset->sample_rate/1000 .' kHz' : '—' }}</p>
     </div>
     <div class="flex items-center gap-2">
+        {{-- Version switcher: load any version of the family into the Studio --}}
+        <label class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+            <span class="hidden sm:inline">Version</span>
+            <select class="form-input w-56 py-1.5 text-sm" onchange="window.location='{{ route('admin.assets.studio', $asset, false) }}?version='+this.value">
+                @foreach ($versions as $v)
+                    <option value="{{ $v->id }}" @selected($v->id === $selectedVersionId)>
+                        {{ $v->label ?? ucfirst(str_replace('_', ' ', $v->version_type)) }}{{ $v->is_default ? ' (default)' : '' }}
+                    </option>
+                @endforeach
+            </select>
+        </label>
         @can('assets.upload')
             <form method="POST" action="{{ route('admin.assets.upload', $asset) }}" enctype="multipart/form-data" class="flex items-center gap-2"
                   x-data @change="$refs.f.files.length && $el.submit()">
@@ -31,6 +42,17 @@
         @endcan
     </div>
 </div>
+
+{{-- Which version is loaded --}}
+@php $loaded = $versions->firstWhere('id', $selectedVersionId); @endphp
+@if ($loaded)
+    <div class="mb-4 flex flex-wrap items-center gap-2 text-sm">
+        <span class="text-slate-500 dark:text-slate-400">Now editing / listening to:</span>
+        <span class="badge-primary">{{ $loaded->label ?? ucfirst(str_replace('_', ' ', $loaded->version_type)) }}</span>
+        @if ($loaded->version_type === 'preservation_master')<span class="badge-amber">Master — immutable</span>@endif
+        <span class="text-xs text-slate-400">{{ strtoupper($loaded->format ?? '') }} · {{ $loaded->bitrate_kbps ? $loaded->bitrate_kbps.' kbps' : '' }} · {{ gmdate('i:s', (int) $loaded->duration_seconds) }}</span>
+    </div>
+@endif
 
 <div id="studio-toast" class="hidden fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-slate-900 px-4 py-2 text-sm text-white shadow-lg dark:bg-slate-700"></div>
 
@@ -66,6 +88,11 @@
                     <div id="waveform" class="w-full"></div>
                     <div id="timeline" class="mt-1"></div>
                     <div id="minimap" class="mt-2 opacity-70"></div>
+                </div>
+                {{-- Busy overlay while a heavy-effect preview renders into the waveform --}}
+                <div id="waveform-busy" class="hidden absolute inset-0 z-30 flex items-center justify-center gap-2 rounded-lg bg-slate-950/70 text-sm text-white">
+                    <svg class="size-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+                    Rendering preview into the waveform…
                 </div>
                 {{-- Spectrogram view (starts width-preserved-hidden, not display:none) --}}
                 <div id="spectrogram-view" class="viz-hidden">
@@ -138,63 +165,10 @@
             </div>
         </div>
 
-        {{-- Editing toolbar (M12) --}}
+        {{-- Editor · Enhancement · Restoration — floating icon toolbar + dialogs --}}
         @can('editing.use')
-        <div class="card">
-            <div class="card-header">
-                <h3 class="font-semibold text-slate-800 dark:text-slate-100">Non-destructive Editing</h3>
-                <button id="btn-edit-mode" class="btn-secondary btn-sm" aria-pressed="false">
-                    <x-icon name="scissors" class="size-4" /> Enable edit mode
-                </button>
-            </div>
-            <div id="edit-toolbar" class="hidden card-body space-y-4">
-                <p class="text-xs text-slate-500 dark:text-slate-400">Drag on the waveform to select a region, then apply an operation. The preservation master is never modified — saving creates a new edited version (FR-EDT-01).</p>
-                <div class="flex flex-wrap gap-2">
-                    <button class="btn-secondary btn-sm" data-op="trim">Trim to selection</button>
-                    <button class="btn-secondary btn-sm" data-op="cut">Cut selection</button>
-                    <button class="btn-secondary btn-sm" data-op="split">Split at cursor</button>
-                    <button class="btn-secondary btn-sm" data-op="fade_in">Fade in</button>
-                    <button class="btn-secondary btn-sm" data-op="fade_out">Fade out</button>
-                    <button class="btn-secondary btn-sm" data-op="gain">Gain +3 dB</button>
-                    <span class="mx-1 w-px bg-slate-200 dark:bg-slate-700"></span>
-                    <button id="btn-undo" class="btn-ghost btn-sm"><x-icon name="arrow-path" class="size-4 -scale-x-100" /> Undo</button>
-                    <button id="btn-redo" class="btn-ghost btn-sm"><x-icon name="arrow-path" class="size-4" /> Redo</button>
-                </div>
-                <div class="grid gap-4 sm:grid-cols-2">
-                    <div>
-                        <p class="mb-1 text-xs font-medium text-slate-500 dark:text-slate-400">Edit Decision List (<span id="edl-count">0</span>)</p>
-                        <ul id="edl-list" class="space-y-1 rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-800"></ul>
-                    </div>
-                    <div class="flex flex-col justify-end gap-2">
-                        <input id="edit-title" class="form-input" placeholder="Edited version name (optional)">
-                        <button id="btn-save-edit" class="btn-primary"><x-icon name="check-badge" class="size-4" /> Save as new version</button>
-                    </div>
-                </div>
-            </div>
-        </div>
+        @include('admin.assets.partials.editor')
         @endcan
-
-        {{-- Compare original vs edited --}}
-        @if ($versions->count() > 1)
-        <div class="card">
-            <div class="card-header">
-                <h3 class="font-semibold text-slate-800 dark:text-slate-100">Compare Versions</h3>
-                <select id="compare-version" class="form-input w-64 text-sm">
-                    <option value="">Select a version to compare…</option>
-                    @foreach ($versions as $v)
-                        @if (! $v->is_default)
-                            <option value="{{ $v->id }}">{{ $v->label ?? ucfirst(str_replace('_',' ',$v->version_type)) }}</option>
-                        @endif
-                    @endforeach
-                </select>
-            </div>
-            <div id="compare-wrap" class="hidden bg-slate-900 p-4 dark:bg-slate-950">
-                <p class="mb-2 text-xs text-slate-400">Comparison version (default/online version is shown above)</p>
-                <div id="compare-waveform"></div>
-                <div id="compare-timeline" class="mt-1"></div>
-            </div>
-        </div>
-        @endif
     </div>
 
     {{-- Right rail: meters + markers + segments --}}
@@ -267,6 +241,9 @@
             markerStore: '{{ route('admin.assets.markers.store', $asset, false) }}',
             markerDelete: '{{ route('admin.assets.markers.destroy', ['asset' => $asset->id, 'marker' => '__ID__'], false) }}',
             edit: '{{ route('admin.assets.edit-session', $asset, false) }}',
+            render: '{{ route('admin.assets.render', $asset, false) }}',
+            renderStatus: '{{ route('admin.assets.render.status', ['asset' => $asset->id, 'editSession' => '__ID__'], false) }}',
+            preview: '{{ route('admin.assets.preview', $asset, false) }}',
             peaks: '{{ route('admin.assets.peaks', $asset, false) }}',
         },
     };
@@ -274,7 +251,11 @@
 @vite('resources/js/studio.js')
 
 <style>
+    [x-cloak] { display: none !important; }
     .tab-active { background: var(--primary-600); color: #fff; }
+    .tool-btn { display: flex; height: 2.5rem; width: 2.5rem; align-items: center; justify-content: center; border-radius: .75rem; transition: background-color .15s, color .15s; }
+    .tool-tip { pointer-events: none; position: absolute; right: 100%; top: 50%; margin-right: .5rem; transform: translateY(-50%); white-space: nowrap; border-radius: .375rem; background: #0f172a; padding: .25rem .5rem; font-size: .72rem; line-height: 1rem; color: #fff; opacity: 0; transition: opacity .12s; z-index: 60; }
+    .group:hover > .tool-tip { opacity: 1; }
     #waveform ::part(region-content) { font-size: 10px; padding: 1px 4px; }
     /* Hide the inactive tab WITHOUT collapsing width — keeps the WaveSurfer
        wrapper at full width so no 0-width redraw wipes the spectrogram. */
