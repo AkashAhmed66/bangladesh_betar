@@ -11,6 +11,8 @@ class ApprovalAction extends Model
 {
     protected $guarded = [];
 
+    protected $casts = ['rating' => 'integer'];
+
     public function approval(): BelongsTo
     {
         return $this->belongsTo(Approval::class);

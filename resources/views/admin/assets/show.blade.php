@@ -186,31 +186,58 @@
             </div>
         @endif
 
-        {{-- Approval history (M13) --}}
-        @if ($asset->approvals->isNotEmpty())
-            <div class="card">
-                <div class="card-header"><h3 class="font-semibold text-slate-800 dark:text-slate-100">Approval History (FR-WRK-06)</h3></div>
-                <div class="card-body space-y-4">
-                    @foreach ($asset->approvals as $approval)
-                        <div class="flex items-start gap-3">
-                            <x-icon name="workflow" class="mt-0.5 size-5 shrink-0 text-primary-600" />
-                            <div class="min-w-0 flex-1">
-                                <div class="flex flex-wrap items-center gap-2">
-                                    <span class="text-sm font-medium text-slate-800 dark:text-slate-100">{{ $approval->workflow?->name }}</span>
-                                    <x-status-badge :status="$approval->status" />
-                                    @if ($approval->currentStage)<span class="text-xs text-slate-500">Stage: {{ $approval->currentStage->name }}</span>@endif
-                                </div>
-                                <ul class="mt-2 space-y-1 text-xs text-slate-500 dark:text-slate-400">
-                                    @foreach ($approval->actions as $action)
-                                        <li>{{ $action->created_at->format('j M Y H:i') }} — <span class="font-medium">{{ $action->user?->name }}</span> {{ str_replace('_', ' ', $action->action) }}@if ($action->comments): “{{ $action->comments }}”@endif</li>
-                                    @endforeach
-                                </ul>
+        {{-- Approval history (M13) — always visible, including for already-published assets --}}
+        <div class="card">
+            <div class="card-header"><h3 class="font-semibold text-slate-800 dark:text-slate-100">Approval History (FR-WRK-06)</h3></div>
+            <div class="card-body space-y-4">
+                @forelse ($asset->approvals as $approval)
+                    <div class="flex items-start gap-3">
+                        <x-icon name="workflow" class="mt-0.5 size-5 shrink-0 text-primary-600" />
+                        <div class="min-w-0 flex-1">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="text-sm font-medium text-slate-800 dark:text-slate-100">{{ $approval->workflow?->name }}</span>
+                                <x-status-badge :status="$approval->status" />
+                                @if ($approval->currentStage)<span class="text-xs text-slate-500">Stage: {{ $approval->currentStage->name }}</span>@endif
+                                @can('approvals.view')
+                                    <a href="{{ route('admin.approvals.show', $approval) }}" class="ml-auto text-xs font-medium text-primary-700 hover:underline dark:text-primary-300">Full record →</a>
+                                @endcan
                             </div>
+                            <ul class="mt-2 space-y-2 text-xs text-slate-500 dark:text-slate-400">
+                                @foreach ($approval->actions as $action)
+                                    <li>
+                                        <div class="flex flex-wrap items-center gap-1.5">
+                                            <span>{{ $action->created_at->format('j M Y H:i') }} —</span>
+                                            <span class="font-medium text-slate-700 dark:text-slate-300">{{ $action->user?->name }}</span>
+                                            <span>{{ str_replace('_', ' ', $action->action) }}</span>
+                                            @if ($action->rating)
+                                                <span class="flex items-center gap-0.5" title="{{ $action->rating }} / 5">
+                                                    @for ($i = 1; $i <= 5; $i++)
+                                                        <x-icon name="star" class="size-3 {{ $i <= $action->rating ? 'text-amber-500' : 'text-slate-300 dark:text-slate-600' }}"
+                                                                style="{{ $i <= $action->rating ? 'fill: currentColor' : '' }}" />
+                                                    @endfor
+                                                </span>
+                                            @endif
+                                        </div>
+                                        @if ($action->comments)
+                                            <p class="mt-0.5 text-slate-600 dark:text-slate-300">&ldquo;{{ $action->comments }}&rdquo;</p>
+                                        @endif
+                                    </li>
+                                @endforeach
+                            </ul>
                         </div>
-                    @endforeach
-                </div>
+                    </div>
+                @empty
+                    <p class="text-sm text-slate-500 dark:text-slate-400">
+                        No approval workflow has been run for this asset yet.
+                        @can('assets.edit')
+                            @if (in_array($asset->status, ['draft', 'qc_failed', 'rejected'], true))
+                                Use “Submit for Approval” above to start one.
+                            @endif
+                        @endcan
+                    </p>
+                @endforelse
             </div>
-        @endif
+        </div>
     </div>
 
     {{-- Right rail --}}

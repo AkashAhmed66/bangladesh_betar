@@ -61,7 +61,28 @@
                     <div class="card-header"><h3 class="font-semibold text-slate-800 dark:text-slate-100">Your Decision</h3></div>
                     <form method="POST" action="{{ route('admin.approvals.act', $approval) }}">
                         @csrf
-                        <div class="card-body">
+                        <div class="card-body space-y-4">
+                            <div x-data="{ rating: {{ old('rating', 0) }}, hover: 0 }">
+                                <label class="form-label">Content rating <span class="font-normal text-slate-400">(optional)</span></label>
+                                <div class="flex items-center gap-1">
+                                    <template x-for="star in [1,2,3,4,5]" :key="star">
+                                        <button type="button" @click="rating = (rating === star ? 0 : star)"
+                                                @mouseenter="hover = star" @mouseleave="hover = 0"
+                                                class="p-0.5" :aria-label="`Rate ${star} star${star > 1 ? 's' : ''}`">
+                                            {{-- Dynamic color/fill live on this plain <span> wrapper, not on
+                                                 <x-icon> itself — Blade's own `:attr="expr"` component-prop
+                                                 syntax would otherwise try to compile the Alpine JS as PHP. --}}
+                                            <span class="inline-block transition"
+                                                  :class="(hover || rating) >= star ? 'text-amber-500 [&>svg]:fill-current' : 'text-slate-300 dark:text-slate-600'">
+                                                <x-icon name="star" class="size-5" />
+                                            </span>
+                                        </button>
+                                    </template>
+                                    <button type="button" x-show="rating" x-cloak @click="rating = 0"
+                                            class="ml-1 text-xs font-medium text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">Clear</button>
+                                </div>
+                                <input type="hidden" name="rating" x-model="rating">
+                            </div>
                             <x-form.textarea label="Comments" name="comments" rows="3"
                                              help="Required when rejecting or requesting changes (FR-WRK-03)." />
                         </div>
@@ -96,6 +117,14 @@
                                 <span>by {{ $action->user?->name ?? 'System' }}</span>
                             </p>
                             <p class="text-xs text-slate-500 dark:text-slate-400">{{ $action->created_at?->diffForHumans() }}</p>
+                            @if ($action->rating)
+                                <div class="mt-1 flex items-center gap-0.5" title="{{ $action->rating }} / 5">
+                                    @for ($i = 1; $i <= 5; $i++)
+                                        <x-icon name="star" class="size-3.5 {{ $i <= $action->rating ? 'text-amber-500' : 'text-slate-300 dark:text-slate-600' }}"
+                                                style="{{ $i <= $action->rating ? 'fill: currentColor' : '' }}" />
+                                    @endfor
+                                </div>
+                            @endif
                             @if ($action->comments)
                                 <p class="mt-1 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">{{ $action->comments }}</p>
                             @endif

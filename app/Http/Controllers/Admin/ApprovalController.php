@@ -48,6 +48,7 @@ class ApprovalController extends Controller
         $data = $request->validate([
             'action' => ['required', Rule::in(['approve', 'reject', 'request_changes'])],
             'comments' => ['nullable', 'string', 'required_if:action,reject', 'required_if:action,request_changes'],
+            'rating' => ['nullable', 'integer', 'min:1', 'max:5'],
         ]);
 
         if (! in_array($approval->status, ['pending', 'changes_requested'], true)) {
@@ -67,6 +68,7 @@ class ApprovalController extends Controller
                 'request_changes' => 'correction_requested',
             },
             'comments' => $data['comments'] ?? null,
+            'rating' => $data['rating'] ?? null,
         ]);
 
         if ($data['action'] === 'approve') {
