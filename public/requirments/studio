@@ -1,0 +1,103 @@
+# Audio Editing Features
+
+## 1. Core Waveform Editing
+
+* Cut, copy, paste, and delete audio
+* Trim the beginning or end of a clip
+* Split audio clips
+* Merge audio clips
+* Crop selected regions
+* Replace selected regions with silence
+* Reverse audio
+* Fade in
+* Fade out
+* Crossfade between clips
+* Adjustable clip volume
+* Waveform zoom
+* Timeline navigation
+* Sample-accurate selection
+* Snap selection to markers or timeline positions
+* Undo and redo history
+
+The editor should use non-destructive editing. All edits should be stored as instructions while keeping the original audio file unchanged.
+
+## 2. Audio Repair and Cleanup
+
+* Noise reduction
+* Background hum removal
+* Click and pop removal
+* De-esser
+* Breath reduction
+* Silence detection
+* Voice isolation
+* Echo reduction
+* Reverb reduction
+* Automatic speech cleanup
+* Clipping repair
+* DC offset removal
+
+These features are especially useful for cleaning interviews, radio recordings, speeches, and archived audio.
+
+## 3. Effects and Audio Processing
+
+* Equalizer
+* Compressor
+* Limiter
+* Noise gate
+* Reverb
+* Delay
+* Chorus
+* Flanger
+* Distortion
+* Stereo widening
+* Bass control
+* Treble control
+* High-pass filter
+* Low-pass filter
+* Effects chain
+* Effect presets
+
+Effects should support:
+
+* Per-clip processing
+* Master-output processing
+* Real-time preview
+* Effect bypass
+* Before-and-after comparison
+* Adjustable effect parameters
+* Saving custom presets
+
+## 4. Volume and Loudness Tools
+
+* Peak normalization
+* Loudness normalization
+* Gain adjustment
+* Automatic volume leveling
+* Loudness meter
+* Peak meter
+* RMS meter
+* True-peak meter
+* Clipping indicators
+* LUFS measurement
+* Waveform clipping detection
+* Broadcast loudness presets
+* Podcast loudness presets
+* Streaming loudness presets
+* Music-mastering presets
+
+These tools help ensure that audio remains clear, balanced, and consistent across different listening platforms.
+
+## 5. Time and Pitch Editing
+
+* Playback-speed adjustment
+* Time stretching without changing pitch
+* Pitch shifting without changing duration
+* Tempo detection
+* Beat-grid generation
+* BPM adjustment
+* Key detection
+* Audio quantization
+* Transient detection
+* Automatic beat alignment
+
+These features are useful for adjusting timing, correcting pitch, preparing clips, and aligning audio elements.
