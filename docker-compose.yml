@@ -3,6 +3,7 @@
 #   app     — PHP-FPM + Nginx + queue worker + scheduler (via supervisor)
 #   db      — MySQL 8
 #   redis   — cache / queue backend (optional)
+#   livekit — WebRTC SFU for live audio broadcasting (M27)
 # ---------------------------------------------------------------------------
 services:
   app:
@@ -15,6 +16,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      livekit:
+        condition: service_started
     environment:
       APP_ENV: ${APP_ENV:-local}
       APP_DEBUG: ${APP_DEBUG:-true}
@@ -32,12 +35,39 @@ services:
       QUEUE_CONNECTION: ${QUEUE_CONNECTION:-database}
       SESSION_DRIVER: ${SESSION_DRIVER:-database}
       REDIS_HOST: redis
+      # Live broadcasting (M27). LIVEKIT_HOST is the internal (server-side)
+      # address for room/webhook APIs; LIVEKIT_WS_URL is what browsers connect
+      # to. Key/secret MUST match docker/livekit.yaml.
+      LIVEKIT_HOST: ${LIVEKIT_HOST:-http://livekit:7880}
+      # Empty => the app derives ws://<request-host>:7880 per request, so live
+      # audio works from any IP the server is reached on. Set a wss:// domain
+      # for production.
+      LIVEKIT_WS_URL: ${LIVEKIT_WS_URL:-}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-betar_livekit_dev_secret_please_change_in_prod_0001}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-}
       RUN_MIGRATIONS: "true"     # run migrate --force on boot
       RUN_SEEDERS: "true"        # seed on first boot (idempotent)
     ports:
       - "${APP_PORT:-8080}:80"
     volumes:
       - app_storage:/var/www/html/storage
+    networks:
+      - betar
+
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: betar_livekit
+    restart: unless-stopped
+    # --node-ip advertises 127.0.0.1 in ICE candidates so host browsers reach
+    # the published RTC ports (local-dev networking; override for production).
+    command: --config /etc/livekit/livekit.yaml --node-ip ${LIVEKIT_NODE_IP:-127.0.0.1}
+    ports:
+      - "${LIVEKIT_PORT:-7880}:7880"
+      - "${LIVEKIT_RTC_TCP_PORT:-7881}:7881"
+      - "${LIVEKIT_RTC_UDP_PORT:-7882}:7882/udp"
+    volumes:
+      - ./docker/livekit.yaml:/etc/livekit/livekit.yaml:ro
     networks:
       - betar
 

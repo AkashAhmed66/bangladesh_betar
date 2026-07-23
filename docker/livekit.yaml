@@ -1,0 +1,40 @@
+# ---------------------------------------------------------------------------
+# LiveKit server — self-hosted WebRTC SFU powering live audio broadcasting (M27).
+#
+#   Broadcaster (admin portal) publishes microphone audio into a room named
+#   after the broadcast channel; public listeners subscribe to that room.
+#
+# Local-dev networking notes:
+#   * 7880  — HTTP + WebSocket signalling  (published to host)
+#   * 7881  — ICE/TCP fallback             (published to host)
+#   * 7882  — ICE/UDP mux                   (published to host, /udp)
+#   * nat_1to1_ip 127.0.0.1 makes LiveKit advertise loopback in its ICE
+#     candidates so browsers on the host reach the published ports. Combined
+#     with use_external_ip:false this keeps media working on Docker Desktop.
+# ---------------------------------------------------------------------------
+port: 7880
+
+rtc:
+  tcp_port: 7881
+  udp_port: 7882
+  # The advertised node IP is set to 127.0.0.1 via the --node-ip CLI flag (see
+  # docker-compose.yml) so host browsers reach the published RTC ports. Skipping
+  # external-IP auto-detection keeps startup fast and deterministic in dev.
+  use_external_ip: false
+
+# API key => secret. MUST match LIVEKIT_API_KEY / LIVEKIT_API_SECRET given to
+# the Laravel app (it mints the join tokens the browsers use).
+keys:
+  devkey: "betar_livekit_dev_secret_please_change_in_prod_0001"
+
+# LiveKit calls back to the Laravel app (internal docker network) so live
+# sessions self-heal: room_finished ends a session, participant_* updates the
+# listener count. Signed with the devkey secret above; verified server-side.
+webhook:
+  api_key: devkey
+  urls:
+    - "http://app/api/livekit/webhook"
+
+logging:
+  level: info
+  json: false

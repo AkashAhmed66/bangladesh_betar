@@ -97,11 +97,11 @@
         <div class="card">
             <div class="card-header">
                 <h3 class="font-semibold text-slate-800 dark:text-slate-100">Version Family</h3>
-                <span class="text-xs text-slate-400">Preservation master is immutable (FR-REP-03)</span>
+                <span class="text-xs text-slate-400">Pick the version the public streams — change it anytime. Master is immutable.</span>
             </div>
             <div class="table-shell">
                 <table class="table-app">
-                    <thead><tr><th>Version</th><th>Format</th><th>Bitrate</th><th>Duration</th><th>Derived From</th><th>Default</th><th class="text-right">Studio</th></tr></thead>
+                    <thead><tr><th>Version</th><th>Format</th><th>Bitrate</th><th>Duration</th><th>Derived From</th><th>Streaming</th><th class="text-right">Studio</th></tr></thead>
                     <tbody>
                         @foreach ($asset->versions as $version)
                             <tr>
@@ -116,7 +116,18 @@
                                 <td class="text-sm">{{ $version->bitrate_kbps ? $version->bitrate_kbps.' kbps' : '—' }}</td>
                                 <td class="text-sm tabular-nums">{{ gmdate('i:s', $version->duration_seconds) }}</td>
                                 <td class="text-xs text-slate-500">{{ $version->derivedFrom?->version_type ?? '—' }}</td>
-                                <td>@if ($version->is_default)<span class="badge-green">Streaming</span>@endif</td>
+                                <td>
+                                    @if ($version->is_default)
+                                        <span class="badge-green">Streaming</span>
+                                    @elseif (! $version->isMaster() && $version->version_type !== 'preview')
+                                        @can('assets.publish')
+                                            <form method="POST" action="{{ route('admin.assets.versions.streaming', [$asset, $version]) }}">
+                                                @csrf
+                                                <button type="submit" class="btn-secondary btn-sm whitespace-nowrap px-2 py-1 text-[11px]" title="Stream this version to the public">Set as streaming</button>
+                                            </form>
+                                        @endcan
+                                    @endif
+                                </td>
                                 <td class="text-right">
                                     @can('assets.view')
                                         <a href="{{ route('admin.assets.studio', $asset) }}?version={{ $version->id }}"

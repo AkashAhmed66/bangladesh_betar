@@ -33,6 +33,7 @@ class UserSeeder extends Seeder
             ['Director General', 'approver@betar.gov.bd', 'Approver'],
             ['Dr. Anisur Rahman', 'researcher@betar.gov.bd', 'Researcher'],
             ['Nabila Chowdhury', 'ai-reviewer@betar.gov.bd', 'AI Reviewer'],
+            ['Zahir Uddin', 'broadcaster@betar.gov.bd', 'Broadcaster'],
         ];
 
         foreach ($staff as [$name, $email, $role]) {

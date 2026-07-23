@@ -7,7 +7,12 @@
     $lufs = $asset->loudness_lufs;
     $peak = $asset->peak_db;
     $loudnessWarn = ($lufs !== null && ($lufs > -14 || $lufs < -30)) || ($peak !== null && $peak > -1);
+    // When the edit rail is shown, reserve a right gutter so the fixed rail
+    // never overlaps the content.
+    $canEditStudio = auth()->user()->can('editing.use');
 @endphp
+
+<div class="{{ $canEditStudio ? 'pr-16' : '' }}">
 
 <div class="mb-5 flex flex-wrap items-start justify-between gap-3">
     <div class="min-w-0">
@@ -80,9 +85,46 @@
                     <span id="silence-count" class="text-xs text-slate-400"></span>
                 </div>
             </div>
+
+            {{-- Inline waveform editor bar — trim / cut / move with real-time preview --}}
+            @can('editing.use')
+            <div id="edit-bar" class="border-t border-slate-100 px-4 py-2 dark:border-slate-800">
+                <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
+                    <span class="font-semibold text-slate-600 dark:text-slate-300">Edit</span>
+                    <span id="sel-info" class="tabular-nums font-medium text-primary-600 dark:text-primary-300"></span>
+                    <span class="text-slate-400">Drag to select → pick an action. <b>Del</b> cuts · double-click a block to remove · drag a block to move.</span>
+                    <div class="ml-auto flex items-center gap-1.5">
+                        <button id="btn-magnet" type="button" class="btn-ghost btn-sm" aria-pressed="false" title="Snap edits to the nearest zero-crossing for clean cuts">
+                            <x-icon name="sparkles" class="size-3.5" /> Snap
+                        </button>
+                        <button id="btn-edit-undo" type="button" class="btn-ghost btn-sm" title="Undo (Ctrl+Z)"><x-icon name="arrow-path" class="size-3.5" /> Undo</button>
+                        <button id="btn-edit-redo" type="button" class="btn-ghost btn-sm" title="Redo (Ctrl+Y)">Redo</button>
+                        <button id="btn-edit-clear" type="button" class="btn-ghost btn-sm" title="Remove all edits">Clear</button>
+                        <span id="edit-status" class="tabular-nums text-slate-400">no edits</span>
+                    </div>
+                </div>
+                {{-- Operation toolbar — acts on the current selection --}}
+                <div id="op-toolbar" class="mt-2 flex flex-wrap items-center gap-1.5">
+                    <button type="button" data-op="delete" class="op-btn" title="Delete / cut the selection (Del)"><x-icon name="scissors" class="size-3.5" /> Cut</button>
+                    <button type="button" data-op="trim" class="op-btn" title="Crop — keep only the selection">⇥ Crop</button>
+                    <button type="button" data-op="silence" class="op-btn" title="Silence the selection">🔇 Silence</button>
+                    <button type="button" data-op="fadein" class="op-btn" title="Fade in over the selection">⟋ Fade in</button>
+                    <button type="button" data-op="fadeout" class="op-btn" title="Fade out over the selection">⟍ Fade out</button>
+                    <span class="mx-0.5 h-5 w-px self-center bg-slate-200 dark:bg-slate-700"></span>
+                    <label class="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                        <x-icon name="wave" class="size-3.5" /> Volume
+                        <input id="vol-db" type="number" value="-3" step="0.5" min="-60" max="24" class="form-input w-16 py-0.5 text-xs" title="Gain in dB — negative makes it quieter, positive louder">
+                        dB
+                    </label>
+                    <button type="button" data-op="volume" class="op-btn" title="Apply the volume change to the selection">Apply</button>
+                    <span id="op-hint" class="ml-1 text-[11px] text-slate-400">Select part of the waveform to enable actions</span>
+                </div>
+            </div>
+            @endcan
+
             {{-- position: relative anchors the width-preserving hide so WaveSurfer
                  never sees a 0-width resize when switching tabs. --}}
-            <div class="relative bg-slate-900 p-4 dark:bg-slate-950">
+            <div id="waveform-stage" class="relative bg-slate-900 p-4 dark:bg-slate-950">
                 {{-- Waveform view --}}
                 <div id="waveform-view">
                     <div id="waveform" class="w-full"></div>
@@ -224,6 +266,8 @@
     </div>
 </div>
 
+</div>{{-- /edit-rail gutter --}}
+
 <script>
     window.__STUDIO__ = {
         assetId: {{ $asset->id }},
@@ -231,6 +275,7 @@
         canEdit: {{ auth()->user()->can('assets.edit') ? 'true' : 'false' }},
         defaultVersionId: {{ $defaultVersion?->id ?? 'null' }},
         duration: {{ (int) $asset->duration_seconds }},
+        sampleRate: {{ (int) ($asset->sample_rate ?: 48000) }},
         peaks: @json($asset->waveform_peaks ?? []),
         needsPeaks: {{ $needsPeaks ? 'true' : 'false' }},
         heatmap: @json($heatmap),
@@ -256,7 +301,15 @@
     .tool-btn { display: flex; height: 2.5rem; width: 2.5rem; align-items: center; justify-content: center; border-radius: .75rem; transition: background-color .15s, color .15s; }
     .tool-tip { pointer-events: none; position: absolute; right: 100%; top: 50%; margin-right: .5rem; transform: translateY(-50%); white-space: nowrap; border-radius: .375rem; background: #0f172a; padding: .25rem .5rem; font-size: .72rem; line-height: 1rem; color: #fff; opacity: 0; transition: opacity .12s; z-index: 60; }
     .group:hover > .tool-tip { opacity: 1; }
-    #waveform ::part(region-content) { font-size: 10px; padding: 1px 4px; }
+    #waveform ::part(region-content) { font-size: 10px; padding: 1px 4px; color: #fff; font-weight: 600; }
+    /* Operation toolbar buttons (act on the current selection) */
+    .op-btn { display:inline-flex; align-items:center; gap:.3rem; border-radius:.5rem; border:1px solid rgb(226 232 240); background:#fff; padding:.25rem .6rem; font-size:11px; font-weight:600; line-height:1rem; color:rgb(51 65 85); transition:background-color .12s,border-color .12s,opacity .12s; }
+    .op-btn:hover:not(:disabled) { background:rgb(248 250 252); border-color:rgb(148 163 184); }
+    .op-btn:disabled { opacity:.4; cursor:not-allowed; }
+    .dark .op-btn { border-color:rgb(51 65 85); background:rgb(30 41 59); color:rgb(226 232 240); }
+    .dark .op-btn:hover:not(:disabled) { background:rgb(51 65 85); border-color:rgb(71 85 105); }
+    /* Region handles a touch chunkier so they're easy to grab for move/resize */
+    #waveform ::part(region-handle) { width: 5px; }
     /* Hide the inactive tab WITHOUT collapsing width — keeps the WaveSurfer
        wrapper at full width so no 0-width redraw wipes the spectrogram. */
     .viz-hidden {

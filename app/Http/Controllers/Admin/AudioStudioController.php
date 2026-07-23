@@ -243,7 +243,7 @@ class AudioStudioController extends Controller
 
     /** Allowed operations for the render pipeline (M12 editing & restoration). */
     private const RENDER_OPS = [
-        'trim', 'cut', 'reverse', 'gain', 'normalize', 'fade', 'eq', 'denoise',
+        'trim', 'cut', 'silence', 'reverse', 'gain', 'normalize', 'fade', 'eq', 'denoise',
         'dehum', 'declick', 'declip', 'compress', 'limit', 'exciter', 'pitch',
         'tempo', 'silence_remove', 'channels', 'resample', 'export',
     ];

@@ -69,6 +69,9 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
                 ->middleware('permission:assets.publish')->name('assets.publish');
             Route::post('assets/{asset}/unpublish', [Admin\AudioAssetController::class, 'unpublish'])
                 ->middleware('permission:assets.publish')->name('assets.unpublish');
+            // Choose which version the public streams (before or after publishing).
+            Route::post('assets/{asset}/versions/{version}/streaming', [Admin\AudioAssetController::class, 'setStreamingVersion'])
+                ->middleware('permission:assets.publish')->name('assets.versions.streaming');
             Route::post('assets/{asset}/submit', [Admin\AudioAssetController::class, 'submitForApproval'])
                 ->middleware('permission:assets.edit')->name('assets.submit');
 
@@ -119,6 +122,20 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
             ->middleware('permission:podcasts.view');
         Route::resource('podcast-episodes', Admin\PodcastEpisodeController::class)->except('show')
             ->middleware('permission:podcasts.view');
+
+        // ---- M27: Live broadcasting ----
+        // Custom routes are declared before the resource so /studio, /status etc.
+        // are matched ahead of the {broadcast_channel} wildcard.
+        Route::get('broadcast-channels/{broadcastChannel}/studio', [Admin\BroadcastChannelController::class, 'studio'])
+            ->middleware('permission:broadcasts.broadcast')->name('broadcast-channels.studio');
+        Route::get('broadcast-channels/{broadcastChannel}/status', [Admin\BroadcastChannelController::class, 'status'])
+            ->middleware('permission:broadcasts.view')->name('broadcast-channels.status');
+        Route::post('broadcast-channels/{broadcastChannel}/go-live', [Admin\BroadcastChannelController::class, 'goLive'])
+            ->middleware('permission:broadcasts.broadcast')->name('broadcast-channels.go-live');
+        Route::post('broadcast-channels/{broadcastChannel}/stop', [Admin\BroadcastChannelController::class, 'stop'])
+            ->middleware('permission:broadcasts.broadcast')->name('broadcast-channels.stop');
+        Route::resource('broadcast-channels', Admin\BroadcastChannelController::class)->except('show')
+            ->middleware('permission:broadcasts.view');
 
         // ---- M10: Event programmes (Bhoot FM) ----
         Route::resource('episodes', Admin\EpisodeController::class)->except('show')

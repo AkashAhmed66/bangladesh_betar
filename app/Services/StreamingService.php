@@ -31,10 +31,16 @@ class StreamingService
 
         $fullLength = $this->entitlements->canPlayFullLength($user, (bool) $asset->is_premium);
 
+        // The chosen "streaming" version = whichever version is flagged default
+        // (admins pick it in the Version Family table), never the master.
+        $streaming = fn () => $asset->versions()
+            ->where('is_default', true)
+            ->where('version_type', '!=', 'preservation_master')
+            ->first();
+
         $version = $fullLength
-            ? $asset->versions()->where('version_type', 'online')->where('is_default', true)->first()
-            : ($asset->versions()->where('version_type', 'preview')->first()
-                ?? $asset->versions()->where('version_type', 'online')->first());
+            ? $streaming()
+            : ($asset->versions()->where('version_type', 'preview')->first() ?? $streaming());
 
         // Never fall back to a master.
         if ($version === null || $version->version_type === 'preservation_master') {

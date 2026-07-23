@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\LiveKitWebhookController;
 use App\Http\Controllers\Api\V1;
 use Illuminate\Support\Facades\Route;
 
@@ -73,6 +74,11 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
         Route::get('stories/{story}', [V1\CatalogueController::class, 'story'])->name('stories.show');
         Route::get('podcasts', [V1\CatalogueController::class, 'podcasts'])->name('podcasts.index');
         Route::get('podcasts/{podcastChannel}', [V1\CatalogueController::class, 'podcast'])->name('podcasts.show');
+
+        // Live broadcasting (M27) — what's on air + subscribe-only listener tokens
+        Route::get('live-channels', [V1\LiveController::class, 'index'])->name('live-channels.index');
+        Route::get('live-channels/{broadcastChannel}', [V1\LiveController::class, 'show'])->name('live-channels.show');
+        Route::post('live-channels/{broadcastChannel}/token', [V1\LiveController::class, 'token'])->name('live-channels.token');
         Route::get('podcast-episodes/{podcastEpisode}', [V1\CatalogueController::class, 'podcastEpisode'])->name('podcast-episodes.show');
         Route::get('assets/{asset}', [V1\CatalogueController::class, 'asset'])->name('assets.show');
         Route::get('playlists/{playlist}', [V1\CatalogueController::class, 'playlist'])->name('playlists.public.show');
@@ -148,3 +154,7 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
         Route::get('me/payments', [V1\SubscriptionController::class, 'payments'])->name('payments.index');
     });
 });
+
+// LiveKit server webhooks (M27) — outside /v1, authenticated by signed JWT in
+// the Authorization header (verified in the controller), not Sanctum.
+Route::post('livekit/webhook', [LiveKitWebhookController::class, 'handle'])->name('api.livekit.webhook');

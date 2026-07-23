@@ -4,14 +4,12 @@
 <div x-data="audioEditor()" x-effect="applyPreview(); schedulePreview()">
 
     {{-- ------------------------------ Toolbar ------------------------------ --}}
-    <div class="fixed right-3 top-24 z-40 flex flex-col items-center gap-0.5 rounded-2xl border border-slate-200 bg-white/95 p-1.5 shadow-xl backdrop-blur dark:border-slate-700 dark:bg-slate-900/95">
+    {{-- Docked full-height rail on the right edge (below the sticky 4rem topbar).
+         Fixed so it stays put while the page scrolls; the studio content reserves
+         a matching pr-16 gutter so the rail never overlaps other sections. --}}
+    <div class="fixed right-0 top-16 bottom-0 z-40 flex w-16 flex-col items-center gap-0.5 overflow-y-auto border-l border-slate-200 bg-white/95 p-1.5 shadow-xl backdrop-blur scrollbar-slim dark:border-slate-700 dark:bg-slate-900/95">
         <p class="pb-0.5 text-[9px] font-semibold uppercase tracking-wider text-slate-400">Edit</p>
 
-        <div class="group relative">
-            <button @click="toggleTool('trim')" class="tool-btn" :class="btnClass('trim')"><x-icon name="scissors" class="size-5" /></button>
-            <span x-show="toolDot('trim')" x-cloak class="absolute right-0.5 top-0.5 size-2 rounded-full bg-accent-500"></span>
-            <span class="tool-tip">Trim &amp; Cut</span>
-        </div>
         <div class="group relative">
             <button @click="toggleTool('volume')" class="tool-btn" :class="btnClass('volume')"><x-icon name="wave" class="size-5" /></button>
             <span x-show="toolDot('volume')" x-cloak class="absolute right-0.5 top-0.5 size-2 rounded-full bg-accent-500"></span>
@@ -31,11 +29,6 @@
             <button @click="toggleTool('pitch')" class="tool-btn" :class="btnClass('pitch')"><x-icon name="music" class="size-5" /></button>
             <span x-show="toolDot('pitch')" x-cloak class="absolute right-0.5 top-0.5 size-2 rounded-full bg-accent-500"></span>
             <span class="tool-tip">Pitch &amp; Tempo</span>
-        </div>
-        <div class="group relative">
-            <button @click="toggleTool('timefx')" class="tool-btn" :class="btnClass('timefx')"><x-icon name="clock" class="size-5" /></button>
-            <span x-show="toolDot('timefx')" x-cloak class="absolute right-0.5 top-0.5 size-2 rounded-full bg-accent-500"></span>
-            <span class="tool-tip">Time FX</span>
         </div>
         <div class="group relative">
             <button @click="toggleTool('export')" class="tool-btn" :class="btnClass('export')"><x-icon name="download" class="size-5" /></button>
@@ -67,31 +60,6 @@
             <button @click="openTool=null" @mousedown.stop class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"><x-icon name="x" class="size-4" /></button>
         </div>
         <div class="max-h-[70vh] space-y-3 overflow-y-auto scrollbar-slim p-4">
-
-            {{-- Trim & Cut --}}
-            <div x-show="openTool==='trim'" class="space-y-3">
-                <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="trimOn" class="rounded"> Trim to range</label>
-                <div class="flex items-center gap-2" :class="!trimOn && 'opacity-40'">
-                    <input type="number" step="0.1" min="0" x-model.number="trimStart" class="form-input py-1 text-xs" placeholder="start s">
-                    <span class="text-slate-400">–</span>
-                    <input type="number" step="0.1" min="0" x-model.number="trimEnd" class="form-input py-1 text-xs" placeholder="end s">
-                    <button class="btn-secondary btn-sm shrink-0" @click="useSelection()" title="Use waveform selection">⤓ sel</button>
-                </div>
-                <div class="border-t border-slate-100 pt-3 dark:border-slate-800">
-                    <div class="flex items-center gap-2">
-                        <input type="number" step="0.1" min="0" x-model.number="cutStart" class="form-input py-1 text-xs" placeholder="cut from">
-                        <input type="number" step="0.1" min="0" x-model.number="cutEnd" class="form-input py-1 text-xs" placeholder="to">
-                        <button class="btn-secondary btn-sm shrink-0" @click="addCut()">+ cut</button>
-                    </div>
-                    <template x-for="(c,i) in cuts" :key="i">
-                        <div class="mt-1 flex items-center justify-between text-xs text-slate-500">
-                            <span x-text="'cut ' + c.start + '–' + c.end + 's'"></span>
-                            <button class="text-rose-500" @click="cuts.splice(i,1)">✕</button>
-                        </div>
-                    </template>
-                </div>
-                <p class="text-[11px] text-slate-400">Applied on save.</p>
-            </div>
 
             {{-- Volume & Dynamics --}}
             <div x-show="openTool==='volume'" class="space-y-3">
@@ -157,20 +125,6 @@
                 <p class="text-[11px] text-slate-400">Pitch renders into the waveform; tempo previews instantly.</p>
             </div>
 
-            {{-- Time FX --}}
-            <div x-show="openTool==='timefx'" class="space-y-3">
-                <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="reverse" class="rounded"> Reverse</label>
-                <div class="grid grid-cols-2 gap-2 text-xs text-slate-500">
-                    <label>Fade in (s)<input type="number" step="0.5" min="0" x-model.number="fadeIn" class="form-input py-1 text-xs"></label>
-                    <label>Fade out (s)<input type="number" step="0.5" min="0" x-model.number="fadeOut" class="form-input py-1 text-xs"></label>
-                </div>
-                <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="silenceRemove" class="rounded"> Remove silence</label>
-                <div class="grid grid-cols-2 gap-2 text-xs text-slate-500" :class="!silenceRemove && 'opacity-40'">
-                    <label>Threshold dB<input type="number" step="1" x-model.number="silenceThreshold" class="form-input py-1 text-xs"></label>
-                    <label>Min gap s<input type="number" step="0.1" min="0" x-model.number="silenceGap" class="form-input py-1 text-xs"></label>
-                </div>
-                <p class="text-[11px] text-slate-400">Applied on save.</p>
-            </div>
 
             {{-- Export --}}
             <div x-show="openTool==='export'" class="space-y-3">
@@ -241,7 +195,7 @@
             livePreview: true, target: 'new', isMaster: {{ $isMaster ? 'true' : 'false' }},
             autoPreview: true, previewLoading: false, previewErr: '', _pvTimer: null, _pvKey: '', _previewLoaded: false,
             openTool: null, dialogX: 0, dialogY: 0,
-            trimOn: false, trimStart: 0, trimEnd: 0, cuts: [], cutStart: 0, cutEnd: 0,
+            editsRev: 0,   // bumped by the inline waveform editor so the chain/save button react to cuts & trim
             gain: 0, normalize: false, normalizeTarget: -16, compress: false, limit: false,
             eq: { bass: 0, mid: 0, treble: 0 },
             denoise: false, denoiseStrength: 0.5, dehum: false, dehumFreq: 50, declick: false, declip: false,
@@ -251,6 +205,13 @@
             format: 'wav', bitDepth: 24, sampleRate: 0, channels: '', bitrate: 192,
             rendering: false, progress: 0, statusText: '', resultMsg: '', errorMsg: '',
 
+            init() {
+                // The waveform editor (studio.js) lives outside Alpine; on each edit
+                // change, refresh the chain/Save button AND (re)render the effect
+                // preview into the waveform so changes are visible before saving.
+                window.addEventListener('studio-edits-changed', () => { this.editsRev++; this.schedulePreview(); });
+            },
+
             /* ---- floating dialog ---- */
             toggleTool(id) {
                 if (this.openTool === id) { this.openTool = null; return; }
@@ -258,8 +219,8 @@
                 this.openTool = id;
             },
             toolLabel() {
-                return ({ trim: 'Trim & Cut', volume: 'Volume & Dynamics', eq: 'Equalizer', restore: 'Restoration',
-                    pitch: 'Pitch & Tempo', timefx: 'Time FX', export: 'Export Format', chain: 'Processing Chain', save: 'Save Version' })[this.openTool] || '';
+                return ({ volume: 'Volume & Dynamics', eq: 'Equalizer', restore: 'Restoration',
+                    pitch: 'Pitch & Tempo', export: 'Export Format', chain: 'Processing Chain', save: 'Save Version' })[this.openTool] || '';
             },
             btnClass(id) {
                 return this.openTool === id ? 'bg-primary-600 text-white'
@@ -267,12 +228,10 @@
             },
             toolDot(id) {
                 const m = {
-                    trim: () => this.trimOn || this.cuts.length,
                     volume: () => this.gain || this.normalize || this.compress || this.limit,
                     eq: () => this.eq.bass || this.eq.mid || this.eq.treble,
                     restore: () => this.denoise || this.dehum || this.declick || this.declip,
                     pitch: () => this.pitch || this.tempo !== 1,
-                    timefx: () => this.reverse || this.fadeIn || this.fadeOut || this.silenceRemove,
                 };
                 return m[id] ? !!m[id]() : false;
             },
@@ -286,18 +245,7 @@
                 window.addEventListener('mousemove', move); window.addEventListener('mouseup', up);
             },
 
-            /* ---- selection / presets ---- */
-            useSelection() {
-                const s = window.studioSelection?.();
-                if (s) { this.trimOn = true; this.trimStart = s.start; this.trimEnd = s.end; }
-                else alert('Drag on the waveform (Waveform tab) to select a region first.');
-            },
-            addCut() {
-                let a = this.cutStart, b = this.cutEnd;
-                const s = window.studioSelection?.();
-                if ((!b || b <= a) && s) { a = s.start; b = s.end; }
-                if (b > a) { this.cuts.push({ start: a, end: b }); this.cutStart = 0; this.cutEnd = 0; }
-            },
+            /* ---- presets ---- */
             preset(name) {
                 const p = { voice: [-3, 3, 2], warm: [4, 0, -3], bright: [-2, 1, 5], flat: [0, 0, 0] }[name];
                 this.eq = { bass: p[0], mid: p[1], treble: p[2] };
@@ -306,8 +254,10 @@
             /* ---- op chain ---- */
             ops() {
                 const o = [];
-                if (this.trimOn && this.trimEnd > this.trimStart) o.push({ op: 'trim', start: +this.trimStart, end: +this.trimEnd });
-                this.cuts.forEach((c) => o.push({ op: 'cut', start: +c.start, end: +c.end }));
+                // Editing ops (delete/crop/silence/fade/volume) come from the
+                // inline waveform editor (studio.js), already in render format.
+                const edits = window.studioGetEdits ? window.studioGetEdits() : { ops: [] };
+                (edits.ops || []).forEach((e) => o.push(e));
                 if (this.reverse) o.push({ op: 'reverse' });
                 if (this.declip) o.push({ op: 'declip' });
                 if (this.declick) o.push({ op: 'declick' });
@@ -328,23 +278,28 @@
                 o.push({ op: 'export', format: this.format, bit_depth: +this.bitDepth, bitrate: +this.bitrate });
                 return o;
             },
-            activeCount() { return this.ops().filter((o) => o.op !== 'export').length; },
+            activeCount() { void this.editsRev; return this.ops().filter((o) => o.op !== 'export').length; },
             chain() {
+                void this.editsRev;
                 const label = {
-                    trim: (o) => `Trim ${o.start}–${o.end}s`, cut: (o) => `Cut ${o.start}–${o.end}s`,
+                    trim: (o) => `Crop ${o.start}–${o.end}s`, cut: (o) => `Cut ${o.start}–${o.end}s`,
+                    silence: (o) => `Silence ${o.start}–${o.end}s`,
                     reverse: () => 'Reverse', declip: () => 'De-clip', declick: () => 'De-click',
                     denoise: (o) => `Noise reduction ${Math.round(o.strength * 100)}%`, dehum: (o) => `De-hum ${o.freq}Hz`,
                     eq: (o) => `EQ b${o.bass}/m${o.mid}/t${o.treble}`, compress: () => 'Compressor', limit: () => 'Limiter',
-                    gain: (o) => `Gain ${o.db}dB`, normalize: (o) => `Normalize ${o.target_lufs} LUFS`,
+                    gain: (o) => o.start != null ? `Volume ${o.db > 0 ? '+' : ''}${o.db}dB @ ${o.start}–${o.end}s` : `Gain ${o.db}dB`,
+                    normalize: (o) => `Normalize ${o.target_lufs} LUFS`,
                     pitch: (o) => `Pitch ${o.semitones}st`, tempo: (o) => `Tempo ${o.factor}×`,
-                    silence_remove: () => 'Remove silence', fade: (o) => `Fade ${o.dir} ${o.duration}s`,
+                    silence_remove: () => 'Remove silence',
+                    fade: (o) => o.start != null ? `Fade ${o.dir} ${o.start}–${o.end}s` : `Fade ${o.dir} ${o.duration}s`,
                     channels: (o) => `Channels ${o.layout}`, resample: (o) => `Resample ${o.rate}Hz`,
                     export: (o) => `Export ${o.format.toUpperCase()}`,
                 };
                 return this.ops().map((o) => (label[o.op] ? label[o.op](o) : o.op));
             },
             reset() {
-                Object.assign(this, { trimOn: false, trimStart: 0, trimEnd: 0, cuts: [], gain: 0, normalize: false,
+                window.studioClearEdits?.();   // clear cuts/trim on the waveform
+                Object.assign(this, { gain: 0, normalize: false,
                     compress: false, limit: false, eq: { bass: 0, mid: 0, treble: 0 }, denoise: false, dehum: false,
                     declick: false, declip: false, pitch: 0, tempo: 1, reverse: false, fadeIn: 0, fadeOut: 0,
                     silenceRemove: false, resultMsg: '', errorMsg: '' });
@@ -360,8 +315,10 @@
                 });
             },
             heavyOps() {
-                const H = ['denoise', 'declick', 'declip', 'pitch', 'normalize', 'exciter'];
-                return this.ops().filter((o) => H.includes(o.op));
+                // The whole edit chain (except export) renders INTO the waveform so
+                // the wave shows the LIVE result — cut merges, crop shortens, effects
+                // bake in. Nothing is applied until you Save.
+                return this.ops().filter((o) => o.op !== 'export');
             },
             schedulePreview() {
                 if (!this.autoPreview) return;

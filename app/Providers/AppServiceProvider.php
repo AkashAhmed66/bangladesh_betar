@@ -76,6 +76,7 @@ class AppServiceProvider extends ServiceProvider
             'story_submission' => \App\Models\StorySubmission::class,
             'transcript' => \App\Models\Transcript::class,
             'workflow' => \App\Models\Workflow::class,
+            'broadcast_channel' => \App\Models\BroadcastChannel::class,
         ]);
     }
 }

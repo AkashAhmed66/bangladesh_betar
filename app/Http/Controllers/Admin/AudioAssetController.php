@@ -373,6 +373,38 @@ class AudioAssetController extends Controller
         return back()->with('success', 'Asset removed from the public platform.');
     }
 
+    /**
+     * Choose which version of the family is streamed to the public (the
+     * "Streaming" version). Works before publishing (selects what will go
+     * live) and after (swaps the live audio instantly). The preservation
+     * master is immutable and can never be the streaming version.
+     */
+    public function setStreamingVersion(AudioAsset $asset, AudioVersion $version): RedirectResponse
+    {
+        $this->authorize('assets.publish');
+
+        abort_unless($version->audio_asset_id === $asset->id, 404);
+
+        if ($version->isMaster() || $version->version_type === 'preview') {
+            return back()->with('error', 'The master and the short preview clip cannot be the streaming version — choose a full online or edited version.');
+        }
+
+        // Promote this version; demote the rest of the family.
+        $asset->versions()->update(['is_default' => false]);
+        $version->update(['is_default' => true]);
+
+        AuditLog::record('asset_streaming_version_set', $asset, null, [
+            'version_id' => $version->id, 'version_type' => $version->version_type,
+        ], "Streaming version for {$asset->archive_no} set to #{$version->id}");
+
+        $label = $version->label ?: ucfirst(str_replace('_', ' ', $version->version_type));
+        $message = $asset->isPublished()
+            ? "Now streaming “{$label}” to the public."
+            : "“{$label}” selected — it will go live when you publish.";
+
+        return back()->with('success', $message);
+    }
+
     /* ------------------------------------------------------------------ */
 
     private function validated(Request $request): array

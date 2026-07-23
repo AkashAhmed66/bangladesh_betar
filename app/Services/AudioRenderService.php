@@ -23,7 +23,7 @@ class AudioRenderService
         'eq', 'compress', 'limit', 'exciter',
         'gain', 'normalize',
         'pitch', 'tempo',
-        'silence_remove', 'fade',
+        'silence_remove', 'fade', 'silence',
         'channels', 'resample', 'export',
     ];
 
@@ -45,6 +45,10 @@ class AudioRenderService
     {
         $sr = (int) ($ctx['sample_rate'] ?? 44100) ?: 44100;
         $filters = [];
+        // Region-scoped effects (silence / volume / fade over a selection). They
+        // reference ORIGINAL time, so they must run BEFORE trim/cut shift the
+        // timeline — collected here and prepended ahead of the select filter.
+        $regionFilters = [];
         $outFlags = [];
         $metadata = [];
 
@@ -68,12 +72,19 @@ class AudioRenderService
                     'compress' => $filters[] = 'acompressor=threshold=-18dB:ratio=3:attack=20:release=250:makeup=2',
                     'limit' => $filters[] = 'alimiter=limit=0.97',
                     'exciter' => $filters[] = 'aexciter=amount='.$this->clamp((float) ($op['amount'] ?? 1), 0, 5),
-                    'gain' => $filters[] = 'volume='.$this->num((float) ($op['db'] ?? 0)).'dB',
+                    'gain' => isset($op['start'], $op['end'])
+                        ? $regionFilters[] = $this->regionVolume((float) $op['start'], (float) $op['end'], $this->num(10 ** ((float) ($op['db'] ?? 0) / 20)))
+                        : $filters[] = 'volume='.$this->num((float) ($op['db'] ?? 0)).'dB',
                     'normalize' => $filters[] = 'loudnorm=I='.$this->num((float) ($op['target_lufs'] ?? -16)).':TP='.$this->num((float) ($op['tp'] ?? -1.5)).':LRA=11',
                     'pitch' => $filters = array_merge($filters, $this->pitch((float) ($op['semitones'] ?? 0), $sr)),
                     'tempo' => $filters[] = 'atempo='.$this->clamp((float) ($op['factor'] ?? 1), 0.5, 2.0),
                     'silence_remove' => $filters[] = $this->silenceRemove($op),
-                    'fade' => $filters[] = $this->fade($op, $finalDuration),
+                    'silence' => isset($op['start'], $op['end'])
+                        ? $regionFilters[] = $this->regionVolume((float) $op['start'], (float) $op['end'], '0')
+                        : null,
+                    'fade' => isset($op['start'], $op['end'])
+                        ? $regionFilters[] = $this->regionFade((string) ($op['dir'] ?? 'in'), (float) $op['start'], (float) $op['end'])
+                        : $filters[] = $this->fade($op, $finalDuration),
                     'channels' => $outFlags = array_merge($outFlags, ['-ac', ($op['layout'] ?? 'stereo') === 'mono' ? '1' : '2']),
                     'resample' => $outFlags = array_merge($outFlags, ['-ar', (string) ((int) ($op['rate'] ?? $sr))]),
                     'export' => [$outFlags, $metadata] = $this->export($op, $outFlags, $metadata),
@@ -82,11 +93,11 @@ class AudioRenderService
             }
         }
 
-        // Combine trim + cut into a single select expression up front.
+        // Combine trim + cut into a single select expression.
         $select = $this->timeline($byOp['trim'][0] ?? null, $byOp['cut'] ?? [], (float) ($ctx['duration'] ?? 0));
-        if ($select !== null) {
-            array_unshift($filters, $select);
-        }
+        // Region effects run in ORIGINAL time, then the structural select (which
+        // shifts the timeline), then the remaining global filters.
+        $filters = array_merge($regionFilters, $select !== null ? [$select] : [], $filters);
 
         $args = ['-y', '-i', $input];
         $filterStr = implode(',', array_filter($filters));
@@ -136,7 +147,9 @@ class AudioRenderService
             return ['ok' => false, 'error' => 'Source audio file not found.', 'cmd' => ''];
         }
 
-        $sound = array_values(array_filter($ops, fn ($o) => in_array($o['op'] ?? '', self::SOUND_OPS, true)));
+        // Preview renders the FULL edit chain (incl. cut/crop) so the waveform
+        // shows the live edited result. Export is re-added as a compact MP3.
+        $sound = array_values(array_filter($ops, fn ($o) => ($o['op'] ?? '') !== 'export'));
         $sound[] = ['op' => 'export', 'format' => 'mp3', 'bitrate' => 160];
 
         $built = $this->buildArgs($input, $output, $sound, $ctx);
@@ -251,6 +264,31 @@ class AudioRenderService
         }
 
         return 'afade=t=in:st=0:d='.$this->num($d);
+    }
+
+    /**
+     * A time-scoped volume envelope: apply $expr inside [s,e], leave the rest
+     * unchanged (×1). Powers region silence / volume / gain / fades — all in
+     * original time, evaluated per frame.
+     */
+    private function regionVolume(float $s, float $e, string $expr): string
+    {
+        $s = max(0, $s);
+        $e = max($s, $e);
+
+        return "volume=eval=frame:volume='if(between(t,".$this->num($s).','.$this->num($e).'),'.$expr.",1)'";
+    }
+
+    /** A fade envelope over the selection only (audio outside is unchanged). */
+    private function regionFade(string $dir, float $s, float $e): string
+    {
+        $s = max(0, $s);
+        $d = max(0.001, $e - $s);
+        $ramp = $dir === 'out'
+            ? '1-(t-'.$this->num($s).')/'.$this->num($d)
+            : '(t-'.$this->num($s).')/'.$this->num($d);
+
+        return $this->regionVolume($s, $e, $ramp);
     }
 
     /** @return array{0: array<string>, 1: array<string>} [outFlags, metadata] */

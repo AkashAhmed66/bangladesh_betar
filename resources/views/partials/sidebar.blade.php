@@ -21,6 +21,7 @@
         'Content' => [
             ['podcasts.view', 'admin.podcast-channels.index', 'microphone', 'Podcast Channels', ['admin.podcast-channels.']],
             ['podcasts.view', 'admin.podcast-episodes.index', 'play', 'Podcast Episodes', ['admin.podcast-episodes.']],
+            ['broadcasts.view', 'admin.broadcast-channels.index', 'radio', 'Live Broadcasting', ['admin.broadcast-channels.']],
             ['programmes.view', 'admin.programmes.index', 'squares', 'Programmes', ['admin.programmes.']],
             ['episodes.view', 'admin.episodes.index', 'ghost', 'Programme Episodes', ['admin.episodes.']],
             [['stories.view', 'submissions.view'], 'admin.stories.index', 'chat', 'Stories & Submissions', ['admin.stories.']],

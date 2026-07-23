@@ -45,10 +45,14 @@ class RenderEditSession implements ShouldQueue
 
         // Resolve the source file (real upload preferred; demo fallback so the
         // pipeline is testable for seeded assets in Docker).
+        // Prefer the real source file; otherwise the SAME per-asset demo track the
+        // Studio waveform/preview use (track-{asset%12+1}), so the rendered result
+        // matches what the operator saw — not a different, shorter demo file.
         $src = $session->sourceVersion;
+        $demo = sprintf('demo-audio/track-%02d.wav', ($asset->id % 12) + 1);
         $inputRel = $src && $src->file_path && $disk->exists($src->file_path)
             ? $src->file_path
-            : collect($disk->files('demo-audio'))->first(fn ($f) => str_ends_with($f, '.wav'));
+            : ($disk->exists($demo) ? $demo : collect($disk->files('demo-audio'))->first(fn ($f) => str_ends_with($f, '.wav')));
 
         if (! $inputRel || ! $disk->exists($inputRel)) {
             $this->fail($session, 'No source audio available to render.');

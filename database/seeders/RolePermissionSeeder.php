@@ -42,6 +42,7 @@ class RolePermissionSeeder extends Seeder
         'rights' => ['view', 'manage'],
         'qc' => ['view', 'review'],
         'ai-moderation' => ['view', 'review'],          // duplicate / violence / anti-government gate + transcript (M16)
+        'broadcasts' => ['view', 'manage', 'broadcast'], // live audio channels: view/manage config, broadcast = go on air (M27)
         'playlists' => ['view', 'manage'],             // editorial playlists / curated collections
         'curation' => ['view', 'manage'],              // home sections, banners, featured content
         'moderation' => ['view', 'manage'],            // comments, reports, bans
@@ -67,12 +68,17 @@ class RolePermissionSeeder extends Seeder
             'assets.*', 'versions.*', 'digitization.*', 'metadata.*',
             'albums.view', 'songs.view', 'programmes.*', 'episodes.*', 'stories.*',
             'workflows.view', 'approvals.*', 'rights.view', 'qc.*',
-            'ai-moderation.*', 'audit.view', 'backups.*',
+            'ai-moderation.*', 'broadcasts.*', 'audit.view', 'backups.*',
             'submissions.view', 'issues.*', 'notifications.view',
         ],
 
         'AI Reviewer' => [ // Sign-off gate for AI-flagged duplicate / violence / anti-government content
             'dashboard.view', 'ai-moderation.*', 'assets.view', 'notifications.view',
+        ],
+
+        'Broadcaster' => [ // Goes on air with live audio channels (M27)
+            'dashboard.view', 'broadcasts.view', 'broadcasts.broadcast',
+            'assets.view', 'notifications.view',
         ],
 
         'Archivist' => [ // Audio Archivist / Digitization Operator
@@ -90,6 +96,7 @@ class RolePermissionSeeder extends Seeder
         'Programme Producer' => [
             'dashboard.view', 'programmes.*', 'episodes.*', 'stories.view',
             'assets.view', 'assets.upload', 'playlists.view', 'playlists.manage',
+            'broadcasts.view', 'broadcasts.broadcast',
             'approvals.view', 'notifications.view',
         ],
 

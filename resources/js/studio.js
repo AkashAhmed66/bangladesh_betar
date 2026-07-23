@@ -734,6 +734,10 @@ function boot() {
         try { regions.getRegions().forEach((r) => r.remove()); } catch (_) {}
         dataDrawn = false;
         drawStaticData();                 // re-draw segment + marker overlays
+        // The wrapper is recreated on load — re-arm drag-to-select so the editor
+        // keeps working on the freshly-rendered (edited) waveform.
+        try { window.studioEnableSelect?.(false); window.studioEnableSelect?.(true); } catch (_) {}
+        window.dispatchEvent(new CustomEvent('studio-waveform-reloaded'));
         try { if (pos) ws.setTime(Math.min(pos, ws.getDuration() || pos)); } catch (_) {}
         if (wasPlaying) { try { await ws.play(); } catch (_) {} }
         window.studioSetBusy(false);
@@ -750,11 +754,178 @@ function boot() {
         else if (!on && dragDisable) { dragDisable(); dragDisable = null; }
     };
 
-    // Enable drag-to-select on the waveform (feeds the editor's trim/cut).
+    // Enable drag-to-select on the waveform (feeds the inline editor).
     window.studioEnableSelect(true);
+
+    // Inline waveform editor: trim / cut / move with real-time preview.
+    initWaveformEditor();
 
     // Initialise EDL/marker lists on load
     renderEdl();
+
+    /* -------------------- inline waveform editor (live) -------------------- */
+    // The waveform shows the LIVE rendered result: cut merges the rest, crop keeps
+    // only the selection, and silence/fade/volume bake into the wave — all via an
+    // auto preview render. Edits are stored in ORIGINAL audio time; a selection
+    // drawn on the (already-edited) waveform is mapped back to original time.
+    function initWaveformEditor() {
+        const stage = document.getElementById('waveform-stage');
+        const statusEl = $('#edit-status');
+        const selInfoEl = $('#sel-info');
+        const opToolbar = document.getElementById('op-toolbar');
+        const opHint = $('#op-hint');
+        const volInput = document.getElementById('vol-db');
+        if (!stage) return;
+
+        const edit = { ops: [], sel: null, snap: false, undo: [], redo: [] };
+        const OURS = /^(seg-|mrk-|sil-|edl-)/;   // segments / markers / silence overlays
+
+        // The ORIGINAL audio length, captured once (preview loads change getDuration).
+        let origDuration = ws.getDuration() || CFG.duration || 0;
+        let origCaptured = origDuration > 0;
+        ws.on('decode', (d) => { if (!origCaptured && d) { origDuration = d; origCaptured = true; } });
+
+        const sampleRate = () => (ws.getDecodedData()?.sampleRate) || CFG.sampleRate || 48000;
+        const asSamples = (dt) => Math.round(dt * sampleRate()).toLocaleString();
+
+        const setToolbarEnabled = (on) => {
+            opToolbar?.querySelectorAll('[data-op]').forEach((b) => { b.disabled = !on; });
+            if (volInput) volInput.disabled = !on;
+            if (opHint) opHint.style.display = on ? 'none' : '';
+        };
+        const announce = () => {
+            const n = edit.ops.length;
+            if (statusEl) statusEl.textContent = n ? `${n} edit${n > 1 ? 's' : ''}` : 'no edits';
+            window.dispatchEvent(new CustomEvent('studio-edits-changed'));
+        };
+        const updateSelInfo = () => {
+            if (!selInfoEl) return;
+            selInfoEl.textContent = edit.sel
+                ? `${fmt(edit.sel.start)} – ${fmt(edit.sel.end)}  ·  ${asSamples(edit.sel.end - edit.sel.start)} samples`
+                : '';
+        };
+        const clearSelection = () => { if (edit.sel) { edit.sel.remove(); edit.sel = null; } setToolbarEnabled(false); updateSelInfo(); };
+
+        // ---- edited-time → original-time mapping (accounts for crop + cuts) ----
+        // Only cut/crop change the timeline; effects are duration-preserving.
+        const keptSegments = () => {
+            let segs = [[0, origDuration || ws.getDuration() || 0]];
+            const crop = edit.ops.find((o) => o.type === 'trim');
+            if (crop) segs = [[crop.start, crop.end]];
+            const cuts = edit.ops.filter((o) => o.type === 'delete').slice().sort((a, b) => a.start - b.start);
+            for (const c of cuts) {
+                const next = [];
+                for (const [s, e] of segs) {
+                    if (c.end <= s || c.start >= e) next.push([s, e]);
+                    else { if (c.start > s) next.push([s, c.start]); if (c.end < e) next.push([c.end, e]); }
+                }
+                segs = next.filter(([s, e]) => e - s > 1e-4);
+            }
+            return segs;
+        };
+        const editedToOriginal = (te) => {
+            const segs = keptSegments();
+            let acc = 0;
+            for (const [s, e] of segs) { const len = e - s; if (te <= acc + len + 1e-6) return s + Math.max(0, te - acc); acc += len; }
+            return segs.length ? segs[segs.length - 1][1] : te;
+        };
+
+        // Snap a time to the nearest zero-crossing (±25 ms) for click-free edits.
+        const snap = (t) => {
+            if (!edit.snap) return t;
+            const decoded = ws.getDecodedData();
+            if (!decoded) return t;
+            const sr = decoded.sampleRate, ch = decoded.getChannelData(0);
+            const i = Math.max(1, Math.min(ch.length - 1, Math.round(t * sr)));
+            const win = Math.round(sr * 0.025);
+            let best = i, bestDist = win + 1;
+            for (let j = Math.max(1, i - win); j < Math.min(ch.length, i + win); j++) {
+                if ((ch[j - 1] <= 0 && ch[j] > 0) || (ch[j - 1] >= 0 && ch[j] < 0)) {
+                    if (Math.abs(j - i) < bestDist) { best = j; bestDist = Math.abs(j - i); }
+                }
+            }
+            return best / sr;
+        };
+
+        /* ---- undo / redo (op-list snapshots) ---- */
+        const snapshot = () => edit.ops.map((o) => ({ ...o }));
+        const pushHistory = () => { edit.undo.push(snapshot()); if (edit.undo.length > 80) edit.undo.shift(); edit.redo = []; };
+        const undo = () => { if (!edit.undo.length) { clearSelection(); return; } edit.redo.push(snapshot()); edit.ops = edit.undo.pop(); clearSelection(); announce(); };
+        const redo = () => { if (!edit.redo.length) return; edit.undo.push(snapshot()); edit.ops = edit.redo.pop(); clearSelection(); announce(); };
+        const clearAll = () => { if (!edit.ops.length && !edit.sel) return; pushHistory(); edit.ops = []; clearSelection(); announce(); };
+
+        const apply = (type, db) => {
+            if (!edit.sel) return;
+            // Map the selection (drawn on the edited waveform) back to original time.
+            let start = editedToOriginal(snap(edit.sel.start));
+            let end = editedToOriginal(snap(edit.sel.end));
+            if (end < start) { const t = start; start = end; end = t; }
+            clearSelection();
+            if (end - start < 0.02) return;
+            pushHistory();
+            if (type === 'trim') edit.ops = edit.ops.filter((o) => o.type !== 'trim'); // one crop
+            const op = { type, start: +start.toFixed(3), end: +end.toFixed(3) };
+            if (type === 'volume') op.db = db;
+            edit.ops.push(op);
+            announce();
+        };
+
+        /* ---- selection events (the amber drag region) ---- */
+        regions.on('region-created', (region) => {
+            if (OURS.test(region.id || '')) return;
+            if (edit.sel && edit.sel !== region) edit.sel.remove();
+            edit.sel = region;
+            region.setOptions({ color: 'rgba(245,158,11,0.28)', drag: true, resize: true });
+            setToolbarEnabled(true); updateSelInfo();
+        });
+        regions.on('region-updated', (region) => { if (region === edit.sel) updateSelInfo(); });
+
+        /* ---- op toolbar (acts on the current selection) ---- */
+        opToolbar?.querySelectorAll('[data-op]').forEach((b) => b.addEventListener('click', () => {
+            const a = b.dataset.op;
+            if (a === 'volume') apply('volume', parseFloat(volInput?.value) || 0);
+            else apply(a);
+        }));
+        setToolbarEnabled(false);
+
+        /* ---- edit-bar buttons + keyboard shortcuts ---- */
+        $('#btn-magnet')?.addEventListener('click', (e) => {
+            edit.snap = !edit.snap;
+            const b = e.currentTarget;
+            b.setAttribute('aria-pressed', String(edit.snap));
+            b.classList.toggle('btn-primary', edit.snap);
+            b.classList.toggle('btn-ghost', !edit.snap);
+        });
+        $('#btn-edit-undo')?.addEventListener('click', undo);
+        $('#btn-edit-redo')?.addEventListener('click', redo);
+        $('#btn-edit-clear')?.addEventListener('click', clearAll);
+        document.addEventListener('keydown', (e) => {
+            const tag = (e.target.tagName || '').toLowerCase();
+            if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) return;
+            const mod = e.ctrlKey || e.metaKey;
+            if ((e.key === 'Delete' || e.key === 'Backspace') && edit.sel) { e.preventDefault(); apply('delete'); }
+            else if (e.key === 'Escape' && edit.sel) { e.preventDefault(); clearSelection(); }
+            else if (mod && e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+            else if (mod && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))) { e.preventDefault(); redo(); }
+        });
+
+        /* ---- bridge to the save/render pipeline ---- */
+        window.studioGetEdits = () => ({
+            ops: edit.ops.map((o) => {
+                const s = +o.start.toFixed(3), e = +o.end.toFixed(3);
+                if (o.type === 'delete') return { op: 'cut', start: s, end: e };
+                if (o.type === 'trim') return { op: 'trim', start: s, end: e };
+                if (o.type === 'silence') return { op: 'silence', start: s, end: e };
+                if (o.type === 'fadein') return { op: 'fade', dir: 'in', start: s, end: e };
+                if (o.type === 'fadeout') return { op: 'fade', dir: 'out', start: s, end: e };
+                if (o.type === 'volume') return { op: 'gain', db: o.db, start: s, end: e };
+                return null;
+            }).filter(Boolean),
+        });
+        window.studioClearEdits = () => { edit.ops = []; edit.undo = []; edit.redo = []; clearSelection(); announce(); };
+
+        announce(); updateSelInfo();
+    }
 }
 
 // Start once all module-level helpers above are initialized (avoids a
