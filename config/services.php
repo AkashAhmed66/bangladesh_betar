@@ -35,4 +35,13 @@ return [
         ],
     ],
 
+    // Audio Postmortem — duplicate / violence / anti-government detection +
+    // transcription, run against every newly ingested audio asset (M16).
+    'audio_postmortem' => [
+        'base_url' => env('AUDIO_POSTMORTEM_BASE_URL', 'http://202.59.133.123:9026'),
+        'timeout' => (int) env('AUDIO_POSTMORTEM_TIMEOUT', 30),
+        'poll_interval_seconds' => (int) env('AUDIO_POSTMORTEM_POLL_INTERVAL', 10),
+        'max_poll_attempts' => (int) env('AUDIO_POSTMORTEM_MAX_ATTEMPTS', 60), // ~10 min at 10s
+    ],
+
 ];

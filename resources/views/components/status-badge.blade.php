@@ -9,11 +9,13 @@
         // danger
         'rejected' => 'red', 'failed' => 'red', 'fail' => 'red', 'banned' => 'red', 'expired' => 'red',
         'corrupt' => 'red', 'removed' => 'red', 'disputed' => 'red', 'qc_failed' => 'red', 'refunded' => 'red', 'upheld' => 'red',
+        'ai_rejected' => 'red',
         // warning
         'pending' => 'amber', 'pending_qc' => 'amber', 'pending_approval' => 'amber', 'in_review' => 'amber',
         'in_progress' => 'amber', 'changes_requested' => 'amber', 'warning' => 'amber', 'grace' => 'amber',
         'trialing' => 'amber', 'scheduled' => 'amber', 'investigating' => 'amber', 'qc_pending' => 'amber',
         'partially_refunded' => 'amber', 'in_production' => 'amber', 'restricted' => 'amber',
+        'analyzing' => 'amber', 'ai_flagged' => 'amber',
         // info
         'draft' => 'slate', 'registered' => 'slate', 'inactive' => 'slate', 'cancelled' => 'slate',
         'unpublished' => 'slate', 'hidden' => 'slate', 'dismissed' => 'slate', 'received' => 'blue',

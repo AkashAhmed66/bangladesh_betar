@@ -30,8 +30,7 @@
             ['rights.view', 'admin.rights-records.index', 'scale', 'Rights Records', ['admin.rights-records.']],
             ['rights.view', 'admin.rights-holders.index', 'users', 'Rights Holders', ['admin.rights-holders.']],
             ['qc.view', 'admin.qc-reports.index', 'shield-check', 'Quality Control', ['admin.qc-reports.']],
-            ['transcripts.view', 'admin.transcripts.index', 'document-text', 'Transcripts', ['admin.transcripts.']],
-            ['ai-suggestions.view', 'admin.ai-suggestions.index', 'sparkles', 'AI Review', ['admin.ai-suggestions.']],
+            ['ai-moderation.view', 'admin.ai-moderation.index', 'shield', 'AI Moderation', ['admin.ai-moderation.']],
         ],
         'Community' => [
             ['moderation.view', 'admin.comments.index', 'chat', 'Comments and Ratings', ['admin.comments.']],

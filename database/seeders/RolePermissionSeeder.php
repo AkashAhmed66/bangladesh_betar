@@ -41,8 +41,7 @@ class RolePermissionSeeder extends Seeder
         'approvals' => ['view', 'act'],
         'rights' => ['view', 'manage'],
         'qc' => ['view', 'review'],
-        'transcripts' => ['view', 'manage'],
-        'ai-suggestions' => ['view', 'review'],
+        'ai-moderation' => ['view', 'review'],          // duplicate / violence / anti-government gate + transcript (M16)
         'playlists' => ['view', 'manage'],             // editorial playlists / curated collections
         'curation' => ['view', 'manage'],              // home sections, banners, featured content
         'moderation' => ['view', 'manage'],            // comments, reports, bans
@@ -68,21 +67,24 @@ class RolePermissionSeeder extends Seeder
             'assets.*', 'versions.*', 'digitization.*', 'metadata.*',
             'albums.view', 'songs.view', 'programmes.*', 'episodes.*', 'stories.*',
             'workflows.view', 'approvals.*', 'rights.view', 'qc.*',
-            'transcripts.*', 'ai-suggestions.*', 'audit.view', 'backups.*',
+            'ai-moderation.*', 'audit.view', 'backups.*',
             'submissions.view', 'issues.*', 'notifications.view',
+        ],
+
+        'AI Reviewer' => [ // Sign-off gate for AI-flagged duplicate / violence / anti-government content
+            'dashboard.view', 'ai-moderation.*', 'assets.view', 'notifications.view',
         ],
 
         'Archivist' => [ // Audio Archivist / Digitization Operator
             'dashboard.view', 'assets.view', 'assets.upload', 'assets.edit', 'assets.download',
             'versions.view', 'digitization.*', 'metadata.edit', 'metadata.bulk-edit',
             'artists.view', 'taxonomies.view', 'programmes.view', 'episodes.view',
-            'transcripts.view', 'transcripts.manage', 'ai-suggestions.*',
             'qc.view', 'submissions.view', 'notifications.view',
         ],
 
         'Audio Editor' => [
             'dashboard.view', 'assets.view', 'versions.view', 'versions.manage',
-            'editing.*', 'qc.view', 'transcripts.view', 'notifications.view',
+            'editing.*', 'qc.view', 'notifications.view',
         ],
 
         'Programme Producer' => [
@@ -93,13 +95,12 @@ class RolePermissionSeeder extends Seeder
 
         'Podcast Manager' => [
             'dashboard.view', 'podcasts.*', 'assets.view', 'assets.upload',
-            'artists.view', 'approvals.view', 'transcripts.view', 'notifications.view',
+            'artists.view', 'approvals.view', 'notifications.view',
         ],
 
         'Music Library Manager' => [
             'dashboard.view', 'songs.*', 'albums.*', 'artists.*', 'assets.view', 'assets.upload',
-            'metadata.edit', 'playlists.*', 'taxonomies.view',
-            'ai-suggestions.*', 'notifications.view',
+            'metadata.edit', 'playlists.*', 'taxonomies.view', 'notifications.view',
         ],
 
         'Content Curator' => [

@@ -158,15 +158,13 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
         Route::post('qc-reports/{qcReport}/verdict', [Admin\QcReportController::class, 'verdict'])
             ->middleware('permission:qc.review')->name('qc-reports.verdict');
 
-        // ---- M16: Transcripts & AI suggestions ----
-        Route::get('transcripts', [Admin\TranscriptController::class, 'index'])
-            ->middleware('permission:transcripts.view')->name('transcripts.index');
-        Route::post('transcripts/{transcript}/verify', [Admin\TranscriptController::class, 'verify'])
-            ->middleware('permission:transcripts.manage')->name('transcripts.verify');
-        Route::get('ai-suggestions', [Admin\AiSuggestionController::class, 'index'])
-            ->middleware('permission:ai-suggestions.view')->name('ai-suggestions.index');
-        Route::post('ai-suggestions/{suggestion}/review', [Admin\AiSuggestionController::class, 'review'])
-            ->middleware('permission:ai-suggestions.review')->name('ai-suggestions.review');
+        // ---- M16: AI content moderation (duplicate / violence / anti-government + transcription) ----
+        Route::middleware('permission:ai-moderation.view')->group(function (): void {
+            Route::get('ai-moderation', [Admin\AiModerationController::class, 'index'])->name('ai-moderation.index');
+            Route::get('ai-moderation/{asset}', [Admin\AiModerationController::class, 'show'])->name('ai-moderation.show');
+        });
+        Route::post('ai-moderation/{asset}/review', [Admin\AiModerationController::class, 'review'])
+            ->middleware('permission:ai-moderation.review')->name('ai-moderation.review');
 
         // ---- M24: Curation ----
         Route::resource('home-sections', Admin\HomeSectionController::class)->except('show')

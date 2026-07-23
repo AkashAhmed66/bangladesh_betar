@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SubmitAudioForAiAnalysis;
 use App\Models\Approval;
 use App\Models\ApprovalAction;
 use App\Models\AudioAsset;
@@ -49,7 +50,10 @@ class AudioAssetController extends Controller
             'assets' => $assets,
             'stations' => Station::query()->orderBy('name')->pluck('name', 'id'),
             'contentTypes' => self::CONTENT_TYPES,
-            'statuses' => ['draft', 'pending_qc', 'qc_failed', 'in_review', 'pending_approval', 'approved', 'published', 'rejected', 'unpublished', 'archived'],
+            'statuses' => [
+                'analyzing', 'ai_flagged', 'ai_rejected', 'draft', 'pending_qc', 'qc_failed',
+                'in_review', 'pending_approval', 'approved', 'published', 'rejected', 'unpublished', 'archived',
+            ],
         ]);
     }
 
@@ -70,14 +74,17 @@ class AudioAssetController extends Controller
             'archive_no' => AudioAsset::nextArchiveNo(),
             'slug' => Str::slug($data['title']).'-'.Str::lower(Str::random(4)),
             'uploaded_by' => $request->user()->id,
-            'status' => 'draft',
+            // FR-ING / M16 — held here until the AI postmortem (duplicate /
+            // violence / anti-government / transcription) reports back.
+            'status' => 'analyzing',
             'source' => $data['source'] ?? 'upload',
         ]);
 
         $this->ingestFile($request, $asset, $processor);
+        $this->triggerAiAnalysis($asset);
 
         return redirect()->route('admin.assets.show', $asset)
-            ->with('success', "Asset {$asset->archive_no} ingested. Review it in the Studio, then submit for approval.");
+            ->with('success', "Asset {$asset->archive_no} ingested and is being analyzed by the AI safety check. This page will show the transcript and the outcome shortly.");
     }
 
     /**
@@ -95,7 +102,18 @@ class AudioAssetController extends Controller
 
         $this->ingestFile($request, $asset, $processor, replace: true);
 
-        return back()->with('success', 'Audio ingested and analysed. Open the Studio to visualise it.');
+        // Replaced bytes are new content — re-run the AI safety check on them
+        // exactly as on first upload.
+        $asset->update(['status' => 'analyzing']);
+        $this->triggerAiAnalysis($asset);
+
+        return back()->with('success', 'Audio ingested and is being re-analyzed by the AI safety check.');
+    }
+
+    /** Dispatch the async duplicate/violence/anti-government/transcription check (M16). */
+    private function triggerAiAnalysis(AudioAsset $asset): void
+    {
+        SubmitAudioForAiAnalysis::dispatch($asset->id);
     }
 
     /**
@@ -243,6 +261,7 @@ class AudioAssetController extends Controller
             'versions.creator', 'tags', 'artists', 'rightsRecords.rightsHolder',
             'qcReports.reviewer', 'transcripts', 'aiSuggestions', 'song.album',
             'approvals.currentStage', 'approvals.actions.user', 'editSessions.editor',
+            'latestAiAnalysisJob.reviewer',
         ]);
 
         $stats = $asset->dailyStats()->orderByDesc('stat_date')->take(14)->get()->reverse()->values();
@@ -278,6 +297,14 @@ class AudioAssetController extends Controller
     /** Submit into the configured approval workflow (M13). */
     public function submitForApproval(Request $request, AudioAsset $asset): RedirectResponse
     {
+        if (in_array($asset->status, ['analyzing', 'ai_flagged'], true)) {
+            return back()->with('error', 'This asset is still being checked by the AI safety analysis.');
+        }
+
+        if ($asset->status === 'ai_rejected') {
+            return back()->with('error', 'This asset was rejected by the AI Reviewer and cannot be published (M16).');
+        }
+
         if ($asset->approvals()->pending()->exists()) {
             return back()->with('error', 'This asset already has a pending approval.');
         }

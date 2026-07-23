@@ -57,6 +57,25 @@ class AppServiceProvider extends ServiceProvider
             'setting' => \App\Models\Setting::class,
             'banner' => \App\Models\Banner::class,
             'home_section' => \App\Models\HomeSection::class,
+
+            // The rest of the Auditable models — every one needs an entry or
+            // creating the very first real (non-seeded) row throws
+            // ClassMorphViolationException from the audit-log hook, since
+            // Auditable calls getMorphClass() on every create/update/delete.
+            'ad_campaign' => \App\Models\AdCampaign::class,
+            'advertiser' => \App\Models\Advertiser::class,
+            'category' => \App\Models\Category::class,
+            'department' => \App\Models\Department::class,
+            'genre' => \App\Models\Genre::class,
+            'language' => \App\Models\Language::class,
+            'mood' => \App\Models\Mood::class,
+            'promo_code' => \App\Models\PromoCode::class,
+            'qc_report' => \App\Models\QcReport::class,
+            'rights_holder' => \App\Models\RightsHolder::class,
+            'takedown_request' => \App\Models\TakedownRequest::class,
+            'story_submission' => \App\Models\StorySubmission::class,
+            'transcript' => \App\Models\Transcript::class,
+            'workflow' => \App\Models\Workflow::class,
         ]);
     }
 }

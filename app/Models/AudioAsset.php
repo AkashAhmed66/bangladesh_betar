@@ -122,6 +122,17 @@ class AudioAsset extends Model
         return $this->hasMany(AiSuggestion::class);
     }
 
+    public function aiAnalysisJobs(): HasMany
+    {
+        return $this->hasMany(AiAnalysisJob::class)->latest();
+    }
+
+    /** The most recent AI postmortem submission for this asset, if any. */
+    public function latestAiAnalysisJob(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(AiAnalysisJob::class)->latestOfMany();
+    }
+
     public function editSessions(): HasMany
     {
         return $this->hasMany(EditSession::class);
