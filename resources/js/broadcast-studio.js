@@ -568,9 +568,10 @@ function boot() {
     if (CFG.active && !canCapture) {
         els.goLive.disabled = true;
         els.arm.disabled = true;
+        const localUrl = 'http://localhost' + (location.port ? ':' + location.port : '') + '/admin';
         showError(
             'Your browser blocks microphone access on this address because it is not secure (http://<ip>). '
-            + 'To broadcast, open the studio on the server itself at http://localhost:8080/admin, or serve the admin portal over HTTPS. '
+            + 'To broadcast, open the studio on the server itself at ' + localUrl + ', or serve the admin portal over HTTPS. '
             + 'Listeners can still tune in from other machines over the network.',
         );
         els.hint.textContent = 'Broadcasting needs a secure origin (localhost or HTTPS). Listening works from anywhere.';
