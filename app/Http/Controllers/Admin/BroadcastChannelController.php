@@ -97,10 +97,17 @@ class BroadcastChannelController extends Controller
         }
         $listenUrl = rtrim($publicBase, '/').'/live/'.$broadcastChannel->id;
 
+        $recentSessions = $broadcastChannel->sessions()
+            ->where('status', 'ended')
+            ->with('broadcaster')
+            ->limit(6)
+            ->get();
+
         return view('admin.broadcast-channels.studio', [
             'channel' => $broadcastChannel,
             'wsUrl' => $this->liveKit->wsUrl($request->getHost()),
             'listenUrl' => $listenUrl,
+            'recentSessions' => $recentSessions,
         ]);
     }
 
