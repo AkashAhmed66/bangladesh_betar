@@ -25,22 +25,41 @@ class AiModerationController extends Controller
 {
     public function index(Request $request): View
     {
+        $search = trim((string) $request->query('q', ''));
+        $status = (string) $request->query('status', '');   // pending | approved | rejected
+        $flag = (string) $request->query('flag', '');       // duplicate | violence | anti_government
+
+        // The moderation queue is every asset the AI ever flagged — pending AND
+        // already-decided — so rows persist after accept/reject with their status.
         $assets = AudioAsset::query()
-            ->with(['latestAiAnalysisJob', 'uploader'])
-            ->where('status', 'ai_flagged')
+            ->with(['latestAiAnalysisJob.reviewer', 'uploader'])
+            ->whereHas('aiAnalysisJobs', fn ($q) => $q->flagged())
+            ->when($search !== '', fn ($qq) => $qq->where(function ($w) use ($search): void {
+                $w->where('title', 'like', "%{$search}%")
+                    ->orWhere('archive_no', 'like', "%{$search}%")
+                    ->orWhereHas('uploader', fn ($u) => $u->where('name', 'like', "%{$search}%"));
+            }))
+            ->when(in_array($status, ['pending', 'approved', 'rejected'], true),
+                fn ($qq) => $qq->whereHas('aiAnalysisJobs', fn ($q) => $q->flagged()->where('review_status', $status)))
+            ->when(in_array($flag, ['duplicate', 'violence', 'anti_government'], true),
+                fn ($qq) => $qq->whereHas('aiAnalysisJobs', fn ($q) => $q->where(match ($flag) {
+                    'duplicate' => 'is_duplicate',
+                    'violence' => 'violence_detected',
+                    'anti_government' => 'anti_government_detected',
+                }, true)))
             ->latest('updated_at')
             ->paginate(15)
             ->withQueryString();
 
-        return view('admin.ai-moderation.index', compact('assets'));
+        return view('admin.ai-moderation.index', compact('assets', 'search', 'status', 'flag'));
     }
 
     public function show(AudioAsset $asset): View
     {
         abort_unless(
-            $asset->status === 'ai_flagged' || $asset->status === 'ai_rejected',
+            $asset->aiAnalysisJobs()->flagged()->exists(),
             404,
-            'This asset has no AI moderation decision pending.',
+            'This asset has no AI moderation record.',
         );
 
         $asset->load(['uploader', 'transcripts', 'aiAnalysisJobs.reviewer']);
@@ -57,7 +76,11 @@ class AiModerationController extends Controller
 
         $data = $request->validate([
             'action' => ['required', Rule::in(['approve', 'reject'])],
-            'comments' => ['nullable', 'string', 'max:2000', 'required_if:action,reject'],
+            // A remark is mandatory for BOTH accept and reject so every decision
+            // carries an auditable justification.
+            'comments' => ['required', 'string', 'max:2000'],
+        ], [
+            'comments.required' => 'A remark is required to record this decision.',
         ]);
 
         /** @var AiAnalysisJob|null $job */

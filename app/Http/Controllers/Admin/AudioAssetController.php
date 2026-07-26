@@ -51,7 +51,7 @@ class AudioAssetController extends Controller
             'stations' => Station::query()->orderBy('name')->pluck('name', 'id'),
             'contentTypes' => self::CONTENT_TYPES,
             'statuses' => [
-                'analyzing', 'ai_flagged', 'ai_rejected', 'draft', 'pending_qc', 'qc_failed',
+                'analyzing', 'ai_flagged', 'ai_rejected', 'draft',
                 'in_review', 'pending_approval', 'approved', 'published', 'rejected', 'unpublished', 'archived',
             ],
         ]);
@@ -259,7 +259,7 @@ class AudioAssetController extends Controller
         $asset->load([
             'station', 'department', 'programme', 'category', 'language', 'uploader',
             'versions.creator', 'tags', 'artists', 'rightsRecords.rightsHolder',
-            'qcReports.reviewer', 'transcripts', 'aiSuggestions', 'song.album',
+            'transcripts', 'aiSuggestions', 'song.album',
             'approvals.currentStage', 'approvals.actions.user', 'editSessions.editor',
             'latestAiAnalysisJob.reviewer',
         ]);
@@ -343,7 +343,7 @@ class AudioAssetController extends Controller
     public function publish(AudioAsset $asset): RedirectResponse
     {
         if ($asset->rights_status !== 'cleared') {
-            return back()->with('error', 'Publication blocked: rights are not cleared (FR-CPR-05).');
+            return back()->with('error', 'Publication blocked: rights are not cleared. Complete the rights record in Rights Records and set it to Cleared first (FR-CPR-05).');
         }
 
         if (! in_array($asset->status, ['approved', 'unpublished'], true)) {

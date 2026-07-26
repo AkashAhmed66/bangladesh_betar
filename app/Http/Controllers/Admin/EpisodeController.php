@@ -8,7 +8,6 @@ use App\Http\Controllers\Controller;
 use App\Models\AudioAsset;
 use App\Models\Episode;
 use App\Models\Programme;
-use App\Models\Season;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -22,8 +21,7 @@ class EpisodeController extends Controller
     public function index(Request $request): View
     {
         $episodes = Episode::query()
-            ->with(['programme', 'season', 'audioAsset'])
-            ->withCount('stories')
+            ->with(['programme', 'audioAsset'])
             ->when($request->filled('q'), fn ($q) => $q->where('title', 'like', '%'.$request->string('q').'%'))
             ->when($request->filled('programme'), fn ($q) => $q->where('programme_id', $request->integer('programme')))
             ->orderByDesc('broadcast_date')
@@ -82,7 +80,7 @@ class EpisodeController extends Controller
     {
         return $request->validate([
             'programme_id' => ['required', 'exists:programmes,id'],
-            'season_id' => ['nullable', 'exists:seasons,id'],
+            'season_number' => ['required', 'integer', 'min:1'],
             'audio_asset_id' => ['nullable', 'exists:audio_assets,id'],
             'number' => ['nullable', 'integer', 'min:0'],
             'title' => ['required', 'string', 'max:255'],
@@ -98,8 +96,6 @@ class EpisodeController extends Controller
     {
         return [
             'programmes' => Programme::query()->orderBy('title')->pluck('title', 'id'),
-            'seasons' => Season::query()->with('programme')->orderByDesc('id')->get()
-                ->mapWithKeys(fn (Season $s) => [$s->id => trim(($s->programme?->title ? $s->programme->title.' — ' : '').'Season '.$s->number.($s->title ? ' · '.$s->title : ''))]),
             'assets' => AudioAsset::query()->orderByDesc('id')->take(200)->pluck('title', 'id'),
         ];
     }

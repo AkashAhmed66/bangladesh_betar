@@ -32,7 +32,7 @@ return new class extends Migration
         // workflow instances attached to any approvable item
         Schema::create('approvals', function (Blueprint $table): void {
             $table->id();
-            $table->morphs('approvable'); // audio_assets, podcast_episodes, ad_assets, edit_sessions ...
+            $table->morphs('approvable'); // audio_assets, podcast_episodes, edit_sessions ...
             $table->foreignId('workflow_id')->constrained()->cascadeOnDelete();
             $table->foreignId('current_stage_id')->nullable()->constrained('workflow_stages')->nullOnDelete();
             $table->string('status', 25)->default('pending')->index();
@@ -83,25 +83,10 @@ return new class extends Migration
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
         });
-
-        // M15 — automated QC + reviewer verdict (FR-QCM-05/06)
-        Schema::create('qc_reports', function (Blueprint $table): void {
-            $table->id();
-            $table->foreignId('audio_asset_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('audio_version_id')->nullable()->constrained()->nullOnDelete();
-            $table->json('checks'); // {silence:{pass,detail}, clipping:{...}, loudness:{...}, ...}
-            $table->string('overall_result', 10)->default('pass')->index(); // pass | warning | fail
-            $table->string('verdict', 20)->nullable()->index(); // approved | rejected | reprocess
-            $table->foreignId('reviewed_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->text('reviewer_comments')->nullable();
-            $table->timestamp('reviewed_at')->nullable();
-            $table->timestamps();
-        });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('qc_reports');
         Schema::dropIfExists('rights_records');
         Schema::dropIfExists('rights_holders');
         Schema::dropIfExists('approval_actions');

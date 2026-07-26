@@ -54,7 +54,6 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
         Route::get('new-releases', [V1\BrowseController::class, 'newReleases'])->name('new-releases');
         Route::get('on-this-day', [V1\BrowseController::class, 'onThisDay'])->name('on-this-day');
         Route::get('featured-artists', [V1\BrowseController::class, 'featuredArtists'])->name('featured-artists');
-        Route::get('editorial-playlists', [V1\BrowseController::class, 'editorialPlaylists'])->name('editorial-playlists');
 
         // Search (M06)
         Route::get('search', [V1\SearchController::class, 'search'])->name('search');
@@ -71,7 +70,6 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
         Route::get('programmes', [V1\CatalogueController::class, 'programmes'])->name('programmes.index');
         Route::get('programmes/{programme}', [V1\CatalogueController::class, 'programme'])->name('programmes.show');
         Route::get('episodes/{episode}', [V1\CatalogueController::class, 'episode'])->name('episodes.show');
-        Route::get('stories/{story}', [V1\CatalogueController::class, 'story'])->name('stories.show');
         Route::get('podcasts', [V1\CatalogueController::class, 'podcasts'])->name('podcasts.index');
         Route::get('podcasts/{podcastChannel}', [V1\CatalogueController::class, 'podcast'])->name('podcasts.show');
 
@@ -107,7 +105,7 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
 
     // Ad creative audio for pre-roll slots (public — referenced by audio_url
     // in the ad descriptor returned by GET /assets/{asset}/stream)
-    Route::get('ads/{adAsset}/audio', [V1\PlaybackController::class, 'adAudio'])->name('ads.audio');
+    Route::get('ads/{adCampaign}/audio', [V1\PlaybackController::class, 'adAudio'])->name('ads.audio');
 
     /*
      |--------------------------------------------------------------------
@@ -143,6 +141,9 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
         Route::delete('comments/{comment}', [V1\EngagementController::class, 'deleteComment'])->name('comments.destroy');
         Route::post('assets/{asset}/rate', [V1\EngagementController::class, 'rate'])->name('rate');
         Route::post('reports', [V1\EngagementController::class, 'report'])->name('reports.store');
+
+        // The listener's own Community Inbox — track status of what they sent (M26)
+        Route::get('me/submissions', [V1\EngagementController::class, 'mySubmissions'])->name('submissions.index');
 
         // Recommendations personalization (M25)
         Route::post('me/personalization/opt-out', [V1\RecommendationController::class, 'optOut'])->name('recommendations.opt-out');

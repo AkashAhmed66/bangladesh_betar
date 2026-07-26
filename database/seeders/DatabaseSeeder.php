@@ -25,7 +25,7 @@ class DatabaseSeeder extends Seeder
             ProgrammeSeeder::class,        // programme hierarchy + seasons
             AudioAssetSeeder::class,       // archive assets + version families
             MusicSeeder::class,            // albums, songs, artist links
-            EpisodeStorySeeder::class,     // Bhoot FM episodes, stories, submissions
+            EpisodeStorySeeder::class,     // Bhoot FM programme episodes
             PodcastSeeder::class,          // podcast channels & episodes
             BroadcastChannelSeeder::class, // M27 live broadcast channels
             WorkflowSeeder::class,         // approval workflows + live instances
@@ -37,7 +37,7 @@ class DatabaseSeeder extends Seeder
             SubscriptionSeeder::class,     // subscriptions + payments
             CurationSeeder::class,         // home sections, banners, collections
             EngagementSeeder::class,       // favourites, follows, comments, ratings
-            AdvertisementSeeder::class,    // advertisers, campaigns, impressions
+            AdvertisementSeeder::class,    // advertisers, campaigns (audio-asset creatives), impressions
             AnalyticsSeeder::class,        // play events + daily stats/heat maps
             SystemSeeder::class,           // backups + integrity checks
         ]);

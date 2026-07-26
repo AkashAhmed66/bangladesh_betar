@@ -25,9 +25,6 @@
 
 {{-- Secondary role widgets --}}
 <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-    @if ($stats['qc_failures'] !== null)
-        <x-stat-card label="QC Failures to Review" :value="$stats['qc_failures']" icon="shield-check" color="red" />
-    @endif
     @if ($stats['rights_expiring'] !== null)
         <x-stat-card label="Rights Expiring (90 days)" :value="$stats['rights_expiring']" icon="scale" color="amber" />
     @endif

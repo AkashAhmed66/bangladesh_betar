@@ -353,27 +353,7 @@
                     </p>
                 </div>
             @empty
-                <p class="px-5 py-4 text-sm text-slate-500">No rights records. Publication will be blocked (FR-CPR-04).</p>
-            @endforelse
-        </div>
-
-        {{-- QC (M15) --}}
-        <div class="card">
-            <div class="card-header"><h3 class="font-semibold text-slate-800 dark:text-slate-100">Quality Control</h3></div>
-            @forelse ($asset->qcReports as $report)
-                <div class="border-t border-slate-100 px-5 py-3 first:border-0 dark:border-slate-800">
-                    <div class="flex items-center justify-between">
-                        <x-status-badge :status="$report->overall_result" />
-                        @can('qc.view')
-                            <a href="{{ route('admin.qc-reports.show', $report) }}" class="text-xs font-medium text-primary-700 hover:underline dark:text-primary-300">Report →</a>
-                        @endcan
-                    </div>
-                    <p class="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
-                        {{ collect($report->checks)->filter(fn ($c) => ! ($c['pass'] ?? true))->keys()->map(fn ($k) => ucfirst($k))->implode(', ') ?: 'All checks passed' }}
-                    </p>
-                </div>
-            @empty
-                <p class="px-5 py-4 text-sm text-slate-500">Not yet analysed.</p>
+                <p class="px-5 py-4 text-sm text-slate-500">No rights records yet. One is created automatically when the approval workflow completes — complete it in Rights Records and mark it cleared to allow publishing.</p>
             @endforelse
         </div>
 

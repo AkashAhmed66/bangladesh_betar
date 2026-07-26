@@ -25,7 +25,7 @@ use Illuminate\Validation\Rule;
  */
 class LibraryController extends Controller
 {
-    private const PLAYABLE_TYPES = ['song', 'audio_asset', 'podcast_episode', 'episode', 'story'];
+    private const PLAYABLE_TYPES = ['song', 'audio_asset', 'podcast_episode', 'episode'];
     private const FOLLOWABLE_TYPES = ['artist', 'programme', 'podcast_channel', 'playlist'];
 
     // ---- Playlists (FR-PUB-04) ----

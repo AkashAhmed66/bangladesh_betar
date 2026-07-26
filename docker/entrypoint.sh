@@ -19,13 +19,36 @@ echo "Database is up."
 # Storage symlink for public media.
 php artisan storage:link 2>/dev/null || true
 
-if [ "${RUN_MIGRATIONS}" = "true" ]; then
-    php artisan migrate --force
-fi
+# ---- Database bootstrap: first-time only ----
+# Migrations + seeders run ONCE, when the database is empty. On every later boot
+# we do NOT re-seed (so restarts / `docker compose up --build` never wipe or
+# duplicate your data) and we only apply migrations that are genuinely new.
+#   - `migrate:status` fails when the migrations table is absent => fresh DB.
+#   - Set FORCE_SEED=true to deliberately re-run the seeders.
+if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
+    if php artisan migrate:status >/dev/null 2>&1; then
+        # Database was already initialized on a previous boot.
+        if php artisan migrate:status 2>/dev/null | grep -qi 'pending'; then
+            echo "Applying new pending migrations only…"
+            php artisan migrate --force
+        else
+            echo "Database already set up — no migrations to run."
+        fi
 
-if [ "${RUN_SEEDERS}" = "true" ]; then
-    # Seeders are idempotent (updateOrCreate / firstOrCreate) so this is safe.
-    php artisan db:seed --force || echo "Seeding skipped or already applied."
+        if [ "${FORCE_SEED:-false}" = "true" ]; then
+            echo "FORCE_SEED=true — re-seeding on request…"
+            php artisan db:seed --force || echo "Seeding failed."
+        else
+            echo "Skipping seeders (already seeded on first boot)."
+        fi
+    else
+        # Fresh database → one-time full setup.
+        echo "Fresh database detected — running first-time migrations + seeders…"
+        php artisan migrate --force
+        if [ "${RUN_SEEDERS:-true}" = "true" ]; then
+            php artisan db:seed --force || echo "Seeding failed."
+        fi
+    fi
 fi
 
 # Synthesize demo streaming media so seeded assets (whose real files are not

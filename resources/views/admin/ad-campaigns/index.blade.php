@@ -12,7 +12,7 @@
 <div class="card">
     <div class="table-shell">
         <table class="table-app">
-            <thead><tr><th>Campaign</th><th>Advertiser</th><th>Status</th><th>Flight</th><th class="text-right">Budget</th><th>Priority</th><th class="text-right">Impressions</th><th class="text-right">Actions</th></tr></thead>
+            <thead><tr><th>Campaign</th><th>Advertiser</th><th>Creative</th><th>Status</th><th>Flight</th><th class="text-right">Budget</th><th>Priority</th><th class="text-right">Impressions</th><th class="text-right">Actions</th></tr></thead>
             <tbody>
                 @forelse ($campaigns as $campaign)
                     <tr>
@@ -21,6 +21,15 @@
                             <p class="text-xs text-slate-500 dark:text-slate-400">Goal {{ number_format($campaign->impression_goal) }} impressions</p>
                         </td>
                         <td class="text-sm">{{ $campaign->advertiser?->name ?? 'House / PSA' }}</td>
+                        <td class="text-sm">
+                            @if ($campaign->audioAsset)
+                                <span class="inline-flex items-center gap-1.5 text-slate-700 dark:text-slate-200">
+                                    <x-icon name="play" class="size-3.5 text-slate-400" /> {{ $campaign->audioAsset->title }}
+                                </span>
+                            @else
+                                <span class="text-slate-400">— none —</span>
+                            @endif
+                        </td>
                         <td><x-status-badge :status="$campaign->status" /></td>
                         <td class="text-sm text-slate-500 dark:text-slate-400">
                             {{ $campaign->start_date?->format('j M Y') ?? '—' }} → {{ $campaign->end_date?->format('j M Y') ?? '—' }}
@@ -38,7 +47,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="8"><x-empty-state icon="megaphone" title="No campaigns" /></td></tr>
+                    <tr><td colspan="9"><x-empty-state icon="megaphone" title="No campaigns" /></td></tr>
                 @endforelse
             </tbody>
         </table>

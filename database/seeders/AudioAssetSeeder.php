@@ -56,7 +56,7 @@ class AudioAssetSeeder extends Seeder
         // A couple of unpublished/in-workflow assets so admin queues are not empty.
         $this->makeAsset('Rescued Reel: Unidentified Folk Session', [
             'content_type' => 'historical',
-            'status' => 'pending_qc',
+            'status' => 'in_review',
             'access_level' => 'internal',
             'rights_status' => 'pending',
             'published_at' => null,

@@ -25,7 +25,7 @@
 
     <div class="table-shell">
         <table class="table-app">
-            <thead><tr><th>Episode</th><th>Programme</th><th>#</th><th>Broadcast</th><th>Stories</th><th>Plays</th><th>Status</th><th class="text-right">Actions</th></tr></thead>
+            <thead><tr><th>Episode</th><th>Programme</th><th>#</th><th>Broadcast</th><th>Plays</th><th>Status</th><th class="text-right">Actions</th></tr></thead>
             <tbody>
                 @forelse ($episodes as $episode)
                     <tr>
@@ -36,7 +36,6 @@
                         <td class="text-sm">{{ $episode->programme?->title ?? '—' }}</td>
                         <td class="text-sm tabular-nums">{{ $episode->number ?? '—' }}</td>
                         <td class="text-sm text-slate-500 dark:text-slate-400">{{ $episode->broadcast_date?->format('d M Y') ?? '—' }}</td>
-                        <td class="text-sm tabular-nums">{{ $episode->stories_count }}</td>
                         <td class="text-sm tabular-nums">{{ number_format((int) $episode->play_count) }}</td>
                         <td><x-status-badge :status="$episode->is_published ? 'published' : 'draft'" /></td>
                         <td>
@@ -49,7 +48,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="8"><x-empty-state icon="megaphone" title="No episodes yet" /></td></tr>
+                    <tr><td colspan="7"><x-empty-state icon="megaphone" title="No episodes yet" /></td></tr>
                 @endforelse
             </tbody>
         </table>

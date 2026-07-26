@@ -4,7 +4,7 @@
 
 @section('content')
 <x-page-header :title="$episode ? 'Edit: '.$episode->title : 'Create Episode'"
-               subtitle="Event-programme episode with addressable stories (FR-EVT-02)" />
+               subtitle="A programme episode — links a broadcast to its audio and metadata." />
 
 <form method="POST" action="{{ $episode ? route('admin.episodes.update', $episode) : route('admin.episodes.store') }}" class="max-w-3xl">
     @csrf
@@ -13,8 +13,8 @@
     <div class="card">
         <div class="card-body grid grid-cols-1 gap-5 sm:grid-cols-2">
             <x-form.select label="Programme" name="programme_id" :value="$episode?->programme_id" required placeholder="Select a programme…" :options="$programmes->all()" />
-            <x-form.select label="Season" name="season_id" :value="$episode?->season_id" placeholder="—" :options="$seasons->all()" />
             <x-form.select label="Audio asset" name="audio_asset_id" :value="$episode?->audio_asset_id" placeholder="—" :options="$assets->all()" />
+            <x-form.input label="Season number" name="season_number" type="number" min="1" :value="$episode?->season_number ?? 1" required />
             <x-form.input label="Episode number" name="number" type="number" :value="$episode?->number" />
             <x-form.input label="Title" name="title" :value="$episode?->title" required />
             <x-form.input label="Title (বাংলা)" name="title_bn" :value="$episode?->title_bn" />

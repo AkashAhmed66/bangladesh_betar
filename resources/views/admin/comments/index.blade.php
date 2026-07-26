@@ -48,10 +48,14 @@
                                 @if ($target)<p class="mt-1 max-w-[16rem] truncate text-xs text-slate-500 dark:text-slate-400">{{ $target }}</p>@endif
                             @else — @endif
                         </td>
-                        <td><x-status-badge :status="$comment->status" /></td>
+                        <td><x-status-badge :status="$comment->trashed() ? 'deleted' : $comment->status" /></td>
                         <td>
                             <div class="flex items-center justify-end gap-1">
+                                @if ($comment->trashed())
+                                    <span class="text-xs text-slate-400">Deleted by author</span>
+                                @endif
                                 @can('moderation.manage')
+                                    @unless ($comment->trashed())
                                     @if ($comment->status !== 'approved')
                                         <form method="POST" action="{{ route('admin.comments.moderate', $comment) }}" class="inline">
                                             @csrf
@@ -68,12 +72,13 @@
                                     @endif
                                     @if ($comment->status !== 'removed')
                                         <form method="POST" action="{{ route('admin.comments.moderate', $comment) }}" class="inline"
-                                              x-data @submit.prevent="if (confirm('Remove this comment?')) $el.submit()">
+                                              x-data @submit.prevent="if (confirm('Remove this comment from public view? The record is kept and marked Removed.')) $el.submit()">
                                             @csrf
                                             <input type="hidden" name="action" value="remove">
                                             <button class="btn-ghost btn-sm text-rose-600 dark:text-rose-400" title="Remove"><x-icon name="trash" class="size-4" /></button>
                                         </form>
                                     @endif
+                                    @endunless
                                 @endcan
                             </div>
                         </td>

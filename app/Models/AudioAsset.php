@@ -35,6 +35,19 @@ class AudioAsset extends Model
         'avg_rating' => 'float',
     ];
 
+    protected static function booted(): void
+    {
+        // When the approval workflow completes (status → 'approved'), auto-
+        // provision a pending rights record so it lands in the Rights Records
+        // table immediately. The rights team completes + clears it, which is
+        // what unlocks publishing (the publish gate still requires cleared).
+        static::updated(function (self $asset): void {
+            if ($asset->wasChanged('status') && $asset->status === 'approved') {
+                $asset->ensureRightsRecord();
+            }
+        });
+    }
+
     /* ---------------------------- relationships ----------------------- */
 
     public function station(): BelongsTo
@@ -105,11 +118,6 @@ class AudioAsset extends Model
     public function rightsRecords(): HasMany
     {
         return $this->hasMany(RightsRecord::class);
-    }
-
-    public function qcReports(): HasMany
-    {
-        return $this->hasMany(QcReport::class);
     }
 
     public function transcripts(): HasMany
@@ -194,6 +202,27 @@ class AudioAsset extends Model
         return $this->status === 'published'
             && $this->access_level === 'public'
             && $this->rights_status === 'cleared';
+    }
+
+    /**
+     * Ensure the asset has at least one rights record. Auto-provisioned as
+     * 'pending' when the asset is published, so the rights team only has to
+     * fill in the details and clear it (rather than create it from scratch).
+     */
+    public function ensureRightsRecord(): void
+    {
+        if ($this->rightsRecords()->exists()) {
+            return;
+        }
+
+        $this->rightsRecords()->create([
+            'rights_types' => [],
+            'territory' => 'Bangladesh',
+            'royalty_required' => false,
+            'status' => 'pending',
+            'created_by' => auth()->id(),
+            'notes' => 'Auto-created on approval — add the rights holder and details, then set the status to Cleared to allow publishing.',
+        ]);
     }
 
     public static function nextArchiveNo(): string

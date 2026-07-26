@@ -6,11 +6,10 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\CommentResource;
+use App\Http\Resources\CommunitySubmissionResource;
 use App\Models\AudioAsset;
 use App\Models\Comment;
-use App\Models\ContentReport;
-use App\Models\Feedback;
-use App\Models\IssueReport;
+use App\Models\CommunitySubmission;
 use App\Models\Rating;
 use App\Models\Setting;
 use App\Models\User;
@@ -152,6 +151,11 @@ class EngagementController extends Controller
         return response()->json(['message' => 'Rating saved.'] + $agg);
     }
 
+    /**
+     * FR-ENG-04/07/09 — the public request contracts are unchanged; all three
+     * now land in the single `community_submissions` inbox with a `type`.
+     */
+
     /** FR-ENG-04 — report a comment or content item. */
     public function report(Request $request): JsonResponse
     {
@@ -162,9 +166,14 @@ class EngagementController extends Controller
             'details' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        ContentReport::query()->create($data + [
-            'reporter_id' => $request->user()?->id,
-            'status' => 'pending',
+        CommunitySubmission::query()->create([
+            'type' => 'content_report',
+            'user_id' => $request->user()?->id,
+            'subject_type' => $data['reportable_type'],
+            'subject_id' => $data['reportable_id'],
+            'category' => $data['reason'],
+            'message' => $data['details'] ?? null,
+            'status' => 'new',
         ]);
 
         return response()->json(['message' => 'Report submitted. Thank you.'], 201);
@@ -179,9 +188,14 @@ class EngagementController extends Controller
             'description' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        IssueReport::query()->create($data + [
+        CommunitySubmission::query()->create([
+            'type' => 'issue_report',
             'user_id' => $request->user()?->id,
-            'status' => 'open',
+            'subject_type' => isset($data['audio_asset_id']) ? 'audio_asset' : null,
+            'subject_id' => $data['audio_asset_id'] ?? null,
+            'category' => $data['issue_type'],
+            'message' => $data['description'] ?? null,
+            'status' => 'new',
         ]);
 
         return response()->json(['message' => 'Issue reported. Our team will review it.'], 201);
@@ -196,12 +210,31 @@ class EngagementController extends Controller
             'message' => ['required', 'string', 'max:2000'],
         ]);
 
-        Feedback::query()->create($data + [
+        CommunitySubmission::query()->create([
+            'type' => 'feedback',
             'user_id' => $request->user()?->id,
+            'category' => $data['category'],
+            'subject_line' => $data['subject'] ?? null,
+            'message' => $data['message'],
             'status' => 'new',
         ]);
 
         return response()->json(['message' => 'Thank you for your feedback.'], 201);
+    }
+
+    /**
+     * The signed-in listener's own submissions (reports, issues, feedback) with
+     * the status a moderator has set — their side of the Community Inbox.
+     */
+    public function mySubmissions(Request $request): JsonResponse
+    {
+        $submissions = CommunitySubmission::query()
+            ->where('user_id', $request->user()->id)
+            ->with('subject')
+            ->latest()
+            ->paginate(20);
+
+        return CommunitySubmissionResource::collection($submissions)->response();
     }
 
     private function containsProfanity(string $text): bool

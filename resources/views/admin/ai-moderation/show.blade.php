@@ -98,8 +98,8 @@
                     <form method="POST" action="{{ route('admin.ai-moderation.review', $asset) }}">
                         @csrf
                         <div class="card-body">
-                            <x-form.textarea label="Comments" name="comments" rows="3"
-                                             help="Required when rejecting — explain why this asset cannot be published." />
+                            <x-form.textarea label="Remarks" name="comments" rows="3" :required="true"
+                                             help="Required for every decision — explain why this asset is accepted or rejected." />
                         </div>
                         <div class="flex flex-wrap items-center justify-end gap-2 border-t border-slate-200 px-5 py-4 dark:border-slate-800">
                             <button type="submit" name="action" value="reject" class="btn-danger"

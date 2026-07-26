@@ -39,32 +39,6 @@ return new class extends Migration
         });
 
         // M24 — home screen sections (FR-CUR-01)
-        Schema::create('home_sections', function (Blueprint $table): void {
-            $table->id();
-            $table->string('title');
-            $table->string('title_bn')->nullable();
-            $table->string('slug')->unique();
-            $table->string('section_type', 30)->default('custom')->index();
-            // custom | trending | new_releases | top_played | recently_played | continue_listening
-            // | recommended | on_this_day | featured_artists | featured_albums | curated_playlists
-            $table->string('layout', 20)->default('row'); // row | grid | banner | spotlight
-            $table->unsignedInteger('position')->default(0);
-            $table->unsignedInteger('max_items')->default(12);
-            $table->boolean('is_active')->default(true)->index();
-            $table->timestamp('starts_at')->nullable(); // scheduling (FR-CUR-03)
-            $table->timestamp('ends_at')->nullable();
-            $table->json('filters')->nullable(); // e.g. {content_type: "song", genre: "folk"}
-            $table->timestamps();
-        });
-
-        Schema::create('home_section_items', function (Blueprint $table): void {
-            $table->id();
-            $table->foreignId('home_section_id')->constrained()->cascadeOnDelete();
-            $table->morphs('curatable'); // Song | Album | Artist | Playlist | PodcastChannel | Programme | Episode | AudioAsset
-            $table->unsignedInteger('position')->default(0);
-            $table->timestamps();
-        });
-
         // M24 — promotional banners
         Schema::create('banners', function (Blueprint $table): void {
             $table->id();
@@ -85,8 +59,6 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('banners');
-        Schema::dropIfExists('home_section_items');
-        Schema::dropIfExists('home_sections');
         Schema::dropIfExists('asset_stats_dailies');
         Schema::dropIfExists('play_events');
     }

@@ -101,7 +101,7 @@ class PlaybackController extends Controller
     public function adImpression(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'ad_asset_id' => ['required', 'exists:ad_assets,id'],
+            'ad_campaign_id' => ['required', 'exists:ad_campaigns,id'],
             'slot' => ['nullable', Rule::in(['pre_roll', 'between'])],
             'platform' => ['nullable', Rule::in(['web', 'android', 'ios'])],
             'completed' => ['boolean'],
@@ -109,7 +109,7 @@ class PlaybackController extends Controller
         ]);
 
         $this->ads->logImpression(
-            $data['ad_asset_id'],
+            $data['ad_campaign_id'],
             $request->user(),
             $request->user() ? null : ($data['anonymous_id'] ?? null),
             $data['slot'] ?? 'pre_roll',
@@ -146,17 +146,28 @@ class PlaybackController extends Controller
 
     /**
      * Public ad audio for pre-roll slots resolved by GET /assets/{asset}/stream.
-     * Falls back to a synthesized jingle when the ad creative file is absent.
+     * Streams the campaign's linked audio-asset creative (its default online
+     * version), falling back to a synthesized demo track when the file is absent.
      */
-    public function adAudio(\App\Models\AdAsset $adAsset): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    public function adAudio(\App\Models\AdCampaign $adCampaign): \Symfony\Component\HttpFoundation\BinaryFileResponse
     {
-        abort_unless($adAsset->status === 'active', 404);
+        abort_unless($adCampaign->status === 'active', 404);
+
+        $asset = $adCampaign->audioAsset;
+        abort_unless($asset !== null, 404, 'This campaign has no creative.');
+
+        // The streamable version = the default, non-master version (same rule
+        // the public StreamingService uses); never a preservation master.
+        $version = $asset->versions()
+            ->where('is_default', true)
+            ->where('version_type', '!=', 'preservation_master')
+            ->first();
 
         $disk = \Illuminate\Support\Facades\Storage::disk('local');
 
-        $relative = $adAsset->file_path && $disk->exists($adAsset->file_path)
-            ? $adAsset->file_path
-            : sprintf('demo-audio/ad-%02d.wav', ($adAsset->id % 3) + 1);
+        $relative = $version?->file_path && $disk->exists($version->file_path)
+            ? $version->file_path
+            : sprintf('demo-audio/track-%02d.wav', ($asset->id % 12) + 1);
 
         abort_unless($disk->exists($relative), 404, 'Ad media not available. Run `php artisan demo:audio` to generate demo media.');
 

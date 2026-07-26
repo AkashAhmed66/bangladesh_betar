@@ -12,8 +12,8 @@ return new class extends Migration
         Schema::create('episodes', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('programme_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('season_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('audio_asset_id')->nullable()->constrained()->nullOnDelete();
+            $table->unsignedInteger('season_number')->default(1); // plain number, like podcast episodes
             $table->unsignedInteger('number')->nullable();
             $table->string('title');
             $table->string('title_bn')->nullable();
@@ -27,47 +27,6 @@ return new class extends Migration
             $table->unsignedBigInteger('play_count')->default(0);
             $table->timestamps();
             $table->softDeletes();
-        });
-
-        // M10 — individually addressable stories inside an episode (FR-EVT-02/03)
-        Schema::create('stories', function (Blueprint $table): void {
-            $table->id();
-            $table->foreignId('episode_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('category_id')->nullable()->constrained()->nullOnDelete();
-            $table->foreignId('language_id')->nullable()->constrained()->nullOnDelete();
-            $table->string('title');
-            $table->string('title_bn')->nullable();
-            $table->string('slug')->unique();
-            $table->text('summary')->nullable();
-            $table->string('storyteller_name')->nullable();
-            $table->boolean('is_anonymous')->default(false); // FR-EVT-04
-            $table->string('narrator')->nullable();
-            $table->string('location')->nullable();
-            $table->string('district', 60)->nullable()->index();
-            $table->unsignedInteger('start_seconds')->default(0);
-            $table->unsignedInteger('end_seconds')->default(0);
-            $table->string('content_warning')->nullable(); // FR-EVT-07
-            $table->boolean('is_published')->default(false)->index();
-            $table->unsignedBigInteger('play_count')->default(0);
-            $table->timestamps();
-        });
-
-        // M10 — listener story submissions with consent (FR-EVT-05)
-        Schema::create('story_submissions', function (Blueprint $table): void {
-            $table->id();
-            $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
-            $table->string('submitter_name')->nullable();
-            $table->string('contact')->nullable();
-            $table->boolean('is_anonymous')->default(false);
-            $table->string('submission_type', 10)->default('text'); // text | audio
-            $table->longText('content_text')->nullable();
-            $table->string('file_path')->nullable();
-            $table->boolean('consent_given')->default(false);
-            $table->timestamp('consent_at')->nullable();
-            $table->string('status', 20)->default('pending')->index(); // pending | in_review | accepted | rejected
-            $table->foreignId('reviewed_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->text('review_notes')->nullable();
-            $table->timestamps();
         });
 
         // M09 — podcast channels & episodes
@@ -126,8 +85,6 @@ return new class extends Migration
         Schema::dropIfExists('podcast_episode_artist');
         Schema::dropIfExists('podcast_episodes');
         Schema::dropIfExists('podcast_channels');
-        Schema::dropIfExists('story_submissions');
-        Schema::dropIfExists('stories');
         Schema::dropIfExists('episodes');
     }
 };

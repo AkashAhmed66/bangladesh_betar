@@ -73,7 +73,7 @@
                 @if ($isLanguage)<x-form.input label="Code" name="code" help="ISO-style code, e.g. bn, en, bn-syl" />@endif
                 @if ($hasType)
                     <x-form.select label="Scope" name="type" value="content"
-                                   :options="['content' => 'Content', 'story' => 'Story', 'ad' => 'Advertisement']" />
+                                   :options="['content' => 'Content', 'ad' => 'Advertisement']" />
                 @endif
                 <button class="btn-primary w-full">Add</button>
             </form>

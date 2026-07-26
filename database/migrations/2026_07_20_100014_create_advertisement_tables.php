@@ -22,6 +22,9 @@ return new class extends Migration
         Schema::create('ad_campaigns', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('advertiser_id')->nullable()->constrained()->nullOnDelete();
+            // The ad creative is an existing audio asset picked from the
+            // library (replaces the old separate ad_assets creative table).
+            $table->foreignId('audio_asset_id')->nullable()->constrained()->nullOnDelete();
             $table->string('name');
             $table->date('start_date')->nullable();
             $table->date('end_date')->nullable()->index();
@@ -35,28 +38,11 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        // M27 — ad asset library (FR-ADV-01)
-        Schema::create('ad_assets', function (Blueprint $table): void {
-            $table->id();
-            $table->foreignId('ad_campaign_id')->nullable()->constrained()->nullOnDelete(); // null => house/PSA
-            $table->string('title');
-            $table->string('ad_type', 15)->default('commercial')->index(); // commercial | house | psa
-            $table->string('file_path')->nullable();
-            $table->unsignedInteger('duration_seconds')->default(0);
-            $table->foreignId('language_id')->nullable()->constrained()->nullOnDelete();
-            $table->string('category', 50)->nullable();
-            $table->date('valid_from')->nullable();
-            $table->date('valid_until')->nullable();
-            $table->string('status', 20)->default('pending_approval')->index();
-            // pending_approval | active | inactive | expired
-            $table->timestamps();
-        });
-
         // M27 — impressions / completions log (FR-ADV-06)
         Schema::create('ad_impressions', function (Blueprint $table): void {
             $table->id();
-            $table->foreignId('ad_asset_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('ad_campaign_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('ad_campaign_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('audio_asset_id')->nullable()->constrained()->nullOnDelete(); // which creative was served
             $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
             $table->string('anonymous_id', 64)->nullable();
             $table->string('slot', 15)->default('pre_roll'); // pre_roll | between
@@ -69,7 +55,6 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('ad_impressions');
-        Schema::dropIfExists('ad_assets');
         Schema::dropIfExists('ad_campaigns');
         Schema::dropIfExists('advertisers');
     }

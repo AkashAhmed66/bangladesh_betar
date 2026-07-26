@@ -26,7 +26,6 @@ class EpisodeResource extends JsonResource
             'duration_seconds' => $this->duration_seconds,
             'artwork_url' => $this->artwork_path ? asset('storage/'.$this->artwork_path) : null,
             'play_count' => $this->play_count,
-            'stories' => StoryResource::collection($this->whenLoaded('stories')),
         ];
     }
 }

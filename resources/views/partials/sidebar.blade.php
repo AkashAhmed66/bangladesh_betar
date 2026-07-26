@@ -24,24 +24,18 @@
             ['broadcasts.view', 'admin.broadcast-channels.index', 'radio', 'Live Broadcasting', ['admin.broadcast-channels.']],
             ['programmes.view', 'admin.programmes.index', 'squares', 'Programmes', ['admin.programmes.']],
             ['episodes.view', 'admin.episodes.index', 'ghost', 'Programme Episodes', ['admin.episodes.']],
-            [['stories.view', 'submissions.view'], 'admin.stories.index', 'chat', 'Stories & Submissions', ['admin.stories.']],
         ],
         'Governance' => [
             ['workflows.view', 'admin.workflows.index', 'workflow', 'Workflows', ['admin.workflows.']],
             ['rights.view', 'admin.rights-records.index', 'scale', 'Rights Records', ['admin.rights-records.']],
             ['rights.view', 'admin.rights-holders.index', 'users', 'Rights Holders', ['admin.rights-holders.']],
-            ['qc.view', 'admin.qc-reports.index', 'shield-check', 'Quality Control', ['admin.qc-reports.']],
             ['ai-moderation.view', 'admin.ai-moderation.index', 'shield', 'AI Moderation', ['admin.ai-moderation.']],
         ],
         'Community' => [
             ['moderation.view', 'admin.comments.index', 'chat', 'Comments and Ratings', ['admin.comments.']],
-            ['moderation.view', 'admin.content-reports.index', 'flag', 'Reported Content', ['admin.content-reports.']],
-            ['issues.view', 'admin.issue-reports.index', 'exclamation', 'Issue Reports', ['admin.issue-reports.']],
-            ['takedowns.view', 'admin.takedown-requests.index', 'shield', 'Takedowns', ['admin.takedown-requests.']],
-            ['feedback.view', 'admin.feedback.index', 'inbox', 'Feedback', ['admin.feedback.']],
+            ['moderation.view', 'admin.community-inbox.index', 'inbox', 'Community Inbox', ['admin.community-inbox.']],
         ],
         'Curation' => [
-            ['curation.view', 'admin.home-sections.index', 'squares', 'Home Sections', ['admin.home-sections.']],
             ['curation.view', 'admin.banners.index', 'flag', 'Banners', ['admin.banners.']],
         ],
         'Business' => [
@@ -50,7 +44,6 @@
             ['subscriptions.view', 'admin.subscriptions.index', 'credit-card', 'Subscriptions', ['admin.subscriptions.']],
             ['payments.view', 'admin.payments.index', 'banknotes', 'Payments', ['admin.payments.']],
             ['ads.view', 'admin.ad-campaigns.index', 'megaphone', 'Ad Campaigns', ['admin.ad-campaigns.']],
-            ['ads.view', 'admin.ad-assets.index', 'play', 'Ad Assets', ['admin.ad-assets.']],
             ['ads.view', 'admin.advertisers.index', 'users', 'Advertisers', ['admin.advertisers.']],
         ],
         'Insights' => [

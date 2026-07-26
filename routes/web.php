@@ -114,7 +114,7 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
             ->middleware('permission:albums.view');
         Route::resource('songs', Admin\SongController::class)->except('show')
             ->middleware('permission:songs.view');
-        Route::resource('playlists', Admin\PlaylistController::class)->except('show')
+        Route::resource('playlists', Admin\PlaylistController::class)->only(['index', 'show'])
             ->middleware('permission:playlists.view');
 
         // ---- M09: Podcasts ----
@@ -140,12 +140,6 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
         // ---- M10: Event programmes (Bhoot FM) ----
         Route::resource('episodes', Admin\EpisodeController::class)->except('show')
             ->middleware('permission:episodes.view');
-        // Stories + listener submissions share one admin page (index shows both,
-        // gated separately per-section by stories.view / submissions.view).
-        Route::resource('stories', Admin\StoryController::class)->except('show')
-            ->middleware('permission:stories.view|submissions.view');
-        Route::post('story-submissions/{submission}/review', [Admin\StorySubmissionController::class, 'review'])
-            ->middleware('permission:submissions.review')->name('story-submissions.review');
 
         // ---- M12: Edit sessions ----
         Route::get('edit-sessions', [Admin\EditSessionController::class, 'index'])
@@ -167,14 +161,6 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
         Route::resource('rights-records', Admin\RightsRecordController::class)->except('show')
             ->middleware('permission:rights.view');
 
-        // ---- M15: Quality control ----
-        Route::get('qc-reports', [Admin\QcReportController::class, 'index'])
-            ->middleware('permission:qc.view')->name('qc-reports.index');
-        Route::get('qc-reports/{qcReport}', [Admin\QcReportController::class, 'show'])
-            ->middleware('permission:qc.view')->name('qc-reports.show');
-        Route::post('qc-reports/{qcReport}/verdict', [Admin\QcReportController::class, 'verdict'])
-            ->middleware('permission:qc.review')->name('qc-reports.verdict');
-
         // ---- M16: AI content moderation (duplicate / violence / anti-government + transcription) ----
         Route::middleware('permission:ai-moderation.view')->group(function (): void {
             Route::get('ai-moderation', [Admin\AiModerationController::class, 'index'])->name('ai-moderation.index');
@@ -184,32 +170,20 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
             ->middleware('permission:ai-moderation.review')->name('ai-moderation.review');
 
         // ---- M24: Curation ----
-        Route::resource('home-sections', Admin\HomeSectionController::class)->except('show')
-            ->middleware('permission:curation.view');
         Route::resource('banners', Admin\BannerController::class)->except('show')
             ->middleware('permission:curation.view');
 
         // ---- M26: Moderation & feedback ----
+        // Comments moderation + the unified Community Inbox (reports, content
+        // issues, feedback) both sit under the `moderation` permission.
         Route::middleware('permission:moderation.view')->group(function (): void {
             Route::get('comments', [Admin\CommentModerationController::class, 'index'])->name('comments.index');
             Route::post('comments/{comment}/moderate', [Admin\CommentModerationController::class, 'moderate'])
                 ->middleware('permission:moderation.manage')->name('comments.moderate');
-            Route::get('content-reports', [Admin\ContentReportController::class, 'index'])->name('content-reports.index');
-            Route::post('content-reports/{report}/resolve', [Admin\ContentReportController::class, 'resolve'])
-                ->middleware('permission:moderation.manage')->name('content-reports.resolve');
+            Route::get('community-inbox', [Admin\CommunityInboxController::class, 'index'])->name('community-inbox.index');
+            Route::post('community-inbox/{submission}/status', [Admin\CommunityInboxController::class, 'updateStatus'])
+                ->middleware('permission:moderation.manage')->name('community-inbox.update-status');
         });
-        Route::get('issue-reports', [Admin\IssueReportController::class, 'index'])
-            ->middleware('permission:issues.view')->name('issue-reports.index');
-        Route::post('issue-reports/{report}/update-status', [Admin\IssueReportController::class, 'updateStatus'])
-            ->middleware('permission:issues.manage')->name('issue-reports.update-status');
-        Route::get('takedown-requests', [Admin\TakedownRequestController::class, 'index'])
-            ->middleware('permission:takedowns.view')->name('takedown-requests.index');
-        Route::post('takedown-requests/{takedown}/update', [Admin\TakedownRequestController::class, 'update'])
-            ->middleware('permission:takedowns.manage')->name('takedown-requests.update');
-        Route::get('feedback', [Admin\FeedbackController::class, 'index'])
-            ->middleware('permission:feedback.view')->name('feedback.index');
-        Route::post('feedback/{feedback}/update-status', [Admin\FeedbackController::class, 'updateStatus'])
-            ->middleware('permission:feedback.manage')->name('feedback.update-status');
 
         // ---- M18: Plans, subscriptions, payments ----
         Route::resource('plans', Admin\PlanController::class)->only(['index', 'edit', 'update'])
@@ -229,7 +203,6 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
         Route::middleware('permission:ads.view')->group(function (): void {
             Route::resource('advertisers', Admin\AdvertiserController::class)->except('show');
             Route::resource('ad-campaigns', Admin\AdCampaignController::class)->except('show');
-            Route::resource('ad-assets', Admin\AdAssetController::class)->except('show');
         });
 
         // ---- M21/M22: Audit & preservation ----

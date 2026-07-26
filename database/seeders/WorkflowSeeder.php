@@ -66,7 +66,7 @@ class WorkflowSeeder extends Seeder
 
         // Live approval instances for the in-pipeline assets.
         $archivist = User::query()->where('email', 'archivist@betar.gov.bd')->first();
-        $pending = AudioAsset::query()->whereIn('status', ['pending_qc', 'in_review'])->get();
+        $pending = AudioAsset::query()->whereIn('status', ['in_review'])->get();
 
         foreach ($pending as $asset) {
             $workflow = Workflow::forContentType($asset->content_type === 'drama' ? 'default' : 'historical');

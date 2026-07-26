@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AdCampaign;
 use App\Models\Advertiser;
+use App\Models\AudioAsset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -20,7 +21,7 @@ class AdCampaignController extends Controller
     public function index(): View
     {
         $campaigns = AdCampaign::query()
-            ->with('advertiser')
+            ->with(['advertiser', 'audioAsset'])
             ->withCount('impressions')
             ->orderByDesc('created_at')
             ->paginate(15)
@@ -74,6 +75,7 @@ class AdCampaignController extends Controller
     {
         $data = $request->validate([
             'advertiser_id' => ['nullable', 'exists:advertisers,id'],
+            'audio_asset_id' => ['nullable', 'exists:audio_assets,id'],
             'name' => ['required', 'string', 'max:255'],
             'start_date' => ['nullable', 'date'],
             'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
@@ -106,6 +108,12 @@ class AdCampaignController extends Controller
     {
         return [
             'advertisers' => Advertiser::query()->orderBy('name')->pluck('name', 'id'),
+            // Ad creative is picked from already-uploaded audio assets. Prefer
+            // published, streamable spots; that is what actually gets served.
+            'audioAssets' => AudioAsset::query()
+                ->where('status', 'published')
+                ->orderBy('title')
+                ->pluck('title', 'id'),
         ];
     }
 }

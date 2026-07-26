@@ -41,13 +41,11 @@ class AppServiceProvider extends ServiceProvider
             'artist' => \App\Models\Artist::class,
             'programme' => \App\Models\Programme::class,
             'episode' => \App\Models\Episode::class,
-            'story' => \App\Models\Story::class,
             'podcast_channel' => \App\Models\PodcastChannel::class,
             'podcast_episode' => \App\Models\PodcastEpisode::class,
             'playlist' => \App\Models\Playlist::class,
             'comment' => \App\Models\Comment::class,
             'edit_session' => \App\Models\EditSession::class,
-            'ad_asset' => \App\Models\AdAsset::class,
             'media_item' => \App\Models\MediaItem::class,
             'rights_record' => \App\Models\RightsRecord::class,
             'station' => \App\Models\Station::class,
@@ -56,7 +54,6 @@ class AppServiceProvider extends ServiceProvider
             'subscription' => \App\Models\Subscription::class,
             'setting' => \App\Models\Setting::class,
             'banner' => \App\Models\Banner::class,
-            'home_section' => \App\Models\HomeSection::class,
 
             // The rest of the Auditable models — every one needs an entry or
             // creating the very first real (non-seeded) row throws
@@ -70,10 +67,7 @@ class AppServiceProvider extends ServiceProvider
             'language' => \App\Models\Language::class,
             'mood' => \App\Models\Mood::class,
             'promo_code' => \App\Models\PromoCode::class,
-            'qc_report' => \App\Models\QcReport::class,
             'rights_holder' => \App\Models\RightsHolder::class,
-            'takedown_request' => \App\Models\TakedownRequest::class,
-            'story_submission' => \App\Models\StorySubmission::class,
             'transcript' => \App\Models\Transcript::class,
             'workflow' => \App\Models\Workflow::class,
             'broadcast_channel' => \App\Models\BroadcastChannel::class,

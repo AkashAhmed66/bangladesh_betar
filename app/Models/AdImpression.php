@@ -18,13 +18,14 @@ class AdImpression extends Model
         'created_at' => 'datetime',
     ];
 
-    public function adAsset(): BelongsTo
-    {
-        return $this->belongsTo(AdAsset::class);
-    }
-
     public function campaign(): BelongsTo
     {
         return $this->belongsTo(AdCampaign::class, 'ad_campaign_id');
+    }
+
+    /** The audio asset creative that was served for this impression. */
+    public function audioAsset(): BelongsTo
+    {
+        return $this->belongsTo(AudioAsset::class);
     }
 }

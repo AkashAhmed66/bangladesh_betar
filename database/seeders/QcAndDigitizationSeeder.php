@@ -6,13 +6,12 @@ namespace Database\Seeders;
 
 use App\Models\AudioAsset;
 use App\Models\MediaItem;
-use App\Models\QcReport;
 use App\Models\Station;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 
 /**
- * M03 — digitization register; M15 — automated QC reports.
+ * M03 — digitization register (physical media items).
  */
 class QcAndDigitizationSeeder extends Seeder
 {
@@ -52,36 +51,6 @@ class QcAndDigitizationSeeder extends Seeder
             );
         }
 
-        // ---- QC reports for every asset ----
-        $assets = AudioAsset::query()->get();
-        foreach ($assets as $asset) {
-            $fail = $asset->status === 'pending_qc';
-            $warning = ! $fail && $asset->id % 7 === 0;
-
-            $checks = [
-                'silence' => ['pass' => ! $fail, 'detail' => $fail ? 'Leading silence 14.2s exceeds 5s threshold' : 'OK'],
-                'clipping' => ['pass' => true, 'detail' => 'No clipped samples detected'],
-                'volume' => ['pass' => ! $warning, 'detail' => $warning ? 'Average level -28 LUFS below target' : 'OK'],
-                'noise' => ['pass' => ! $fail, 'detail' => $fail ? 'Broadband hiss detected above -55 dB' : 'OK'],
-                'channels' => ['pass' => true, 'detail' => 'Stereo balance within 1.2 dB'],
-                'corruption' => ['pass' => true, 'detail' => 'File decodes cleanly end to end'],
-                'loudness' => ['pass' => ! $warning, 'detail' => $warning ? 'Deviation from EBU R128 target' : 'Within EBU R128 tolerance'],
-            ];
-
-            QcReport::query()->firstOrCreate(
-                ['audio_asset_id' => $asset->id],
-                [
-                    'audio_version_id' => $asset->versions()->where('version_type', 'preservation_master')->value('id'),
-                    'checks' => $checks,
-                    'overall_result' => $fail ? 'fail' : ($warning ? 'warning' : 'pass'),
-                    'verdict' => $fail ? null : 'approved',
-                    'reviewed_by' => $fail ? null : $admin?->id,
-                    'reviewer_comments' => $fail ? null : 'Automated checks verified by reviewer.',
-                    'reviewed_at' => $fail ? null : now()->subDays(random_int(1, 100)),
-                ],
-            );
-        }
-
-        $this->command?->info('Digitization: '.count($items).' media items; QC reports for '.$assets->count().' assets seeded');
+        $this->command?->info('Digitization: '.count($items).' media items seeded');
     }
 }

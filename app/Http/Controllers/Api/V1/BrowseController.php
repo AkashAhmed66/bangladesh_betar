@@ -17,7 +17,6 @@ use App\Models\AudioAsset;
 use App\Models\Banner;
 use App\Models\Category;
 use App\Models\Genre;
-use App\Models\HomeSection;
 use App\Models\Playlist;
 use App\Models\PodcastChannel;
 use App\Models\Programme;
@@ -36,18 +35,26 @@ class BrowseController extends Controller
      */
     public function home(Request $request): JsonResponse
     {
-        $user = $request->user();
+        // Static home rows (no longer admin-managed). The CONTENT of each row is
+        // still live (trending / latest / most-played …); only the SET of rows
+        // is fixed here in code.
+        $rows = [
+            ['trending', 'Trending Now', 'এখন ট্রেন্ডিং'],
+            ['new_releases', 'New to the Archive', 'নতুন প্রকাশ'],
+            ['on_this_day', 'On This Day', 'ইতিহাসের এই দিনে'],
+            ['top_played', 'Top Played', 'সর্বাধিক শোনা'],
+        ];
 
-        $sections = HomeSection::query()->live()->with('items.curatable')->get()
-            ->map(fn (HomeSection $section) => [
-                'id' => $section->id,
-                'title' => $section->title,
-                'title_bn' => $section->title_bn,
-                'type' => $section->section_type,
-                'layout' => $section->layout,
-                'items' => $this->resolveSectionItems($section, $user),
+        $sections = collect($rows)
+            ->map(fn (array $r) => [
+                'id' => $r[0],
+                'title' => $r[1],
+                'title_bn' => $r[2],
+                'type' => $r[0],
+                'layout' => 'row',
+                'items' => $this->resolveSectionItems($r[0], 12),
             ])
-            ->filter(fn ($section) => ! empty($section['items']))
+            ->filter(fn (array $section) => ! empty($section['items']))
             ->values();
 
         return response()->json([
@@ -128,54 +135,27 @@ class BrowseController extends Controller
         )->response();
     }
 
-    public function editorialPlaylists(): JsonResponse
-    {
-        return \App\Http\Resources\PlaylistResource::collection(
-            Playlist::query()->editorial()->withCount('items')->take(20)->get(),
-        )->response();
-    }
-
     /* ------------------------------------------------------------------ */
 
-    private function resolveSectionItems(HomeSection $section, ?\App\Models\User $user): array
+    private function resolveSectionItems(string $type, int $max): array
     {
-        $items = match ($section->section_type) {
-            'trending' => AudioAsset::query()->published()->orderByDesc('play_count')->take($section->max_items)->get()
+        $items = match ($type) {
+            'trending' => AudioAsset::query()->published()->orderByDesc('play_count')->take($max)->get()
                 ->map(fn ($a) => (new AudioAssetResource($a))->resolve()),
-            'new_releases' => AudioAsset::query()->published()->latest('published_at')->take($section->max_items)->get()
+            'new_releases' => AudioAsset::query()->published()->latest('published_at')->take($max)->get()
                 ->map(fn ($a) => (new AudioAssetResource($a))->resolve()),
-            'top_played' => AudioAsset::query()->published()->orderByDesc('play_count')->take($section->max_items)->get()
+            'top_played' => AudioAsset::query()->published()->orderByDesc('play_count')->take($max)->get()
                 ->map(fn ($a) => (new AudioAssetResource($a))->resolve()),
             'on_this_day' => AudioAsset::query()->published()
                 ->whereMonth('first_broadcast_on', now()->month)->whereDay('first_broadcast_on', now()->day)
-                ->take($section->max_items)->get()->map(fn ($a) => (new AudioAssetResource($a))->resolve()),
-            'featured_artists' => Artist::query()->published()->where('is_featured', true)->take($section->max_items)->get()
+                ->take($max)->get()->map(fn ($a) => (new AudioAssetResource($a))->resolve()),
+            'featured_artists' => Artist::query()->published()->where('is_featured', true)->take($max)->get()
                 ->map(fn ($a) => (new ArtistResource($a))->resolve()),
-            'featured_albums' => Album::query()->published()->withCount('songs')->take($section->max_items)->get()
+            'featured_albums' => Album::query()->published()->withCount('songs')->take($max)->get()
                 ->map(fn ($a) => (new AlbumResource($a))->resolve()),
-            'curated_playlists' => Playlist::query()->editorial()->withCount('items')->take($section->max_items)->get()
-                ->map(fn ($p) => (new \App\Http\Resources\PlaylistResource($p))->resolve()),
-            default => $this->manualItems($section), // 'custom' and others use curated items
+            default => collect(),
         };
 
         return $items->values()->all();
-    }
-
-    private function manualItems(HomeSection $section): \Illuminate\Support\Collection
-    {
-        return $section->items->map(function ($item) {
-            $model = $item->curatable;
-
-            return match (true) {
-                $model instanceof Song => (new SongResource($model))->resolve(),
-                $model instanceof Album => (new AlbumResource($model))->resolve(),
-                $model instanceof Artist => (new ArtistResource($model))->resolve(),
-                $model instanceof Playlist => (new \App\Http\Resources\PlaylistResource($model))->resolve(),
-                $model instanceof PodcastChannel => (new PodcastChannelResource($model))->resolve(),
-                $model instanceof Programme => (new ProgrammeResource($model))->resolve(),
-                $model instanceof AudioAsset => (new AudioAssetResource($model))->resolve(),
-                default => null,
-            };
-        })->filter();
     }
 }

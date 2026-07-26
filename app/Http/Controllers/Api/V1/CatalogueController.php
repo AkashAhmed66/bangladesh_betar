@@ -13,7 +13,6 @@ use App\Http\Resources\PodcastChannelResource;
 use App\Http\Resources\PodcastEpisodeResource;
 use App\Http\Resources\ProgrammeResource;
 use App\Http\Resources\SongResource;
-use App\Http\Resources\StoryResource;
 use App\Models\Album;
 use App\Models\Artist;
 use App\Models\AudioAsset;
@@ -23,7 +22,6 @@ use App\Models\Follow;
 use App\Models\PodcastChannel;
 use App\Models\Programme;
 use App\Models\Song;
-use App\Models\Story;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -125,24 +123,18 @@ class CatalogueController extends Controller
 
         return response()->json([
             'data' => (new ProgrammeResource($programme))->resolve(),
-            'episodes' => EpisodeResource::collection($episodes),
+            // ->response()->getData(true) keeps the paginated {data, links, meta}
+            // shape; a bare nested resource collection would drop the wrapper.
+            'episodes' => EpisodeResource::collection($episodes)->response()->getData(true),
         ]);
     }
 
     public function episode(Episode $episode): JsonResponse
     {
         abort_unless($episode->is_published, 404);
-        $episode->load(['programme', 'stories' => fn ($q) => $q->published()->with('category')]);
+        $episode->load(['programme']);
 
         return (new EpisodeResource($episode))->response();
-    }
-
-    public function story(Story $story): JsonResponse
-    {
-        abort_unless($story->is_published, 404);
-        $story->load(['category', 'episode.programme']);
-
-        return (new StoryResource($story))->response();
     }
 
     // ---- Podcasts ----
@@ -164,7 +156,7 @@ class CatalogueController extends Controller
 
         return response()->json([
             'data' => (new PodcastChannelResource($podcastChannel))->resolve(),
-            'episodes' => PodcastEpisodeResource::collection($episodes),
+            'episodes' => PodcastEpisodeResource::collection($episodes)->response()->getData(true),
         ]);
     }
 
@@ -180,7 +172,7 @@ class CatalogueController extends Controller
 
     public function playlist(Request $request, \App\Models\Playlist $playlist): JsonResponse
     {
-        abort_unless($playlist->is_editorial || $playlist->is_public, 404);
+        abort_unless($playlist->is_public, 404);
         $playlist->load(['items.playable', 'user'])->loadCount('items');
         $this->markFollowing($playlist, $request->user());
 

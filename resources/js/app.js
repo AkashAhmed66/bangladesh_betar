@@ -66,3 +66,30 @@ Alpine.store('ui', {
 Alpine.plugin(collapse);
 window.Alpine = Alpine;
 Alpine.start();
+
+/* ------------------------------------------------------------------ */
+/* Keep the active sidebar item in view                                */
+/* On load, the nav may be scrolled to the top while the active item   */
+/* sits below the fold — center it in the nav's own scroll viewport    */
+/* (never scrolls the page, only the sidebar).                         */
+/* ------------------------------------------------------------------ */
+
+function scrollActiveNavIntoView() {
+    const active = document.querySelector('.nav-item.active');
+    const nav = active?.closest('nav');
+    if (!active || !nav) return;
+
+    const navRect = nav.getBoundingClientRect();
+    const actRect = active.getBoundingClientRect();
+
+    // Already fully visible — leave the scroll position alone.
+    if (actRect.top >= navRect.top && actRect.bottom <= navRect.bottom) return;
+
+    nav.scrollTop += (actRect.top - navRect.top) - nav.clientHeight / 2 + actRect.height / 2;
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', scrollActiveNavIntoView);
+} else {
+    scrollActiveNavIntoView();
+}

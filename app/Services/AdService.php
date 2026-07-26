@@ -4,24 +4,28 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Models\AdAsset;
+use App\Models\AdCampaign;
 use App\Models\AdImpression;
 use App\Models\AudioAsset;
 use App\Models\User;
 
 /**
  * M27 — server-side ad selection for free-tier playback (FR-ADV-03/05).
- * Falls back to house announcements / PSAs when no campaign is eligible.
+ * A campaign's creative is an existing audio asset from the library; the
+ * highest-priority running campaign with a linked creative is served.
  */
 class AdService
 {
+    /** Every ad plays for exactly this long — enforced here and in the player. */
+    public const AD_LENGTH_SECONDS = 10;
+
     public function __construct(private readonly EntitlementService $entitlements) {}
 
     /**
      * Pick an ad to insert before/around the given asset, or null if the
      * listener should not receive one.
      *
-     * @return array{id:int, title:string, type:string, duration_seconds:int, slot:string}|null
+     * @return array{id:int, title:string, audio_asset_id:int, duration_seconds:int, slot:string, audio_url:string}|null
      */
     public function selectFor(?User $user, AudioAsset $asset, string $slot = 'pre_roll'): ?array
     {
@@ -29,37 +33,44 @@ class AdService
             return null;
         }
 
-        // Prefer an active commercial spot; otherwise a house/PSA fallback.
-        $ad = AdAsset::query()->servable()->where('ad_type', 'commercial')
-                ->whereHas('campaign', fn ($q) => $q->running())
-                ->inRandomOrder()->first()
-            ?? AdAsset::query()->servable()->whereIn('ad_type', ['house', 'psa'])
-                ->inRandomOrder()->first();
+        // A running campaign whose linked creative is a published, streamable
+        // audio asset. Higher priority (lower number) wins; ties break randomly.
+        $campaign = AdCampaign::query()->running()
+            ->whereNotNull('audio_asset_id')
+            ->whereHas('audioAsset', fn ($q) => $q->where('status', 'published'))
+            ->with('audioAsset')
+            ->orderBy('priority')
+            ->inRandomOrder()
+            ->first();
 
-        if ($ad === null) {
+        if ($campaign === null || $campaign->audioAsset === null) {
             return null;
         }
 
+        $creative = $campaign->audioAsset;
+
         return [
-            'id' => $ad->id,
-            'title' => $ad->title,
-            'type' => $ad->ad_type,
-            'duration_seconds' => $ad->duration_seconds,
+            'id' => $campaign->id,
+            'title' => $campaign->name,
+            'audio_asset_id' => $creative->id,
+            // Fixed ad length — the creative is cut to exactly this many seconds
+            // by the player, regardless of the underlying recording's length.
+            'duration_seconds' => self::AD_LENGTH_SECONDS,
             'slot' => $slot,
-            'audio_url' => route('api.v1.ads.audio', ['adAsset' => $ad->id]),
+            'audio_url' => route('api.v1.ads.audio', ['adCampaign' => $campaign->id]),
         ];
     }
 
-    public function logImpression(int $adAssetId, ?User $user, ?string $anonymousId, string $slot, string $platform, bool $completed): void
+    public function logImpression(int $adCampaignId, ?User $user, ?string $anonymousId, string $slot, string $platform, bool $completed): void
     {
-        $ad = AdAsset::query()->find($adAssetId);
-        if ($ad === null) {
+        $campaign = AdCampaign::query()->find($adCampaignId);
+        if ($campaign === null) {
             return;
         }
 
         AdImpression::query()->create([
-            'ad_asset_id' => $ad->id,
-            'ad_campaign_id' => $ad->ad_campaign_id,
+            'ad_campaign_id' => $campaign->id,
+            'audio_asset_id' => $campaign->audio_asset_id,
             'user_id' => $user?->id,
             'anonymous_id' => $anonymousId,
             'slot' => $slot,

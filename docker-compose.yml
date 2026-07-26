@@ -46,8 +46,12 @@ services:
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-betar_livekit_dev_secret_please_change_in_prod_0001}
       PUBLIC_APP_URL: ${PUBLIC_APP_URL:-}
-      RUN_MIGRATIONS: "true"     # run migrate --force on boot
-      RUN_SEEDERS: "true"        # seed on first boot (idempotent)
+      # First boot (empty DB): migrate + seed. Later boots: apply only NEW
+      # pending migrations and DO NOT re-seed, so restarts never wipe/duplicate
+      # data. Set FORCE_SEED=true to deliberately re-run the seeders.
+      RUN_MIGRATIONS: "true"
+      RUN_SEEDERS: "true"        # only effective on a fresh database
+      FORCE_SEED: ${FORCE_SEED:-false}
     ports:
       - "${APP_PORT:-15000}:80"
     volumes:

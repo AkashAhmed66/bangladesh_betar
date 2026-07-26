@@ -35,11 +35,6 @@ class Programme extends Model
         return $this->belongsTo(Category::class);
     }
 
-    public function seasons(): HasMany
-    {
-        return $this->hasMany(Season::class);
-    }
-
     public function episodes(): HasMany
     {
         return $this->hasMany(Episode::class);

@@ -23,6 +23,10 @@
             </div>
             <x-form.select label="Advertiser" name="advertiser_id" :value="$campaign?->advertiser_id" placeholder="House / PSA (no advertiser)"
                            :options="$advertisers->all()" />
+            <x-form.select label="Ad creative (audio asset)" name="audio_asset_id" :value="$campaign?->audio_asset_id"
+                           placeholder="Select an uploaded audio asset"
+                           :options="$audioAssets->all()"
+                           help="The published audio spot played to free-tier listeners." />
             <x-form.select label="Status" name="status" :value="$campaign?->status ?? 'draft'" required
                            :options="['draft' => 'Draft', 'pending_approval' => 'Pending approval', 'active' => 'Active', 'paused' => 'Paused', 'completed' => 'Completed']" />
             <x-form.input label="Start date" name="start_date" type="date" :value="$campaign?->start_date?->format('Y-m-d')" />

@@ -52,6 +52,16 @@ class AiAnalysisJob extends Model
         return $query->where('review_status', 'pending');
     }
 
+    /** Jobs where any of the three checks tripped (the AI moderation queue). */
+    public function scopeFlagged(Builder $query): Builder
+    {
+        return $query->where(function (Builder $q): void {
+            $q->where('is_duplicate', true)
+                ->orWhere('violence_detected', true)
+                ->orWhere('anti_government_detected', true);
+        });
+    }
+
     /** True once the external job finished and any of the three checks tripped. */
     public function isFlagged(): bool
     {

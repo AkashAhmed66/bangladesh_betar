@@ -28,9 +28,10 @@ class AdCampaign extends Model
         return $this->belongsTo(Advertiser::class);
     }
 
-    public function assets(): HasMany
+    /** The ad creative — an existing audio asset from the library. */
+    public function audioAsset(): BelongsTo
     {
-        return $this->hasMany(AdAsset::class);
+        return $this->belongsTo(AudioAsset::class);
     }
 
     public function impressions(): HasMany

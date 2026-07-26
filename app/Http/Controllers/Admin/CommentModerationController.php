@@ -16,7 +16,10 @@ use Illuminate\View\View;
  */
 class CommentModerationController extends Controller
 {
-    private const STATUSES = ['pending', 'approved', 'hidden', 'removed'];
+    // 'deleted' is a virtual status: the comment was soft-deleted (e.g. by its
+    // author). The record is retained here for the moderation trail — only a
+    // permanent purge truly removes it.
+    private const STATUSES = ['pending', 'approved', 'hidden', 'removed', 'deleted'];
 
     /** Maps a moderator action to the resulting comment status. */
     private const ACTION_MAP = [
@@ -27,9 +30,15 @@ class CommentModerationController extends Controller
 
     public function index(Request $request): View
     {
+        $status = $request->string('status')->toString();
+
         $comments = Comment::query()
+            ->withTrashed() // keep every record visible; nothing silently disappears
             ->with(['user', 'commentable', 'moderator'])
-            ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
+            ->when($status === 'deleted', fn ($q) => $q->onlyTrashed())
+            ->when($status !== '' && $status !== 'deleted',
+                fn ($q) => $q->whereNull('deleted_at')->where('status', $status))
+            ->orderByRaw('(deleted_at IS NOT NULL)') // active first, deleted last
             ->orderByRaw("FIELD(status, 'pending', 'approved', 'hidden', 'removed')")
             ->latest()
             ->paginate(20)

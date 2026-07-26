@@ -8,7 +8,6 @@ use App\Models\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Episode extends Model
@@ -28,19 +27,9 @@ class Episode extends Model
         return $this->belongsTo(Programme::class);
     }
 
-    public function season(): BelongsTo
-    {
-        return $this->belongsTo(Season::class);
-    }
-
     public function audioAsset(): BelongsTo
     {
         return $this->belongsTo(AudioAsset::class);
-    }
-
-    public function stories(): HasMany
-    {
-        return $this->hasMany(Story::class);
     }
 
     public function scopePublished(Builder $query): Builder

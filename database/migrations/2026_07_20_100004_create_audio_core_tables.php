@@ -45,7 +45,7 @@ return new class extends Migration
 
             // lifecycle & protection
             $table->string('status', 30)->default('draft')->index();
-            // draft | pending_qc | qc_failed | in_review | pending_approval | approved | published | rejected | unpublished | archived
+            // draft | in_review | pending_approval | approved | published | rejected | unpublished | archived
             $table->string('access_level', 20)->default('internal')->index(); // public | internal | restricted
             $table->string('rights_status', 20)->default('pending')->index(); // cleared | restricted | pending | disputed | expired
             $table->boolean('is_premium')->default(false)->index();     // premium-flagged content (M18)

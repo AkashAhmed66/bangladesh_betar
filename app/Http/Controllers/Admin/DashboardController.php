@@ -12,7 +12,6 @@ use App\Models\Comment;
 use App\Models\MediaItem;
 use App\Models\Payment;
 use App\Models\PlayEvent;
-use App\Models\QcReport;
 use App\Models\RightsRecord;
 use App\Models\Subscription;
 use App\Models\User;
@@ -36,7 +35,6 @@ class DashboardController extends Controller
             'storage_gb' => round(AudioAsset::query()->sum('size_bytes') / (1024 ** 3), 1),
             'pending_approvals' => $user->can('approvals.view') ? Approval::query()->pending()->count() : null,
             'my_approvals' => $user->can('approvals.act') ? Approval::actionableBy($user)->count() : null,
-            'qc_failures' => $user->can('qc.view') ? QcReport::query()->where('overall_result', 'fail')->whereNull('verdict')->count() : null,
             'rights_expiring' => $user->can('rights.view') ? RightsRecord::expiringWithin(90)->count() : null,
             'digitization_pending' => $user->can('digitization.view') ? MediaItem::query()->whereNotIn('status', ['archived', 'qc_passed'])->count() : null,
             'moderation_queue' => $user->can('moderation.view') ? Comment::query()->where('status', 'pending')->count() : null,

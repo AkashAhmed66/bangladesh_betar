@@ -7,23 +7,20 @@ namespace Database\Seeders;
 use App\Models\Artist;
 use App\Models\AudioAsset;
 use App\Models\Comment;
-use App\Models\ContentReport;
+use App\Models\CommunitySubmission;
 use App\Models\Favorite;
-use App\Models\Feedback;
 use App\Models\Follow;
-use App\Models\IssueReport;
 use App\Models\PlayHistory;
 use App\Models\PodcastChannel;
 use App\Models\Programme;
 use App\Models\Rating;
 use App\Models\Song;
-use App\Models\TakedownRequest;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 
 /**
  * M17/M26 — favourites, follows, history, comments, ratings,
- * reports, takedowns and feedback.
+ * reports and feedback.
  */
 class EngagementSeeder extends Seeder
 {
@@ -118,53 +115,41 @@ class EngagementSeeder extends Seeder
             'status' => 'pending',
         ]);
 
-        ContentReport::query()->firstOrCreate(
-            ['reportable_type' => 'comment', 'reportable_id' => $spamComment->id],
+        CommunitySubmission::query()->firstOrCreate(
+            ['type' => 'content_report', 'subject_type' => 'comment', 'subject_id' => $spamComment->id],
             [
-                'reporter_id' => $listeners->last()->id,
-                'reason' => 'spam',
-                'details' => 'Advertising external pirated downloads.',
-                'status' => 'pending',
+                'user_id' => $listeners->last()->id,
+                'category' => 'spam',
+                'message' => 'Advertising external pirated downloads.',
+                'status' => 'new',
             ],
         );
 
-        // Issue reports (FR-ENG-07)
+        // Content issues (FR-ENG-07) — now part of the Community Inbox
         $issues = [
             ['broken_audio', 'Playback stops at 12:40 every time.'],
             ['wrong_metadata', 'The singer credit appears to be incorrect for this song.'],
         ];
         foreach ($issues as $index => [$type, $description]) {
-            IssueReport::query()->firstOrCreate(
-                ['issue_type' => $type, 'audio_asset_id' => $assets[$index]->id],
+            CommunitySubmission::query()->firstOrCreate(
+                ['type' => 'issue_report', 'category' => $type, 'subject_type' => 'audio_asset', 'subject_id' => $assets[$index]->id],
                 [
                     'user_id' => $listeners[$index % $listeners->count()]->id,
-                    'description' => $description,
-                    'status' => 'open',
+                    'message' => $description,
+                    'status' => 'new',
                 ],
             );
         }
 
-        // Takedown request (FR-ENG-08)
-        TakedownRequest::query()->firstOrCreate(
-            ['complainant_name' => 'Bangla Music Rights Society'],
-            [
-                'complainant_email' => 'licensing@bmrs.example',
-                'organization' => 'BMRS',
-                'audio_asset_id' => $songs->first()?->audio_asset_id,
-                'reason' => 'Streaming rights for this recording were not renewed for the current year.',
-                'status' => 'investigating',
-            ],
-        );
-
-        // General feedback (FR-ENG-09)
+        // General feedback (FR-ENG-09) — now part of the Community Inbox
         $feedbackEntries = [
             ['suggestion', 'Sleep timer presets', 'Please add a 45-minute sleep timer preset.'],
             ['technical', 'App crash on old phone', 'The app closes when opening the equalizer on my device.'],
             ['general', 'Thank you', 'This archive is a gift to the nation. Joy Bangla!'],
         ];
         foreach ($feedbackEntries as [$category, $subject, $message]) {
-            Feedback::query()->firstOrCreate(
-                ['subject' => $subject],
+            CommunitySubmission::query()->firstOrCreate(
+                ['type' => 'feedback', 'subject_line' => $subject],
                 [
                     'user_id' => $listeners->random()->id,
                     'category' => $category,

@@ -47,21 +47,10 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
         });
-
-        Schema::create('seasons', function (Blueprint $table): void {
-            $table->id();
-            $table->foreignId('programme_id')->constrained()->cascadeOnDelete();
-            $table->unsignedInteger('number');
-            $table->string('title')->nullable();
-            $table->unsignedInteger('year')->nullable();
-            $table->timestamps();
-            $table->unique(['programme_id', 'number']);
-        });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('seasons');
         Schema::dropIfExists('programmes');
         Schema::dropIfExists('artists');
     }

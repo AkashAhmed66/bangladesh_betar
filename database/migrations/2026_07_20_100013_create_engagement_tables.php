@@ -31,45 +31,20 @@ return new class extends Migration
             $table->unique(['user_id', 'ratable_type', 'ratable_id'], 'ratings_unique');
         });
 
-        // M26 — reported comments/content feeding moderation queue (FR-ENG-04)
-        Schema::create('content_reports', function (Blueprint $table): void {
+        // M26 — unified "Community Inbox": abuse reports, content issues and
+        // general feedback share one submission + status workflow
+        // (FR-ENG-04/07/09).
+        Schema::create('community_submissions', function (Blueprint $table): void {
             $table->id();
-            $table->foreignId('reporter_id')->nullable()->constrained('users')->nullOnDelete();
-            $table->morphs('reportable'); // Comment | AudioAsset | ...
-            $table->string('reason', 50); // abuse | spam | copyright | inappropriate | other
-            $table->text('details')->nullable();
-            $table->string('status', 15)->default('pending')->index(); // pending | reviewed | actioned | dismissed
+            $table->string('type', 20)->index();            // content_report | issue_report | feedback
+            $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete(); // reporter / submitter
+            $table->nullableMorphs('subject');              // Comment | AudioAsset (null for feedback)
+            $table->string('category', 50)->nullable();     // reason / issue_type / feedback category
+            $table->string('subject_line')->nullable();     // optional title (feedback subject)
+            $table->text('message')->nullable();            // details / description / message
+            $table->string('status', 20)->default('new')->index(); // new | in_progress | resolved | dismissed
             $table->foreignId('handled_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('handled_at')->nullable();
-            $table->text('resolution_notes')->nullable();
-            $table->timestamps();
-        });
-
-        // M26 — "report an issue" on playable items (FR-ENG-07)
-        Schema::create('issue_reports', function (Blueprint $table): void {
-            $table->id();
-            $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
-            $table->foreignId('audio_asset_id')->nullable()->constrained()->nullOnDelete();
-            $table->string('issue_type', 30); // broken_audio | wrong_metadata | inappropriate | other
-            $table->text('description')->nullable();
-            $table->string('status', 15)->default('open')->index(); // open | in_progress | resolved | dismissed
-            $table->foreignId('handled_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->text('resolution_notes')->nullable();
-            $table->timestamps();
-        });
-
-        // M26 — rights-holder complaints & takedown workflow (FR-ENG-08)
-        Schema::create('takedown_requests', function (Blueprint $table): void {
-            $table->id();
-            $table->string('complainant_name');
-            $table->string('complainant_email')->nullable();
-            $table->string('organization')->nullable();
-            $table->foreignId('audio_asset_id')->nullable()->constrained()->nullOnDelete();
-            $table->text('reason');
-            $table->string('status', 20)->default('received')->index();
-            // received | investigating | upheld | rejected | resolved
-            $table->boolean('content_unpublished')->default(false);
-            $table->foreignId('handled_by')->nullable()->constrained('users')->nullOnDelete();
             $table->text('resolution_notes')->nullable();
             $table->timestamps();
         });
@@ -89,10 +64,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('feedback');
-        Schema::dropIfExists('takedown_requests');
-        Schema::dropIfExists('issue_reports');
-        Schema::dropIfExists('content_reports');
+        Schema::dropIfExists('community_submissions');
         Schema::dropIfExists('ratings');
         Schema::dropIfExists('comments');
     }
