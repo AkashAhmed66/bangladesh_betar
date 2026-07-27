@@ -54,6 +54,7 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
         Route::get('new-releases', [V1\BrowseController::class, 'newReleases'])->name('new-releases');
         Route::get('on-this-day', [V1\BrowseController::class, 'onThisDay'])->name('on-this-day');
         Route::get('featured-artists', [V1\BrowseController::class, 'featuredArtists'])->name('featured-artists');
+        Route::get('radio', [V1\BrowseController::class, 'radio'])->name('radio');
 
         // Search (M06)
         Route::get('search', [V1\SearchController::class, 'search'])->name('search');
@@ -77,6 +78,8 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
         Route::get('live-channels', [V1\LiveController::class, 'index'])->name('live-channels.index');
         Route::get('live-channels/{broadcastChannel}', [V1\LiveController::class, 'show'])->name('live-channels.show');
         Route::post('live-channels/{broadcastChannel}/token', [V1\LiveController::class, 'token'])->name('live-channels.token');
+        Route::post('live-channels/{broadcastChannel}/raise-hand', [V1\LiveController::class, 'raiseHand'])->name('live-channels.raise-hand');
+        Route::post('live-channels/{broadcastChannel}/lower-hand', [V1\LiveController::class, 'lowerHand'])->name('live-channels.lower-hand');
         Route::get('podcast-episodes/{podcastEpisode}', [V1\CatalogueController::class, 'podcastEpisode'])->name('podcast-episodes.show');
         Route::get('assets/{asset}', [V1\CatalogueController::class, 'asset'])->name('assets.show');
         Route::get('playlists/{playlist}', [V1\CatalogueController::class, 'playlist'])->name('playlists.public.show');
@@ -126,6 +129,9 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
 
         Route::get('me/favorites', [V1\LibraryController::class, 'favorites'])->name('favorites.index');
         Route::post('me/favorites/toggle', [V1\LibraryController::class, 'toggleFavorite'])->name('favorites.toggle');
+
+        // Premium offline download — returns the full audio file (entitlement enforced).
+        Route::get('assets/{asset}/download', [V1\PlaybackController::class, 'download'])->name('assets.download');
 
         Route::get('me/follows', [V1\LibraryController::class, 'follows'])->name('follows.index');
         Route::post('me/follows/toggle', [V1\LibraryController::class, 'toggleFollow'])->name('follows.toggle');

@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\LiveChannelResource;
 use App\Models\BroadcastChannel;
 use App\Services\LiveKitService;
+use App\Services\SpeakRequestStore;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -58,5 +59,38 @@ class LiveController extends Controller
         return response()->json(
             $this->liveKit->listenerToken($broadcastChannel, $request->user(), Str::random(12)),
         );
+    }
+
+    /** Listener asks the broadcaster for permission to speak (raise hand). */
+    public function raiseHand(Request $request, BroadcastChannel $broadcastChannel): JsonResponse
+    {
+        if (! $broadcastChannel->isLive()) {
+            return response()->json(['message' => 'This channel is not live right now.'], 404);
+        }
+
+        $identity = $request->string('identity')->trim()->toString();
+        if ($identity === '') {
+            return response()->json(['message' => 'Missing participant identity.'], 422);
+        }
+
+        $name = $request->string('name')->trim()->toString();
+        if ($name === '') {
+            $name = $request->user()?->name ?? 'Listener';
+        }
+
+        SpeakRequestStore::add($broadcastChannel->room_name, $identity, $name);
+
+        return response()->json(['ok' => true]);
+    }
+
+    /** Listener withdraws a pending raise-hand request. */
+    public function lowerHand(Request $request, BroadcastChannel $broadcastChannel): JsonResponse
+    {
+        $identity = $request->string('identity')->trim()->toString();
+        if ($identity !== '') {
+            SpeakRequestStore::remove($broadcastChannel->room_name, $identity);
+        }
+
+        return response()->json(['ok' => true]);
     }
 }

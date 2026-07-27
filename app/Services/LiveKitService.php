@@ -180,6 +180,95 @@ class LiveKitService
         }
     }
 
+    /**
+     * Live participants in a room (RoomService/ListParticipants), normalised for
+     * the studio's listener panel. The broadcaster and server identities are
+     * excluded — only tune-in listeners are returned.
+     *
+     * @return list<array{identity:string, name:string, can_publish:bool, is_speaking:bool, joined_at:int}>
+     */
+    public function listParticipants(string $room): array
+    {
+        if (! $this->isConfigured() || $room === '') {
+            return [];
+        }
+
+        try {
+            $res = Http::timeout(4)
+                ->withToken($this->roomAdminToken($room))
+                ->acceptJson()
+                ->post($this->host.'/twirp/livekit.RoomService/ListParticipants', ['room' => $room]);
+
+            if (! $res->successful()) {
+                return [];
+            }
+
+            $out = [];
+            foreach ((array) $res->json('participants', []) as $p) {
+                $identity = (string) ($p['identity'] ?? '');
+                if ($identity === '' || $identity === 'server-admin' || str_starts_with($identity, 'broadcaster-')) {
+                    continue;
+                }
+
+                $permission = (array) ($p['permission'] ?? []);
+                $speaking = false;
+                foreach ((array) ($p['tracks'] ?? []) as $t) {
+                    if (($t['type'] ?? '') === 'AUDIO' && ! ($t['muted'] ?? false)) {
+                        $speaking = true;
+                    }
+                }
+
+                $out[] = [
+                    'identity' => $identity,
+                    'name' => (string) ($p['name'] ?? 'Listener'),
+                    'can_publish' => (bool) ($permission['canPublish'] ?? $permission['can_publish'] ?? false),
+                    'is_speaking' => $speaking,
+                    'joined_at' => (int) ($p['joinedAt'] ?? $p['joined_at'] ?? 0),
+                ];
+            }
+
+            return $out;
+        } catch (\Throwable $e) {
+            Log::warning('LiveKit ListParticipants failed: '.$e->getMessage());
+
+            return [];
+        }
+    }
+
+    /**
+     * Grant or revoke a participant's permission to publish (speak) in a room
+     * via RoomService/UpdateParticipant. LiveKit pushes the new permission to
+     * the participant live — no reconnect — and revoking auto-unpublishes any
+     * track they had open.
+     */
+    public function setPublishPermission(string $room, string $identity, bool $canPublish): bool
+    {
+        if (! $this->isConfigured() || $room === '' || $identity === '') {
+            return false;
+        }
+
+        try {
+            $res = Http::timeout(4)
+                ->withToken($this->roomAdminToken($room))
+                ->acceptJson()
+                ->post($this->host.'/twirp/livekit.RoomService/UpdateParticipant', [
+                    'room' => $room,
+                    'identity' => $identity,
+                    'permission' => [
+                        'canSubscribe' => true,
+                        'canPublish' => $canPublish,
+                        'canPublishData' => $canPublish,
+                    ],
+                ]);
+
+            return $res->successful();
+        } catch (\Throwable $e) {
+            Log::warning('LiveKit UpdateParticipant failed: '.$e->getMessage());
+
+            return false;
+        }
+    }
+
     /* --------------------------------------------------------------------- */
     /* JWT helpers (HS256)                                                     */
     /* --------------------------------------------------------------------- */
@@ -220,6 +309,19 @@ class LiveKitService
         ];
 
         return $this->encodeToken($payload);
+    }
+
+    /** A short-lived server token with roomAdmin rights over a single room. */
+    private function roomAdminToken(string $room): string
+    {
+        return $this->mintToken(
+            identity: 'server-admin',
+            name: 'server',
+            room: $room,
+            canPublish: false,
+            ttlMinutes: 5,
+            extraVideoGrant: ['roomAdmin' => true],
+        );
     }
 
     /** @param array<string, mixed> $payload */

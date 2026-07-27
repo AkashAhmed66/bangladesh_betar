@@ -44,6 +44,10 @@ function boot() {
         peakListeners: $('peak-listeners'),
         spark: $('spark-canvas'),
         startedAt: $('started-at'),
+        // interactive audience (grant/revoke speaking)
+        listenersCount: $('listeners-count'),
+        listenersEmpty: $('listeners-empty'),
+        listenersList: $('listeners-list'),
         // input
         micSelect: $('mic-select'),
         gain: $('gain-range'),
@@ -81,6 +85,7 @@ function boot() {
         startedAt: null,
         elapsedTimer: null,
         statusTimer: null,
+        participantsTimer: null,
         clockTimer: null,
         listenerHistory: [],
         quality: 'unknown',
@@ -465,6 +470,8 @@ function boot() {
         els.elapsedTimer = setInterval(() => { els.elapsed.textContent = fmtElapsed(Date.now() - state.startedAt); }, 500);
         pollStatus();
         state.statusTimer = setInterval(pollStatus, 5000);
+        pollParticipants();
+        state.participantsTimer = setInterval(pollParticipants, 4000);
     }
 
     async function stop() {
@@ -481,7 +488,9 @@ function boot() {
         state.muted = false;
         if (state.elapsedTimer) clearInterval(state.elapsedTimer);
         if (state.statusTimer) clearInterval(state.statusTimer);
-        state.elapsedTimer = state.statusTimer = null;
+        if (state.participantsTimer) clearInterval(state.participantsTimer);
+        state.elapsedTimer = state.statusTimer = state.participantsTimer = null;
+        renderParticipants([]);
         setStatus('off');
         setQuality('unknown');
         els.stop.classList.add('hidden');
@@ -553,6 +562,86 @@ function boot() {
             if (state.listenerHistory.length > 60) state.listenerHistory.shift();
             drawSpark();
         } catch (_) { /* transient */ }
+    }
+
+    /* -------------------- interactive audience (speaking) ----------------- */
+
+    async function pollParticipants() {
+        if (!CFG.urls?.participants) return;
+        try {
+            const res = await fetch(CFG.urls.participants, { headers: { Accept: 'application/json' } });
+            if (!res.ok) return;
+            const data = await res.json();
+            renderParticipants(Array.isArray(data.participants) ? data.participants : []);
+        } catch (_) { /* transient */ }
+    }
+
+    function renderParticipants(list) {
+        if (!els.listenersList || !els.listenersEmpty) return;
+        if (els.listenersCount) els.listenersCount.textContent = list.length;
+
+        if (!list.length) {
+            els.listenersList.classList.add('hidden');
+            els.listenersList.innerHTML = '';
+            els.listenersEmpty.classList.remove('hidden');
+            els.listenersEmpty.textContent = state.live
+                ? 'No listeners yet — the room is quiet.'
+                : "Go live to see who's tuned in — then invite a listener to speak.";
+            return;
+        }
+
+        els.listenersEmpty.classList.add('hidden');
+        els.listenersList.classList.remove('hidden');
+        els.listenersList.innerHTML = '';
+        list.forEach((p) => els.listenersList.appendChild(participantRow(p)));
+    }
+
+    function participantRow(p) {
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between gap-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-800/40';
+
+        const left = document.createElement('div');
+        left.className = 'min-w-0';
+        const name = document.createElement('p');
+        name.className = 'truncate text-xs font-medium text-slate-700 dark:text-slate-200';
+        name.textContent = p.name || 'Listener';
+        const badge = document.createElement('p');
+        badge.className = 'mt-0.5 text-[10px] font-semibold uppercase tracking-wide ';
+        if (p.is_speaking) { badge.textContent = '● Speaking'; badge.className += 'text-rose-500'; }
+        else if (p.can_publish) { badge.textContent = 'Can speak'; badge.className += 'text-emerald-600 dark:text-emerald-400'; }
+        else if (p.raised_hand) { badge.textContent = '✋ Wants to speak'; badge.className += 'text-amber-600 dark:text-amber-400'; }
+        else { badge.textContent = 'Listening'; badge.className += 'text-slate-400'; }
+        left.appendChild(name);
+        left.appendChild(badge);
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-semibold transition disabled:opacity-50 ';
+        if (p.can_publish) {
+            btn.textContent = 'Revoke';
+            btn.className += 'border border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-500/30 dark:text-rose-400 dark:hover:bg-rose-500/10';
+            btn.addEventListener('click', () => setSpeak(p.identity, false, btn));
+        } else {
+            btn.textContent = 'Allow to speak';
+            btn.className += 'bg-primary-600 text-white hover:bg-primary-700';
+            if (p.raised_hand) btn.className += ' ring-2 ring-amber-400';
+            btn.addEventListener('click', () => setSpeak(p.identity, true, btn));
+        }
+
+        row.appendChild(left);
+        row.appendChild(btn);
+        return row;
+    }
+
+    async function setSpeak(identity, allow, btn) {
+        if (btn) { btn.disabled = true; btn.textContent = '…'; }
+        try {
+            await api(allow ? CFG.urls.grant : CFG.urls.revoke, { identity });
+            await pollParticipants();
+        } catch (e) {
+            showError(e.message || 'Could not update speaking permission.');
+            if (btn) btn.disabled = false;
+        }
     }
 
     function startClock() {

@@ -23,9 +23,10 @@
                         <td class="text-sm">{{ $campaign->advertiser?->name ?? 'House / PSA' }}</td>
                         <td class="text-sm">
                             @if ($campaign->audioAsset)
-                                <span class="inline-flex items-center gap-1.5 text-slate-700 dark:text-slate-200">
-                                    <x-icon name="play" class="size-3.5 text-slate-400" /> {{ $campaign->audioAsset->title }}
-                                </span>
+                                <a href="{{ route('admin.assets.show', $campaign->audioAsset) }}"
+                                   class="inline-flex items-center gap-1.5 text-primary-700 hover:underline dark:text-primary-300">
+                                    <x-icon name="play" class="size-3.5" /> {{ $campaign->audioAsset->title }}
+                                </a>
                             @else
                                 <span class="text-slate-400">— none —</span>
                             @endif

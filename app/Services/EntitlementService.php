@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Plan;
+use App\Models\Setting;
 use App\Models\User;
 
 /**
@@ -35,6 +36,10 @@ class EntitlementService
             'ads_enabled' => (bool) $plan->feature('ads', true),
             'max_quality_kbps' => (int) $plan->feature('max_quality_kbps', 128),
             'skips_per_hour' => $plan->feature('skips_per_hour'),
+            // Free tier: how many tracks a listener may actively choose/queue per
+            // day (admin-configurable). Premium is unlimited (null). After the
+            // budget is spent the client falls back to a random radio mix.
+            'daily_picks' => $isPremium ? null : max(0, (int) Setting::get('free_daily_picks', 10)),
             'offline_downloads' => (bool) $plan->feature('offline_downloads', false),
             'equalizer' => (bool) $plan->feature('equalizer', false),
             'premium_content_access' => $plan->feature('premium_content', 'preview'),

@@ -40,15 +40,59 @@ class PlaybackController extends Controller
             return response()->json(['message' => 'No streamable version is available for this content.'], 422);
         }
 
-        $ad = $this->ads->selectFor($user, $asset, 'pre_roll');
+        // The client paces ads to one per N songs and sets ?ad=1 when it's time.
+        $ad = $this->ads->selectFor($user, $asset, $request->boolean('ad'));
 
         return response()->json([
             'asset_id' => $asset->id,
             'title' => $asset->title,
             'stream' => $descriptor,
-            'ad' => $ad,          // null for premium / public-service
+            'ad' => $ad,          // null for premium / public-service / not-yet-due
+            'ad_every_n_songs' => max(1, (int) \App\Models\Setting::get('ad_every_n_songs', 2)),
+            // Free-tier daily pick budget (null = unlimited for premium). Sent on
+            // every stream so guests — who never call /auth/me — also learn the
+            // admin-configured limit.
+            'daily_picks' => ($user && $user->isPremium()) ? null : max(0, (int) \App\Models\Setting::get('free_daily_picks', 10)),
             'requires_login_for_full' => $descriptor['is_preview'] && $user === null && $asset->is_premium,
         ]);
+    }
+
+    /**
+     * Premium offline download — returns the full derived audio file (never a
+     * master or preview) as an attachment for signed-in listeners whose plan
+     * allows offline downloads. The public app stores the bytes locally
+     * (IndexedDB) for offline playback.
+     */
+    public function download(Request $request, AudioAsset $asset): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    {
+        abort_unless($asset->isPublished(), 404, 'Content not available.');
+
+        $user = $request->user();
+        abort_if($user === null, 401, 'Sign in to download.');
+        abort_unless(
+            app(\App\Services\EntitlementService::class)->canDownloadOffline($user),
+            403,
+            'Offline downloads are a Premium feature.',
+        );
+
+        // Same rule as the public stream: the default derived version, never a master.
+        $version = $asset->versions()
+            ->where('is_default', true)
+            ->where('version_type', '!=', 'preservation_master')
+            ->first();
+
+        $disk = \Illuminate\Support\Facades\Storage::disk('local');
+        $relative = $version?->file_path && $disk->exists($version->file_path)
+            ? $version->file_path
+            : sprintf('demo-audio/track-%02d.wav', ($asset->id % 12) + 1);
+
+        abort_unless($disk->exists($relative), 404, 'Media file not available.');
+
+        $ext = strtolower(pathinfo($relative, PATHINFO_EXTENSION)) ?: 'wav';
+        $filename = \Illuminate\Support\Str::slug($asset->title ?: 'recording').'.'.$ext;
+
+        return $this->mediaResponse($disk->path($relative))
+            ->setContentDisposition('attachment', $filename);
     }
 
     /**

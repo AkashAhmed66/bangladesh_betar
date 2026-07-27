@@ -5,15 +5,17 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\AlbumResource;
-use App\Http\Resources\ArtistResource;
 use App\Http\Resources\AudioAssetResource;
+use App\Http\Resources\EpisodeResource;
 use App\Http\Resources\PodcastChannelResource;
+use App\Http\Resources\PodcastEpisodeResource;
+use App\Http\Resources\ProgrammeResource;
 use App\Http\Resources\SongResource;
-use App\Models\Album;
-use App\Models\Artist;
 use App\Models\AudioAsset;
+use App\Models\Episode;
 use App\Models\PodcastChannel;
+use App\Models\PodcastEpisode;
+use App\Models\Programme;
 use App\Models\Song;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -34,43 +36,80 @@ class SearchController extends Controller
 
         $like = '%'.$q.'%';
         $type = $request->string('type')->toString(); // optional filter
+        $wants = fn (string $t): bool => $type === '' || $type === $t;
 
+        // POC transcript search: a catalogue item also matches when the query
+        // appears in the spoken text of its recording. Reused across buckets via
+        // the relevant relation path to `transcripts.full_text`. (POC: matches
+        // ALL transcripts incl. unverified/AI drafts; tighten with
+        // ->where('is_verified', true) later.)
+        $txt = fn ($t) => $t->where('full_text', 'like', $like);
+
+        // Every bucket is wrapped as { data: [...] } so the client can read a
+        // consistent shape (a bare resource collection nested inside a json
+        // array loses its wrapper). Titles are matched on both the English
+        // (`title`) and Bangla (`title_bn`) columns.
         $results = [];
 
-        if ($type === '' || $type === 'song') {
-            $results['songs'] = SongResource::collection(
+        if ($wants('song')) {
+            $results['songs'] = ['data' => SongResource::collection(
                 Song::query()->published()->with(['audioAsset', 'artists', 'album', 'genre'])
-                    ->whereHas('audioAsset', fn ($a) => $a->where('title', 'like', $like)->orWhere('title_bn', 'like', $like))
-                    ->take(10)->get(),
-            );
+                    ->where(function ($q) use ($like, $txt) {
+                        $q->whereHas('audioAsset', fn ($a) => $a->where(fn ($w) => $w->where('title', 'like', $like)->orWhere('title_bn', 'like', $like)))
+                            ->orWhereHas('audioAsset.transcripts', $txt);
+                    })
+                    ->take(20)->get(),
+            )];
         }
 
-        if ($type === '' || $type === 'artist') {
-            $results['artists'] = ArtistResource::collection(
-                Artist::query()->published()->where(fn ($w) => $w->where('name', 'like', $like)->orWhere('name_bn', 'like', $like))->take(10)->get(),
-            );
+        if ($wants('programme')) {
+            $results['programmes'] = ['data' => ProgrammeResource::collection(
+                Programme::query()->published()->withCount('episodes')
+                    ->where(function ($q) use ($like, $txt) {
+                        $q->where('title', 'like', $like)->orWhere('title_bn', 'like', $like)
+                            ->orWhereHas('audioAssets.transcripts', $txt);
+                    })
+                    ->take(20)->get(),
+            )];
         }
 
-        if ($type === '' || $type === 'album') {
-            $results['albums'] = AlbumResource::collection(
-                Album::query()->published()->where('title', 'like', $like)->with('artists')->take(10)->get(),
-            );
+        if ($wants('episode')) {
+            $results['episodes'] = ['data' => EpisodeResource::collection(
+                Episode::query()->published()->with('programme')->whereNotNull('audio_asset_id')
+                    ->where(function ($q) use ($like, $txt) {
+                        $q->where('title', 'like', $like)->orWhere('title_bn', 'like', $like)
+                            ->orWhereHas('audioAsset.transcripts', $txt);
+                    })
+                    ->take(20)->get(),
+            )];
         }
 
-        if ($type === '' || $type === 'podcast') {
-            $results['podcasts'] = PodcastChannelResource::collection(
-                PodcastChannel::query()->published()->where('title', 'like', $like)->take(10)->get(),
-            );
+        if ($wants('podcast_episode')) {
+            $results['podcast_episodes'] = ['data' => PodcastEpisodeResource::collection(
+                PodcastEpisode::query()->published()->with('channel')->whereNotNull('audio_asset_id')
+                    ->where(function ($q) use ($like, $txt) {
+                        $q->where('title', 'like', $like)->orWhere('title_bn', 'like', $like)
+                            ->orWhereHas('audioAsset.transcripts', $txt);
+                    })
+                    ->take(20)->get(),
+            )];
         }
 
-        if ($type === '' || $type === 'programme' || $type === 'audio') {
-            $results['audio'] = AudioAssetResource::collection(
-                AudioAsset::query()->published()
-                    ->where(fn ($w) => $w->where('title', 'like', $like)->orWhere('title_bn', 'like', $like)->orWhere('archive_no', 'like', $like))
-                    ->take(10)->get(),
-            );
+        if ($wants('podcast')) {
+            $results['podcasts'] = ['data' => PodcastChannelResource::collection(
+                PodcastChannel::query()->published()
+                    ->where(function ($q) use ($like, $txt) {
+                        $q->where('title', 'like', $like)->orWhere('title_bn', 'like', $like)
+                            ->orWhereHas('episodes.audioAsset.transcripts', $txt);
+                    })
+                    ->take(20)->get(),
+            )];
         }
 
+        // Public search is limited to the published *catalogue* — songs,
+        // programmes and podcasts (with their episodes). Raw archive
+        // recordings (AudioAssets) and internal metadata (artists/albums) are
+        // deliberately NOT exposed here.
         return response()->json(['query' => $q, 'results' => $results]);
     }
 
@@ -78,18 +117,30 @@ class SearchController extends Controller
     public function suggest(Request $request): JsonResponse
     {
         $q = trim((string) $request->query('q', ''));
-        if (strlen($q) < 2) {
+        if (mb_strlen($q) < 2) {
             return response()->json(['data' => []]);
         }
         $like = $q.'%';
+        // A Bangla (non-ASCII) query should surface Bangla titles as the label.
+        $bnQuery = (bool) preg_match('/[^\x00-\x7F]/', $q);
 
+        // Suggestions mirror the search scope: only the published catalogue
+        // (songs / programmes / podcasts), never raw archive recordings.
         $suggestions = collect()
-            ->merge(AudioAsset::query()->published()->where('title', 'like', $like)->take(5)->pluck('title')
-                ->map(fn ($t) => ['text' => $t, 'type' => 'title']))
-            ->merge(Artist::query()->published()->where('name', 'like', $like)->take(4)->pluck('name')
-                ->map(fn ($t) => ['text' => $t, 'type' => 'artist']))
-            ->merge(Album::query()->published()->where('title', 'like', $like)->take(3)->pluck('title')
-                ->map(fn ($t) => ['text' => $t, 'type' => 'album']))
+            ->merge(Song::query()->published()->with('audioAsset')
+                ->whereHas('audioAsset', fn ($a) => $a->where(fn ($w) => $w->where('title', 'like', $like)->orWhere('title_bn', 'like', $like)))
+                ->take(5)->get()
+                ->map(fn ($s) => ['text' => $bnQuery && $s->audioAsset?->title_bn ? $s->audioAsset->title_bn : $s->audioAsset?->title, 'type' => 'song']))
+            ->merge(Programme::query()->published()
+                ->where(fn ($w) => $w->where('title', 'like', $like)->orWhere('title_bn', 'like', $like))
+                ->take(3)->get(['title', 'title_bn'])
+                ->map(fn ($p) => ['text' => $bnQuery && $p->title_bn ? $p->title_bn : $p->title, 'type' => 'programme']))
+            ->merge(PodcastChannel::query()->published()
+                ->where(fn ($w) => $w->where('title', 'like', $like)->orWhere('title_bn', 'like', $like))
+                ->take(2)->get(['title', 'title_bn'])
+                ->map(fn ($p) => ['text' => $bnQuery && $p->title_bn ? $p->title_bn : $p->title, 'type' => 'podcast']))
+            ->filter(fn ($s) => ! empty($s['text']))
+            ->unique('text')
             ->take(10)->values();
 
         return response()->json(['data' => $suggestions]);

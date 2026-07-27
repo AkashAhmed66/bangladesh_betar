@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\BroadcastSession;
 use App\Services\LiveKitService;
+use App\Services\SpeakRequestStore;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
@@ -61,6 +62,7 @@ class LiveKitWebhookController extends Controller
                     'ended_at' => now(),
                     'current_listeners' => 0,
                 ]);
+                SpeakRequestStore::clear($roomName);
                 break;
 
             case 'participant_joined':
@@ -77,6 +79,10 @@ class LiveKitWebhookController extends Controller
                     $session->decrement('current_listeners');
                     if ($session->current_listeners < 0) {
                         $session->update(['current_listeners' => 0]);
+                    }
+                    // Drop any pending raise-hand from the departed listener.
+                    if (($identity = $data['participant']['identity'] ?? '') !== '') {
+                        SpeakRequestStore::remove($roomName, $identity);
                     }
                 }
                 break;

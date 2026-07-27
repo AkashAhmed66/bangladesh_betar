@@ -134,6 +134,12 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
             ->middleware('permission:broadcasts.broadcast')->name('broadcast-channels.go-live');
         Route::post('broadcast-channels/{broadcastChannel}/stop', [Admin\BroadcastChannelController::class, 'stop'])
             ->middleware('permission:broadcasts.broadcast')->name('broadcast-channels.stop');
+        Route::get('broadcast-channels/{broadcastChannel}/participants', [Admin\BroadcastChannelController::class, 'participants'])
+            ->middleware('permission:broadcasts.view')->name('broadcast-channels.participants');
+        Route::post('broadcast-channels/{broadcastChannel}/grant-speak', [Admin\BroadcastChannelController::class, 'grantSpeak'])
+            ->middleware('permission:broadcasts.broadcast')->name('broadcast-channels.grant-speak');
+        Route::post('broadcast-channels/{broadcastChannel}/revoke-speak', [Admin\BroadcastChannelController::class, 'revokeSpeak'])
+            ->middleware('permission:broadcasts.broadcast')->name('broadcast-channels.revoke-speak');
         Route::resource('broadcast-channels', Admin\BroadcastChannelController::class)->except('show')
             ->middleware('permission:broadcasts.view');
 

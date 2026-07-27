@@ -32,6 +32,7 @@ class SettingSeeder extends Seeder
             ['streaming', 'premium_quality_kbps', '320', 'int', 'Premium max quality (kbps)'],
             ['streaming', 'preview_seconds', '90', 'int', 'Premium-content preview length (seconds)'],
             ['streaming', 'free_skips_per_hour', '6', 'int', 'Free tier skips per hour'],
+            ['streaming', 'free_daily_picks', '10', 'int', 'Free tier: tracks a user can actively choose or queue per day, 0 = unlimited (after the limit, autoplay switches to a random radio mix)'],
             ['streaming', 'stream_url_ttl_minutes', '30', 'int', 'Signed streaming URL validity (minutes)'],
 
             ['moderation', 'moderation_mode', 'post', 'string', 'Comment moderation (pre | post | disabled)'],
@@ -41,6 +42,7 @@ class SettingSeeder extends Seeder
 
             ['workflow', 'approval_escalation_hours', '72', 'int', 'Escalate approvals pending longer than (hours)'],
 
+            ['ads', 'ad_every_n_songs', '2', 'int', 'Play an ad after every N songs (1 = every song)'],
             ['ads', 'ad_frequency_cap_per_hour', '4', 'int', 'Max ads per listener per hour'],
             ['ads', 'preroll_enabled', 'true', 'bool', 'Enable pre-roll ads'],
 

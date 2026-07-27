@@ -9,6 +9,7 @@ use App\Models\BroadcastChannel;
 use App\Models\BroadcastSession;
 use App\Models\Station;
 use App\Services\LiveKitService;
+use App\Services\SpeakRequestStore;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -172,6 +173,57 @@ class BroadcastChannelController extends Controller
             'peak_listeners' => $session?->peak_listeners ?? 0,
             'started_at' => $session?->started_at?->toIso8601String(),
         ]);
+    }
+
+    /* --------------------------------------------------------------------- */
+    /* Interactive audience: raise-hand / grant / revoke speaking             */
+    /* --------------------------------------------------------------------- */
+
+    /** Current listeners in the room, flagged with raised-hand / speaker state. */
+    public function participants(BroadcastChannel $broadcastChannel): JsonResponse
+    {
+        $room = $broadcastChannel->room_name;
+        $hands = SpeakRequestStore::all($room);
+
+        $participants = collect($this->liveKit->listParticipants($room))
+            ->map(function (array $p) use ($hands): array {
+                $p['raised_hand'] = isset($hands[$p['identity']]);
+
+                return $p;
+            })
+            // Raised hands first, then live speakers, then everyone else.
+            ->sortByDesc(fn (array $p): int => ($p['raised_hand'] ? 4 : 0) + ($p['is_speaking'] ? 2 : 0) + ($p['can_publish'] ? 1 : 0))
+            ->values();
+
+        return response()->json(['participants' => $participants]);
+    }
+
+    /** Let a listener speak (canPublish = true). */
+    public function grantSpeak(Request $request, BroadcastChannel $broadcastChannel): JsonResponse
+    {
+        $identity = $request->string('identity')->trim()->toString();
+        if ($identity === '') {
+            return response()->json(['message' => 'Missing participant identity.'], 422);
+        }
+
+        $ok = $this->liveKit->setPublishPermission($broadcastChannel->room_name, $identity, true);
+        SpeakRequestStore::remove($broadcastChannel->room_name, $identity);
+
+        return response()->json(['ok' => $ok], $ok ? 200 : 502);
+    }
+
+    /** Revoke a listener's speaking access (canPublish = false; auto-unpublishes). */
+    public function revokeSpeak(Request $request, BroadcastChannel $broadcastChannel): JsonResponse
+    {
+        $identity = $request->string('identity')->trim()->toString();
+        if ($identity === '') {
+            return response()->json(['message' => 'Missing participant identity.'], 422);
+        }
+
+        $ok = $this->liveKit->setPublishPermission($broadcastChannel->room_name, $identity, false);
+        SpeakRequestStore::remove($broadcastChannel->room_name, $identity);
+
+        return response()->json(['ok' => $ok], $ok ? 200 : 502);
     }
 
     /* --------------------------------------------------------------------- */

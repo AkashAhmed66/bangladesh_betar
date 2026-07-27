@@ -150,6 +150,20 @@
             </div>
         </div>
 
+        {{-- Interactive audience: invite listeners to speak on air --}}
+        <div class="card">
+            <div class="card-header flex items-center justify-between">
+                <span class="text-sm font-semibold">Listeners</span>
+                <span id="listeners-count" class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-slate-500 dark:bg-slate-800 dark:text-slate-400">0</span>
+            </div>
+            <div class="card-body">
+                <p id="listeners-empty" class="py-6 text-center text-xs text-slate-400">
+                    Go live to see who's tuned in — then invite a listener to speak.
+                </p>
+                <div id="listeners-list" class="hidden max-h-80 space-y-2 overflow-y-auto pr-1"></div>
+            </div>
+        </div>
+
         {{-- Microphone / input settings --}}
         <div class="card">
             <div class="card-header"><span class="text-sm font-semibold">Microphone</span></div>
@@ -231,6 +245,9 @@
             goLive: '{{ route('admin.broadcast-channels.go-live', $channel) }}',
             stop: '{{ route('admin.broadcast-channels.stop', $channel) }}',
             status: '{{ route('admin.broadcast-channels.status', $channel) }}',
+            participants: '{{ route('admin.broadcast-channels.participants', $channel) }}',
+            grant: '{{ route('admin.broadcast-channels.grant-speak', $channel) }}',
+            revoke: '{{ route('admin.broadcast-channels.revoke-speak', $channel) }}',
         },
     };
 </script>

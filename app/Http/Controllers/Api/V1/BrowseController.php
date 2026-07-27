@@ -135,6 +135,25 @@ class BrowseController extends Controller
         )->response();
     }
 
+    /**
+     * A pool of randomly-ordered published recordings, used to power the
+     * "radio" autoplay that free listeners drop into once they have spent
+     * their daily pick budget. Excludes premium-only content so the mix keeps
+     * playing without hitting a preview wall.
+     */
+    public function radio(Request $request): JsonResponse
+    {
+        $exclude = array_filter(array_map('intval', explode(',', (string) $request->query('exclude', ''))));
+
+        $assets = AudioAsset::query()->published()
+            ->where('is_premium', false)
+            ->when($exclude, fn ($q) => $q->whereNotIn('id', $exclude))
+            ->inRandomOrder()
+            ->take(25)->get();
+
+        return AudioAssetResource::collection($assets)->response();
+    }
+
     /* ------------------------------------------------------------------ */
 
     private function resolveSectionItems(string $type, int $max): array
