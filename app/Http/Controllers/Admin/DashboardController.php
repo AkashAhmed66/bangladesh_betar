@@ -16,6 +16,7 @@ use App\Models\RightsRecord;
 use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 /**
@@ -175,8 +176,46 @@ class DashboardController extends Controller
             ->selectRaw('content_type, COUNT(*) as total')
             ->groupBy('content_type')->orderByDesc('total')->get();
 
+        // ---- Audience insights (last 7 days) --------------------------------
+        $weekAgo = $today->copy()->subDays(7);
+
+        // Most played artists this week. Artists are credited through the songs
+        // pivot, so we walk play_events → songs → artist_song → artists.
+        $topArtists = DB::table('play_events as pe')
+            ->join('songs as s', 'pe.audio_asset_id', '=', 's.audio_asset_id')
+            ->join('artist_song as ars', 's.id', '=', 'ars.song_id')
+            ->join('artists as a', 'ars.artist_id', '=', 'a.id')
+            ->whereNull('a.deleted_at')->whereNull('s.deleted_at')
+            ->where('pe.created_at', '>=', $weekAgo)
+            ->groupBy('a.id', 'a.name')
+            ->selectRaw('a.name, COUNT(*) as plays')
+            ->orderByDesc('plays')->take(7)->get();
+
+        // Listening by hour of day (0–23) → when the audience tunes in.
+        $hourRaw = DB::table('play_events')
+            ->where('created_at', '>=', $weekAgo)
+            ->selectRaw('HOUR(created_at) as hr, COUNT(*) as plays')
+            ->groupBy('hr')->pluck('plays', 'hr');
+        $hourlyPlays = collect(range(0, 23))->map(fn ($h) => (int) ($hourRaw[$h] ?? 0))->all();
+
+        // Plays by content type this week (what's actually listened to, vs the
+        // inventory mix shown by $contentByType).
+        $playsByType = DB::table('play_events as pe')
+            ->join('audio_assets as aa', 'pe.audio_asset_id', '=', 'aa.id')
+            ->where('pe.created_at', '>=', $weekAgo)
+            ->groupBy('aa.content_type')
+            ->selectRaw('aa.content_type, COUNT(*) as plays')
+            ->orderByDesc('plays')->get();
+
+        // Engagement quality this week (percentages, from the daily rollups).
+        $engagement = AssetStatsDaily::query()
+            ->where('stat_date', '>=', $today->copy()->subDays(6)->toDateString())
+            ->selectRaw('AVG(completion_rate) as completion, AVG(skip_rate) as skip_rate, AVG(replay_rate) as replay_rate, AVG(avg_listen_seconds) as listen_seconds')
+            ->first();
+
         return view('admin.dashboard', compact(
             'stats', 'headline', 'trend', 'topPlayed', 'recentUploads', 'myQueue', 'contentByType',
+            'topArtists', 'hourlyPlays', 'playsByType', 'engagement',
         ));
     }
 }

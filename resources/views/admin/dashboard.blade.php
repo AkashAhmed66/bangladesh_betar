@@ -8,29 +8,28 @@
     $greeting = $hour < 12 ? 'Good morning' : ($hour < 17 ? 'Good afternoon' : 'Good evening');
 @endphp
 
-{{-- Welcome hero — permanent, non-dismissible --}}
-<div class="relative mb-6 overflow-hidden rounded-(--radius-app) bg-gradient-to-br from-primary-600 via-primary-700 to-primary-900 px-6 py-7 text-white shadow-lg sm:px-8">
-    {{-- ambient glows --}}
-    <div class="pointer-events-none absolute -right-16 -top-16 size-56 rounded-full bg-white/10 blur-3xl"></div>
-    <div class="pointer-events-none absolute -bottom-24 right-1/3 size-52 rounded-full bg-accent-500/25 blur-3xl"></div>
-    {{-- faint equaliser motif --}}
-    <div class="pointer-events-none absolute bottom-0 right-6 flex items-end gap-1 opacity-15">
-        @foreach ([18, 30, 22, 40, 26, 34, 20] as $h)
-            <span class="w-1.5 rounded-t bg-white" style="height: {{ $h }}px"></span>
-        @endforeach
-    </div>
+{{-- Welcome hero — Bangladesh Betar banner background, permanent & non-dismissible.
+     Drop the banner image at: public/images/dashboard-hero.jpg --}}
+<div class="relative mb-6 overflow-hidden rounded-(--radius-app) bg-primary-800 px-6 py-8 text-white shadow-lg sm:px-8 sm:py-10">
+    {{-- Banner photo (root-relative so it works on any host/IP) --}}
+    <div class="pointer-events-none absolute inset-0 bg-cover bg-center"
+         style="background-image: url('/images/dashboard-hero.jpg')"></div>
+    {{-- Readability scrim: brand-tinted, darker where the copy sits (left + right),
+         lighter in the middle so the banner still shows through. --}}
+    <div class="pointer-events-none absolute inset-0 bg-gradient-to-r from-primary-950/90 via-primary-900/60 to-primary-950/80"></div>
 
-    <div class="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+    <div class="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between"
+         style="text-shadow: 0 1px 3px rgba(0,0,0,0.45)">
         <div class="flex items-center gap-4">
-            <span class="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-inset ring-white/25 backdrop-blur">
+            <span class="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-inset ring-white/30 backdrop-blur">
                 <x-icon name="radio" class="size-7" />
             </span>
             <div>
-                <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-white/75">{{ $greeting }}, {{ auth()->user()->name }}</p>
+                <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-white/85">{{ $greeting }}, {{ auth()->user()->name }}</p>
                 <h1 class="mt-1 text-2xl font-bold leading-tight sm:text-[28px]">Welcome to Bangladesh Betar Audio Archive</h1>
-                <p class="mt-1.5 text-sm text-white/80">
+                <p class="mt-1.5 text-sm text-white/85">
                     The sound heritage of the nation
-                    <span class="mx-1 text-white/40">·</span>{{ auth()->user()->getRoleNames()->first() ?? 'Team member' }}
+                    <span class="mx-1 text-white/50">·</span>{{ auth()->user()->getRoleNames()->first() ?? 'Team member' }}
                 </p>
             </div>
         </div>
@@ -39,7 +38,7 @@
         <div class="shrink-0 text-left sm:text-right"
              x-data="{ t: '', init() { const f = () => this.t = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); f(); setInterval(f, 1000); } }">
             <p class="font-mono text-3xl font-bold tabular-nums tracking-tight" x-text="t">--:--:--</p>
-            <p class="mt-0.5 text-xs font-medium text-white/70">{{ now()->format('l, j F Y') }}</p>
+            <p class="mt-0.5 text-xs font-medium text-white/85">{{ now()->format('l, j F Y') }}</p>
         </div>
     </div>
 </div>
@@ -120,12 +119,112 @@
     <div class="card">
         <div class="card-header">
             <div>
-                <h3 class="font-semibold text-slate-800 dark:text-slate-100">Archive composition</h3>
+                <h3 class="font-semibold text-slate-800 dark:text-slate-100">Archive Overview</h3>
                 <p class="text-xs text-slate-500 dark:text-slate-400">Recordings by content type</p>
             </div>
         </div>
         <div class="card-body">
             <canvas id="mixChart" height="220"></canvas>
+        </div>
+    </div>
+</div>
+
+{{-- ================= Audience insights ================= --}}
+@php
+    $engCompletion = round((float) ($engagement->completion ?? 0), 1);
+    $engSkip = round((float) ($engagement->skip_rate ?? 0), 1);
+    $engReplay = round((float) ($engagement->replay_rate ?? 0), 1);
+    $engListen = (int) round((float) ($engagement->listen_seconds ?? 0));
+    $engCards = [
+        ['label' => 'Avg. completion', 'value' => $engCompletion.'%', 'pct' => $engCompletion, 'hint' => 'of each recording heard', 'color' => 'emerald', 'icon' => 'check-badge'],
+        ['label' => 'Avg. listen time', 'value' => sprintf('%d:%02d', intdiv($engListen, 60), $engListen % 60), 'pct' => min(100, $engCompletion), 'hint' => 'minutes per session', 'color' => 'sky', 'icon' => 'clock'],
+        ['label' => 'Skip rate', 'value' => $engSkip.'%', 'pct' => $engSkip, 'hint' => 'skipped before finishing', 'color' => 'amber', 'icon' => 'chevron-right'],
+        ['label' => 'Replay rate', 'value' => $engReplay.'%', 'pct' => $engReplay, 'hint' => 'listened to again', 'color' => 'violet', 'icon' => 'arrow-path'],
+    ];
+    $engBar = ['emerald' => 'bg-emerald-500', 'sky' => 'bg-sky-500', 'amber' => 'bg-amber-500', 'violet' => 'bg-violet-500'];
+    $engIco = ['emerald' => 'text-emerald-600 dark:text-emerald-400', 'sky' => 'text-sky-600 dark:text-sky-400', 'amber' => 'text-amber-600 dark:text-amber-400', 'violet' => 'text-violet-600 dark:text-violet-400'];
+@endphp
+
+<div class="mt-8 mb-3 flex items-end justify-between gap-3">
+    <div>
+        <h2 class="text-base font-semibold text-slate-800 dark:text-slate-100">Audience insights</h2>
+        <p class="text-xs text-slate-500 dark:text-slate-400">Who is listening, to what, and when</p>
+    </div>
+    <span class="badge-slate">Last 7 days</span>
+</div>
+
+{{-- Engagement quality --}}
+<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    @foreach ($engCards as $c)
+        <div class="card p-5">
+            <div class="flex items-start justify-between gap-3">
+                <p class="text-sm font-medium text-slate-500 dark:text-slate-400">{{ $c['label'] }}</p>
+                <x-icon :name="$c['icon']" class="size-5 {{ $engIco[$c['color']] }}" />
+            </div>
+            <p class="mt-2 text-[26px] font-bold leading-none tracking-tight text-slate-900 dark:text-white">{{ $c['value'] }}</p>
+            <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                <div class="h-full rounded-full {{ $engBar[$c['color']] }}" style="width: {{ max(2, min(100, $c['pct'])) }}%"></div>
+            </div>
+            <p class="mt-2 text-xs text-slate-400 dark:text-slate-500">{{ $c['hint'] }}</p>
+        </div>
+    @endforeach
+</div>
+
+<div class="mt-4 grid grid-cols-1 gap-6 xl:grid-cols-3">
+    {{-- Most played artists --}}
+    <div class="card xl:col-span-2">
+        <div class="card-header">
+            <div>
+                <h3 class="font-semibold text-slate-800 dark:text-slate-100">Most Played Artists</h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Ranked by plays this week</p>
+            </div>
+            @if ($topArtists->isNotEmpty())
+                <span class="badge-primary">Top {{ $topArtists->count() }}</span>
+            @endif
+        </div>
+        <div class="card-body">
+            @if ($topArtists->isEmpty())
+                <p class="py-14 text-center text-sm text-slate-400 dark:text-slate-500">No artist play data yet this week.</p>
+            @else
+                <div class="relative" style="height: {{ max(200, $topArtists->count() * 46) }}px">
+                    <canvas id="artistsChart"></canvas>
+                </div>
+            @endif
+        </div>
+    </div>
+
+    {{-- Plays by content type --}}
+    <div class="card">
+        <div class="card-header">
+            <div>
+                <h3 class="font-semibold text-slate-800 dark:text-slate-100">Audiance Favorite</h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Plays by type · this week</p>
+            </div>
+        </div>
+        <div class="card-body">
+            @if ($playsByType->isEmpty())
+                <p class="py-14 text-center text-sm text-slate-400 dark:text-slate-500">No play data yet this week.</p>
+            @else
+                <canvas id="playsTypeChart" height="240"></canvas>
+            @endif
+        </div>
+    </div>
+</div>
+
+{{-- Peak listening hours --}}
+<div class="mt-6">
+    <div class="card">
+        <div class="card-header">
+            <div>
+                <h3 class="font-semibold text-slate-800 dark:text-slate-100">Peak Listening Hours</h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400">When the audience tunes in · plays by hour, last 7 days</p>
+            </div>
+            <span class="badge-slate">Server time</span>
+        </div>
+        <div class="card-body">
+            <div class="relative h-56 sm:h-64">
+                <canvas id="hoursChart"></canvas>
+            </div>
         </div>
     </div>
 </div>
@@ -247,6 +346,10 @@ document.addEventListener('DOMContentLoaded', () => {
         labels: { color: textColor, boxWidth: 8, usePointStyle: true, pointStyle: 'circle', padding: 16 },
     };
 
+    // Cohesive professional categorical palette (teal, indigo, amber, sky,
+    // emerald, violet, rose, slate, yellow, pink) — reused across the charts.
+    const PALETTE = ['#14b8a6', '#6366f1', '#f59e0b', '#0ea5e9', '#10b981', '#8b5cf6', '#f43f5e', '#64748b', '#eab308', '#ec4899'];
+
     const trendEl = document.getElementById('trendChart');
     const fill = trendEl.getContext('2d').createLinearGradient(0, 0, 0, 180);
     fill.addColorStop(0, primary + '3d');
@@ -278,7 +381,7 @@ document.addEventListener('DOMContentLoaded', () => {
             labels: @json($contentByType->pluck('content_type')->map(fn ($t) => ucfirst(str_replace('_', ' ', $t)))),
             datasets: [{
                 data: @json($contentByType->pluck('total')),
-                backgroundColor: [primary, accent, '#0ea5e9', '#8b5cf6', '#f43f5e', '#10b981', '#f59e0b', '#64748b', '#14b8a6', '#a855f7'],
+                backgroundColor: PALETTE,
                 borderWidth: 2,
                 borderColor: dark ? '#0f172a' : '#ffffff',
                 hoverOffset: 6,
@@ -289,6 +392,92 @@ document.addEventListener('DOMContentLoaded', () => {
             plugins: { legend: { position: 'bottom', ...legend }, tooltip },
         },
     });
+
+    // Most Played Artists — horizontal bars, one colour per artist.
+    const artistsEl = document.getElementById('artistsChart');
+    if (artistsEl) {
+        new Chart(artistsEl, {
+            type: 'bar',
+            data: {
+                labels: @json($topArtists->pluck('name')),
+                datasets: [{
+                    label: 'Plays',
+                    data: @json($topArtists->pluck('plays')),
+                    backgroundColor: PALETTE,
+                    borderRadius: 6,
+                    borderSkipped: false,
+                    barThickness: 22,
+                }],
+            },
+            options: {
+                indexAxis: 'y',
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip },
+                scales: {
+                    x: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: textColor, precision: 0 }, border: { display: false } },
+                    y: { grid: { display: false }, ticks: { color: textColor, font: { weight: '600' } }, border: { display: false } },
+                },
+            },
+        });
+    }
+
+    // What's Being Heard — plays by content type (doughnut).
+    const playsTypeEl = document.getElementById('playsTypeChart');
+    if (playsTypeEl) {
+        new Chart(playsTypeEl, {
+            type: 'doughnut',
+            data: {
+                labels: @json($playsByType->pluck('content_type')->map(fn ($t) => ucfirst(str_replace('_', ' ', $t)))),
+                datasets: [{
+                    data: @json($playsByType->pluck('plays')),
+                    backgroundColor: PALETTE,
+                    borderWidth: 2,
+                    borderColor: dark ? '#0f172a' : '#ffffff',
+                    hoverOffset: 6,
+                }],
+            },
+            options: {
+                cutout: '62%',
+                plugins: { legend: { position: 'bottom', ...legend }, tooltip },
+            },
+        });
+    }
+
+    // Peak Listening Hours — area chart across the day.
+    const hoursEl = document.getElementById('hoursChart');
+    if (hoursEl) {
+        const hg = hoursEl.getContext('2d').createLinearGradient(0, 0, 0, 240);
+        hg.addColorStop(0, '#6366f166');
+        hg.addColorStop(1, '#6366f100');
+        new Chart(hoursEl, {
+            type: 'line',
+            data: {
+                labels: @json(collect(range(0, 23))->map(fn ($h) => sprintf('%02d', $h))),
+                datasets: [{
+                    label: 'Plays',
+                    data: @json($hourlyPlays),
+                    borderColor: '#6366f1',
+                    backgroundColor: hg,
+                    fill: true,
+                    tension: .4,
+                    pointRadius: 0,
+                    pointHoverRadius: 5,
+                    borderWidth: 2.5,
+                }],
+            },
+            options: {
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: { legend: { display: false }, tooltip: { ...tooltip, mode: 'index', intersect: false } },
+                scales: {
+                    x: { grid: { display: false }, border: { display: false },
+                         ticks: { color: textColor, maxRotation: 0, autoSkip: false,
+                                  callback: function (v) { const l = this.getLabelForValue(v); return (parseInt(l, 10) % 3 === 0) ? l + ':00' : ''; } } },
+                    y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: textColor, precision: 0, maxTicksLimit: 5 }, border: { display: false } },
+                },
+            },
+        });
+    }
 });
 </script>
 @endsection

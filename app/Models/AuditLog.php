@@ -43,12 +43,19 @@ class AuditLog extends Model
         $strip = static fn (?array $values): ?array => $values === null ? null
             : collect($values)->except(['password', 'remember_token'])->toArray();
 
+        // `description` is TEXT (see the widen_audit_logs_description migration),
+        // but we still cap it so a pathologically long message — e.g. an embedded
+        // external error — can never overflow the column and make logging a
+        // failure itself throw. The full detail is also retained elsewhere
+        // (e.g. ai_analysis_jobs.error).
+        $text = $description ?? ($auditable ? class_basename($auditable).' #'.$auditable->getKey() : null);
+
         static::query()->create([
             'user_id' => auth()->id(),
             'action' => $action,
             'auditable_type' => $auditable?->getMorphClass(),
             'auditable_id' => $auditable?->getKey(),
-            'description' => $description ?? ($auditable ? class_basename($auditable).' #'.$auditable->getKey() : null),
+            'description' => $text === null ? null : mb_substr($text, 0, 2000),
             'old_values' => $strip($old),
             'new_values' => $strip($new),
             'ip_address' => request()?->ip(),

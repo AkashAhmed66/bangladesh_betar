@@ -31,7 +31,15 @@ class SubmitAudioForAiAnalysis implements ShouldQueue
 
     public int $timeout = 120;
 
-    public function __construct(private readonly int $audioAssetId) {}
+    public function __construct(private readonly int $audioAssetId)
+    {
+        // Always run on the database queue so the upload request returns
+        // instantly and the AI analysis (a slow external call) happens in the
+        // background — even when the environment's default QUEUE_CONNECTION is
+        // 'sync', which would otherwise run this inline and block/500 the
+        // upload. The supervisor worker processes this same queue.
+        $this->onConnection('database');
+    }
 
     public function handle(AiAnalysisService $ai): void
     {

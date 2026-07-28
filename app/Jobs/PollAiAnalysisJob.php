@@ -35,7 +35,14 @@ class PollAiAnalysisJob implements ShouldQueue
 
     public int $timeout = 60;
 
-    public function __construct(private readonly int $aiAnalysisJobId) {}
+    public function __construct(private readonly int $aiAnalysisJobId)
+    {
+        // Run on the database queue (never inline) so the self-requeuing poll
+        // loop runs in the background regardless of the default QUEUE_CONNECTION
+        // — and so the ->delay() between polls is honoured (the 'sync' driver
+        // ignores delays).
+        $this->onConnection('database');
+    }
 
     public function handle(AiAnalysisService $ai): void
     {
