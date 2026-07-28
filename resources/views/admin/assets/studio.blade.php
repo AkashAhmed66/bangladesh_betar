@@ -239,20 +239,30 @@
             </div>
         </div>
 
-        {{-- Content markers --}}
+        {{-- Content markers (chapters) --}}
         <div class="card">
-            <div class="card-header"><h3 class="font-semibold text-slate-800 dark:text-slate-100">Content Markers</h3><span class="text-xs text-slate-400">{{ $markers->count() }}</span></div>
-            <div class="card-body space-y-3">
-                @can('assets.edit')
-                <div class="flex flex-wrap items-center gap-2">
-                    <select id="marker-type" class="form-input w-28 py-1.5 text-xs">
-                        @foreach ($markerTypes as $t)<option value="{{ $t }}">{{ ucfirst($t) }}</option>@endforeach
-                    </select>
-                    <input id="marker-label" class="form-input flex-1 py-1.5 text-xs" placeholder="Label (at cursor/selection)">
-                    <button id="btn-add-marker" class="btn-primary btn-sm"><x-icon name="plus" class="size-3.5" /></button>
+            <div class="card-header flex items-center justify-between">
+                <h3 class="font-semibold text-slate-800 dark:text-slate-100">Content Markers</h3>
+                <div class="flex items-center gap-3">
+                    <span id="marker-count" class="text-xs text-slate-400">{{ $markers->where('marker_type', 'chapter')->count() }}</span>
+                    @can('assets.edit')
+                    {{-- Sliding toggle to enable content markers (chapters). --}}
+                    <label class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer" title="Enable content markers">
+                        <input type="checkbox" id="markers-enable" class="peer sr-only">
+                        <span class="absolute inset-0 rounded-full bg-slate-300 transition-colors peer-checked:bg-primary-600 dark:bg-slate-600"></span>
+                        <span class="absolute left-0.5 top-0.5 size-4 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-4"></span>
+                    </label>
+                    @endcan
                 </div>
-                @endcan
-                <div id="marker-list" class="max-h-64 space-y-0.5 overflow-y-auto scrollbar-slim"></div>
+            </div>
+            <div class="card-body space-y-3">
+                <div id="markers-panel" class="hidden space-y-2">
+                    <p class="text-xs text-slate-400">Play to a point, then <strong>Add break</strong> to start a new chapter — the new part is named <em>Ending</em> (rename it as you like). Listeners can jump to chapters in the public app.</p>
+                    <div id="marker-list" class="max-h-64 space-y-1 overflow-y-auto scrollbar-slim"></div>
+                    @can('assets.edit')
+                    <button id="btn-add-break" class="btn-secondary btn-sm w-full"><x-icon name="plus" class="size-3.5" /> Add break at playhead</button>
+                    @endcan
+                </div>
             </div>
         </div>
 
@@ -284,6 +294,7 @@
         urls: {
             streamTemplate: '{{ route('admin.assets.stream', ['asset' => $asset->id, 'version' => '__V__'], false) }}',
             markerStore: '{{ route('admin.assets.markers.store', $asset, false) }}',
+            markerUpdate: '{{ route('admin.assets.markers.update', ['asset' => $asset->id, 'marker' => '__ID__'], false) }}',
             markerDelete: '{{ route('admin.assets.markers.destroy', ['asset' => $asset->id, 'marker' => '__ID__'], false) }}',
             edit: '{{ route('admin.assets.edit-session', $asset, false) }}',
             render: '{{ route('admin.assets.render', $asset, false) }}',

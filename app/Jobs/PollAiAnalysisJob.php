@@ -16,6 +16,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 
 /**
  * M16 — polls GET /jobs/{id} on the external audio-postmortem service every
@@ -50,15 +51,28 @@ class PollAiAnalysisJob implements ShouldQueue
         try {
             $result = $ai->poll((string) $job->job_id);
         } catch (\Throwable $e) {
-            $this->reschedule($job, $asset, $e->getMessage());
+            Log::warning('[ai-analysis] poll request failed', [
+                'ai_job' => $job->id,
+                'external_job' => $job->job_id,
+                'attempt' => $job->attempts + 1,
+                'error' => $e->getMessage(),
+            ]);
+            $this->reschedule($job, $asset, 'poll request failed: '.$e->getMessage());
 
             return;
         }
 
-        $status = $result['status'] ?? 'processing';
+        $status = (string) ($result['status'] ?? 'processing');
+
+        Log::info('[ai-analysis] polled', [
+            'ai_job' => $job->id,
+            'external_job' => $job->job_id,
+            'attempt' => $job->attempts + 1,
+            'status' => $status,
+        ]);
 
         if ($status === 'processing') {
-            $this->reschedule($job, $asset, null);
+            $this->reschedule($job, $asset, 'service still processing');
 
             return;
         }
@@ -81,16 +95,30 @@ class PollAiAnalysisJob implements ShouldQueue
     }
 
     /** Still processing (or a transient poll failure) — try again shortly, up to a cap. */
-    private function reschedule(AiAnalysisJob $job, AudioAsset $asset, ?string $transientError): void
+    private function reschedule(AiAnalysisJob $job, AudioAsset $asset, ?string $lastNote): void
     {
-        $maxAttempts = (int) config('services.audio_postmortem.max_poll_attempts', 60);
+        $maxAttempts = (int) config('services.audio_postmortem.max_poll_attempts', 180);
         $intervalSeconds = (int) config('services.audio_postmortem.poll_interval_seconds', 10);
+        $windowMinutes = (int) round($maxAttempts * $intervalSeconds / 60);
 
         $job->increment('attempts');
         $job->update(['polled_at' => now()]);
 
         if ($job->attempts >= $maxAttempts) {
-            $this->finishWithError($job, $asset, $transientError ?? 'Timed out waiting for the AI analysis service.');
+            Log::error('[ai-analysis] gave up polling — service never returned a result', [
+                'ai_job' => $job->id,
+                'external_job' => $job->job_id,
+                'asset' => $asset->id,
+                'attempts' => $job->attempts,
+                'window_min' => $windowMinutes,
+                'last' => $lastNote,
+            ]);
+            $this->finishWithError($job, $asset, sprintf(
+                'Timed out waiting for the AI analysis service after %d attempts (~%d min). Last response: %s.',
+                $maxAttempts,
+                $windowMinutes,
+                $lastNote ?? 'service still processing',
+            ));
 
             return;
         }
@@ -131,6 +159,16 @@ class PollAiAnalysisJob implements ShouldQueue
             'raw_response' => $result,
         ]);
         $job->refresh();
+
+        Log::info('[ai-analysis] completed', [
+            'ai_job' => $job->id,
+            'external_job' => $job->job_id,
+            'asset' => $asset->id,
+            'flagged' => $job->isFlagged(),
+            'is_duplicate' => $job->is_duplicate,
+            'violence' => $job->violence_detected,
+            'anti_government' => $job->anti_government_detected,
+        ]);
 
         // Show the transcription regardless of the moderation outcome.
         $transcriptText = $job->transcript_readable ?: $job->transcript;
@@ -181,6 +219,13 @@ class PollAiAnalysisJob implements ShouldQueue
 
     private function finishWithError(AiAnalysisJob $job, AudioAsset $asset, string $message): void
     {
+        Log::warning('[ai-analysis] finished with error', [
+            'ai_job' => $job->id,
+            'external_job' => $job->job_id,
+            'asset' => $asset->id,
+            'error' => $message,
+        ]);
+
         $job->update(['status' => 'error', 'error' => $message, 'completed_at' => now()]);
 
         // Don't leave the asset stuck in "analyzing" forever — unblock it so

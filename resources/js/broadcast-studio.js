@@ -442,6 +442,22 @@ function boot() {
             state.room.on(RoomEvent.Reconnecting, () => setQuality('lost'));
             state.room.on(RoomEvent.Reconnected, () => setQuality('good'));
 
+            // Hear listeners you've invited to speak: play their published audio
+            // through a dedicated hidden element (use headphones to avoid feedback).
+            state.room.on(RoomEvent.TrackSubscribed, (track, _pub, participant) => {
+                if (track.kind !== 'audio') return;
+                const el = track.attach();
+                el.autoplay = true;
+                el.style.display = 'none';
+                document.body.appendChild(el);
+                el.play?.().catch(() => {});
+                toast((participant?.name || 'A listener') + ' is on air');
+            });
+            state.room.on(RoomEvent.TrackUnsubscribed, (track) => {
+                if (track.kind !== 'audio') return;
+                try { track.detach().forEach((el) => el.remove()); } catch (_) {}
+            });
+
             await state.room.connect(wsUrl, creds.token);
             await state.room.localParticipant.publishTrack(state.lkTrack, { name: 'microphone' });
         } catch (e) {

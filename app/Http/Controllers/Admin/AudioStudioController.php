@@ -174,6 +174,20 @@ class AudioStudioController extends Controller
         return response()->json(['data' => ($this->markerArray())($marker)], 201);
     }
 
+    public function updateMarker(Request $request, AudioAsset $asset, AudioMarker $marker): JsonResponse
+    {
+        $this->authorize('assets.edit');
+        abort_unless($marker->audio_asset_id === $asset->id, 404);
+
+        $data = $request->validate([
+            'label' => ['sometimes', 'required', 'string', 'max:255'],
+            'start_seconds' => ['sometimes', 'numeric', 'min:0'],
+        ]);
+        $marker->update($data);
+
+        return response()->json(['data' => ($this->markerArray())($marker)]);
+    }
+
     public function deleteMarker(AudioAsset $asset, AudioMarker $marker): JsonResponse
     {
         $this->authorize('assets.edit');

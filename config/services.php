@@ -41,7 +41,7 @@ return [
         'base_url' => env('AUDIO_POSTMORTEM_BASE_URL', 'http://202.59.133.123:9026'),
         'timeout' => (int) env('AUDIO_POSTMORTEM_TIMEOUT', 30),
         'poll_interval_seconds' => (int) env('AUDIO_POSTMORTEM_POLL_INTERVAL', 10),
-        'max_poll_attempts' => (int) env('AUDIO_POSTMORTEM_MAX_ATTEMPTS', 60), // ~10 min at 10s
+        'max_poll_attempts' => (int) env('AUDIO_POSTMORTEM_MAX_ATTEMPTS', 180), // ~30 min at 10s
     ],
 
     // LiveKit — self-hosted WebRTC SFU for live audio broadcasting (M27).

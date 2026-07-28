@@ -87,6 +87,8 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
             Route::get('assets/{asset}/markers', [Admin\AudioStudioController::class, 'markers'])->name('assets.markers');
             Route::post('assets/{asset}/markers', [Admin\AudioStudioController::class, 'storeMarker'])
                 ->middleware('permission:assets.edit')->name('assets.markers.store');
+            Route::patch('assets/{asset}/markers/{marker}', [Admin\AudioStudioController::class, 'updateMarker'])
+                ->middleware('permission:assets.edit')->name('assets.markers.update');
             Route::delete('assets/{asset}/markers/{marker}', [Admin\AudioStudioController::class, 'deleteMarker'])
                 ->middleware('permission:assets.edit')->name('assets.markers.destroy');
             Route::post('assets/{asset}/edit-session', [Admin\AudioStudioController::class, 'saveEdit'])

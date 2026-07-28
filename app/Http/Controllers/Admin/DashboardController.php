@@ -51,6 +51,116 @@ class DashboardController extends Controller
             ->where('stat_date', '>=', now()->subDays(13)->toDateString())
             ->groupBy('stat_date')->orderBy('stat_date')->get();
 
+        // ---- Business KPI headline band (period-over-period growth) --------
+        $today = now();
+        $startThisMonth = $today->copy()->startOfMonth();
+        $startLastMonth = $today->copy()->subMonthNoOverflow()->startOfMonth();
+
+        // Continuous 28-day plays series (missing days filled with 0) → powers
+        // the 7d-vs-prior-7d delta and the headline sparkline.
+        $rawPlays = AssetStatsDaily::query()
+            ->selectRaw('stat_date, SUM(plays) as plays')
+            ->where('stat_date', '>=', $today->copy()->subDays(27)->toDateString())
+            ->groupBy('stat_date')->pluck('plays', 'stat_date');
+
+        $playSeries = collect(range(27, 0, -1))
+            ->map(fn ($d) => (int) ($rawPlays[$today->copy()->subDays($d)->toDateString()] ?? 0));
+
+        $plays7 = (int) $playSeries->slice(21, 7)->sum();
+        $playsPrev7 = (int) $playSeries->slice(14, 7)->sum();
+        $playsSpark = $playSeries->slice(14)->values()->all();
+
+        $newListenersThisMonth = User::query()->where('user_type', 'listener')
+            ->where('created_at', '>=', $startThisMonth)->count();
+        $newListenersLastMonth = User::query()->where('user_type', 'listener')
+            ->whereBetween('created_at', [$startLastMonth, $startThisMonth])->count();
+
+        $pct = static function (float|int $cur, float|int $prev): ?float {
+            if ($prev <= 0) {
+                return $cur > 0 ? 100.0 : null;
+            }
+
+            return round((($cur - $prev) / $prev) * 100, 1);
+        };
+
+        $headline = [
+            [
+                'label' => 'Plays · last 7 days',
+                'value' => number_format($plays7),
+                'delta' => $pct($plays7, $playsPrev7),
+                'deltaLabel' => 'vs prior 7 days',
+                'series' => $playsSpark,
+                'icon' => 'play',
+                'color' => 'primary',
+            ],
+            [
+                'label' => 'Registered Listeners',
+                'value' => number_format($stats['listeners']),
+                'delta' => $pct($newListenersThisMonth, $newListenersLastMonth),
+                'deltaLabel' => '+'.number_format($newListenersThisMonth).' this month',
+                'series' => null,
+                'icon' => 'users',
+                'color' => 'blue',
+            ],
+        ];
+
+        // Slot 3 — revenue if the user can see it, otherwise public reach.
+        if ($stats['revenue_month'] !== null) {
+            $revPrevMonth = (float) Payment::query()->where('status', 'completed')
+                ->whereBetween('paid_at', [$startLastMonth, $startThisMonth])->sum('amount');
+            $headline[] = [
+                'label' => 'Revenue · this month',
+                'value' => '৳ '.number_format((float) $stats['revenue_month'], 0),
+                'delta' => $pct((float) $stats['revenue_month'], $revPrevMonth),
+                'deltaLabel' => 'vs last month',
+                'series' => null,
+                'icon' => 'banknotes',
+                'color' => 'green',
+            ];
+        } else {
+            $publishRate = $stats['total_assets'] > 0
+                ? (int) round($stats['published_assets'] / $stats['total_assets'] * 100)
+                : 0;
+            $headline[] = [
+                'label' => 'Published to Public',
+                'value' => number_format($stats['published_assets']),
+                'delta' => null,
+                'deltaLabel' => $publishRate.'% of the library is live',
+                'series' => null,
+                'icon' => 'globe',
+                'color' => 'green',
+            ];
+        }
+
+        // Slot 4 — premium conversion if visible, otherwise archive scale.
+        if ($stats['active_subscribers'] !== null) {
+            $newSubsThisMonth = Subscription::query()->where('created_at', '>=', $startThisMonth)->count();
+            $newSubsLastMonth = Subscription::query()
+                ->whereBetween('created_at', [$startLastMonth, $startThisMonth])->count();
+            $conversion = $stats['listeners'] > 0
+                ? round($stats['active_subscribers'] / $stats['listeners'] * 100, 1)
+                : 0;
+            $headline[] = [
+                'label' => 'Premium Subscribers',
+                'value' => number_format($stats['active_subscribers']),
+                'delta' => $pct($newSubsThisMonth, $newSubsLastMonth),
+                'deltaLabel' => $conversion.'% of listeners converted',
+                'series' => null,
+                'icon' => 'star',
+                'color' => 'accent',
+            ];
+        } else {
+            $headline[] = [
+                'label' => 'Hours Archived',
+                'value' => number_format($stats['total_duration_hours']),
+                'delta' => null,
+                'deltaLabel' => number_format($stats['total_assets']).' recordings preserved',
+                'series' => null,
+                'icon' => 'clock',
+                'color' => 'purple',
+            ];
+        }
+
         $topPlayed = AudioAsset::query()->where('status', 'published')
             ->orderByDesc('play_count')->take(6)->get();
 
@@ -66,7 +176,7 @@ class DashboardController extends Controller
             ->groupBy('content_type')->orderByDesc('total')->get();
 
         return view('admin.dashboard', compact(
-            'stats', 'trend', 'topPlayed', 'recentUploads', 'myQueue', 'contentByType',
+            'stats', 'headline', 'trend', 'topPlayed', 'recentUploads', 'myQueue', 'contentByType',
         ));
     }
 }

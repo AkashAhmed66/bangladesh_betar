@@ -184,7 +184,11 @@ class CatalogueController extends Controller
     public function asset(Request $request, AudioAsset $asset): JsonResponse
     {
         abort_unless($asset->isPublished(), 404);
-        $asset->load(['category', 'language', 'station', 'programme', 'artists']);
+        $asset->load([
+            'category', 'language', 'station', 'programme', 'artists',
+            // Chapters for the public player (content markers of type 'chapter').
+            'markers' => fn ($q) => $q->where('marker_type', 'chapter')->orderBy('start_seconds'),
+        ]);
         $this->markFavorited($asset, $request->user());
         $this->markMyRating($asset, $request->user());
 

@@ -37,6 +37,12 @@ class AudioAssetResource extends JsonResource
             'rating_count' => $this->rating_count,
             'allow_comments' => (bool) $this->allow_comments,
             'waveform' => $this->when($request->routeIs('*.show'), $this->waveform_peaks),
+            // Content markers (chapters) for the public player — loaded only on
+            // the asset detail route. Each is { title, start_seconds }.
+            'chapters' => $this->whenLoaded('markers', fn () => $this->markers->map(fn ($m) => [
+                'title' => $m->label,
+                'start_seconds' => (float) $m->start_seconds,
+            ])->values()),
             'is_favorited' => $this->when(isset($this->is_favorited), fn () => (bool) $this->is_favorited),
             'my_rating' => $this->when(isset($this->my_rating), fn () => $this->my_rating),
         ];

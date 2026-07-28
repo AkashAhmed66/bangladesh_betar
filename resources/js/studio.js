@@ -519,57 +519,171 @@ function boot() {
         $('#silence-count').textContent = `${count} silent gaps`;
     });
 
-    /* ----------------------- markers ---------------------------------- */
+    /* --------------------- content markers (chapters) ----------------- */
+    // Simplified to plain chapters: enable the feature to mark the whole
+    // recording as one chapter ("Complete"), then "Add break" at the playhead
+    // to split off a new chapter (named "Ending", renameable). No marker types.
+
+    const chapterList = () => (CFG.markers || []).filter((m) => m.type === 'chapter').sort((a, b) => a.start - b.start);
 
     function drawMarkers() {
-        (CFG.markers || []).forEach(addMarkerRegion);
+        chapterList().forEach(addMarkerRegion);
         renderMarkerList();
+        syncMarkersUI();
     }
+
     function addMarkerRegion(m) {
         regions.addRegion({
             start: m.start, end: m.end ?? undefined,
             color: hexToRgba(m.color, m.end ? 0.18 : 1),
-            content: `${iconFor(m.type)} ${m.label}`,
+            content: `📑 ${m.label}`,
             drag: false, resize: false, id: 'mrk-' + m.id,
         });
     }
+
+    function syncMarkersUI() {
+        const enabled = chapterList().length > 0;
+        const toggle = $('#markers-enable');
+        const panel = $('#markers-panel');
+        if (toggle) toggle.checked = enabled;
+        if (panel) panel.classList.toggle('hidden', !enabled);
+        const cnt = $('#marker-count');
+        if (cnt) cnt.textContent = chapterList().length;
+    }
+
+    function parseTime(str) {
+        str = String(str).trim();
+        const mm = str.match(/^(\d+):(\d{1,2})(?:\.(\d+))?$/);
+        if (mm) return (+mm[1]) * 60 + (+mm[2]) + (mm[3] ? +('0.' + mm[3]) : 0);
+        const n = parseFloat(str);
+        return isFinite(n) ? n : null;
+    }
+
+    function refreshRegion(m) {
+        regions.getRegions().find((r) => r.id === 'mrk-' + m.id)?.remove();
+        addMarkerRegion(m);
+    }
+
     function renderMarkerList() {
         const list = $('#marker-list');
         if (!list) return;
         list.innerHTML = '';
-        (CFG.markers || []).sort((a, b) => a.start - b.start).forEach((m) => {
+        const chapters = chapterList();
+        const dur = ws.getDuration() || CFG.duration || 0;
+        chapters.forEach((m) => {
+            const isBase = m.start === 0; // the "Complete" chapter anchors the start
             const row = document.createElement('div');
-            row.className = 'flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-slate-100 dark:hover:bg-slate-800';
-            row.innerHTML = `<span class="size-2.5 rounded-full shrink-0" style="background:${m.color}"></span>
-                <button class="flex-1 text-left truncate" data-seek="${m.start}">${m.label}
-                  <span class="text-xs text-slate-400">${fmt(m.start)}${m.is_ai ? ' · AI' : ''}</span></button>`;
-            row.querySelector('[data-seek]').addEventListener('click', () => { ws.setTime(m.start); });
-            if (CFG.canEdit) {
+            row.className = 'flex items-center gap-1.5';
+
+            const jump = document.createElement('button');
+            jump.type = 'button';
+            jump.className = 'shrink-0 text-slate-400 hover:text-primary-600';
+            jump.innerHTML = '&#9656;';
+            jump.title = 'Jump to ' + fmt(m.start);
+            jump.addEventListener('click', () => ws.setTime(m.start));
+            row.appendChild(jump);
+
+            const time = document.createElement('input');
+            time.className = 'form-input w-14 shrink-0 py-1 text-center text-xs tabular-nums';
+            time.value = fmt(m.start);
+            time.disabled = !CFG.canEdit || isBase;
+            time.title = isBase ? 'Start of the recording' : 'Chapter start (m:ss) — editable';
+            time.addEventListener('change', () => updateChapterTime(m, time, dur));
+            time.addEventListener('keydown', (e) => { if (e.key === 'Enter') time.blur(); });
+            row.appendChild(time);
+
+            const name = document.createElement('input');
+            name.className = 'form-input flex-1 py-1 text-xs';
+            name.value = m.label;
+            name.disabled = !CFG.canEdit;
+            name.addEventListener('change', () => updateChapterLabel(m, name));
+            name.addEventListener('keydown', (e) => { if (e.key === 'Enter') name.blur(); });
+            row.appendChild(name);
+
+            // The base "Complete" chapter is removed only by turning the feature
+            // off; later chapters ("breaks") get a delete button.
+            if (CFG.canEdit && !isBase) {
                 const del = document.createElement('button');
-                del.className = 'text-slate-400 hover:text-rose-500';
+                del.type = 'button';
+                del.className = 'shrink-0 text-slate-400 hover:text-rose-500';
                 del.innerHTML = '✕';
+                del.title = 'Remove chapter';
                 del.addEventListener('click', () => deleteMarker(m));
                 row.appendChild(del);
             }
+
             list.appendChild(row);
         });
+        const cnt = $('#marker-count');
+        if (cnt) cnt.textContent = chapters.length;
     }
 
-    $('#btn-add-marker')?.addEventListener('click', async () => {
-        const type = $('#marker-type').value;
-        const label = $('#marker-label').value.trim() || type;
-        const sel = activeSelection();
-        const payload = { marker_type: type, label, start_seconds: sel ? sel.start : ws.getCurrentTime(), end_seconds: sel ? sel.end : null };
-        const res = await api('POST', CFG.urls.markerStore, payload);
-        if (res?.data) { CFG.markers.push(res.data); addMarkerRegion(res.data); renderMarkerList(); $('#marker-label').value = ''; }
-    });
+    async function createChapter(label, start) {
+        const res = await api('POST', CFG.urls.markerStore, { marker_type: 'chapter', label, start_seconds: start, end_seconds: null });
+        if (res?.data) { CFG.markers.push(res.data); addMarkerRegion(res.data); renderMarkerList(); }
+        return res?.data ?? null;
+    }
+
+    async function updateChapterLabel(m, input) {
+        const label = input.value.trim();
+        if (!label || label === m.label) { input.value = m.label; return; }
+        const res = await api('PATCH', CFG.urls.markerUpdate.replace('__ID__', m.id), { label });
+        if (res?.data) { m.label = res.data.label; refreshRegion(m); }
+        else input.value = m.label;
+    }
+
+    async function updateChapterTime(m, input, dur) {
+        let t = parseTime(input.value);
+        if (t == null || t < 0) { input.value = fmt(m.start); toast('Enter a time like 1:30.'); return; }
+        if (dur && t > dur) t = dur;
+        t = Math.round(t * 10) / 10;
+        if (t === m.start) { input.value = fmt(m.start); return; }
+        const res = await api('PATCH', CFG.urls.markerUpdate.replace('__ID__', m.id), { start_seconds: t });
+        if (res?.data) { m.start = res.data.start; refreshRegion(m); renderMarkerList(); }
+        else input.value = fmt(m.start);
+    }
 
     async function deleteMarker(m) {
         await api('DELETE', CFG.urls.markerDelete.replace('__ID__', m.id));
-        CFG.markers = CFG.markers.filter(x => x.id !== m.id);
-        regions.getRegions().find(r => r.id === 'mrk-' + m.id)?.remove();
+        CFG.markers = (CFG.markers || []).filter((x) => x.id !== m.id);
+        regions.getRegions().find((r) => r.id === 'mrk-' + m.id)?.remove();
         renderMarkerList();
+        syncMarkersUI();
     }
+
+    // Enable / disable content markers.
+    $('#markers-enable')?.addEventListener('change', async (e) => {
+        if (e.target.checked) {
+            if (chapterList().length === 0) {
+                const created = await createChapter('Complete', 0);
+                if (!created) { e.target.checked = false; return; }
+            }
+            $('#markers-panel')?.classList.remove('hidden');
+            renderMarkerList();
+        } else {
+            for (const m of chapterList()) {
+                await api('DELETE', CFG.urls.markerDelete.replace('__ID__', m.id));
+                regions.getRegions().find((r) => r.id === 'mrk-' + m.id)?.remove();
+            }
+            CFG.markers = (CFG.markers || []).filter((x) => x.type !== 'chapter');
+            $('#markers-panel')?.classList.add('hidden');
+            renderMarkerList();
+        }
+        syncMarkersUI();
+    });
+
+    // Add a break (new chapter). Uses the playhead when it's past the last
+    // chapter, otherwise drops it midway to the end so a chapter is ALWAYS
+    // added (the time is editable afterwards). Named "Ending" by default.
+    $('#btn-add-break')?.addEventListener('click', async () => {
+        const chapters = chapterList();
+        const lastStart = chapters.length ? chapters[chapters.length - 1].start : 0;
+        const dur = ws.getDuration() || CFG.duration || (lastStart + 60);
+        let t = ws.getCurrentTime() || 0;
+        if (t <= lastStart + 0.5) t = lastStart + Math.max(1, (dur - lastStart) / 2);
+        t = Math.min(t, Math.max(lastStart + 1, dur - 0.5));
+        await createChapter('Ending', Math.round(t * 10) / 10);
+    });
 
     /* ------------------------- editing (EDL) -------------------------- */
 
