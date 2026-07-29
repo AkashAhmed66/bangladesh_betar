@@ -260,19 +260,16 @@
                     <p class="text-xs text-slate-400">Play to a point, then <strong>Add break</strong> to start a new chapter — the new part is named <em>Ending</em> (rename it as you like). Listeners can jump to chapters in the public app.</p>
                     <div id="marker-list" class="max-h-64 space-y-1 overflow-y-auto scrollbar-slim"></div>
                     @can('assets.edit')
-                    <button id="btn-add-break" class="btn-secondary btn-sm w-full"><x-icon name="plus" class="size-3.5" /> Add break at playhead</button>
+                    <div class="flex items-center gap-2">
+                        <button id="btn-add-break" class="btn-secondary btn-sm flex-1"><x-icon name="plus" class="size-3.5" /> Add break</button>
+                        <button id="btn-save-markers" class="btn-primary btn-sm flex-1 opacity-50" disabled><x-icon name="check-badge" class="size-3.5" /> Save</button>
+                    </div>
+                    <p id="markers-dirty-hint" class="hidden text-[11px] font-medium text-amber-600 dark:text-amber-400">Unsaved chapter changes — click Save to apply.</p>
                     @endcan
                 </div>
             </div>
         </div>
 
-        {{-- Speaker / segment navigation --}}
-        <div class="card">
-            <div class="card-header"><h3 class="font-semibold text-slate-800 dark:text-slate-100">Speakers & Segments</h3></div>
-            <div id="segment-list" class="card-body max-h-72 space-y-0.5 overflow-y-auto scrollbar-slim">
-                @if ($segments->isEmpty())<p class="text-sm text-slate-400">No transcript segments. Add a transcript to enable speaker navigation.</p>@endif
-            </div>
-        </div>
     </div>
 </div>
 
@@ -294,6 +291,7 @@
         urls: {
             streamTemplate: '{{ route('admin.assets.stream', ['asset' => $asset->id, 'version' => '__V__'], false) }}',
             markerStore: '{{ route('admin.assets.markers.store', $asset, false) }}',
+            markerSync: '{{ route('admin.assets.markers.sync', $asset, false) }}',
             markerUpdate: '{{ route('admin.assets.markers.update', ['asset' => $asset->id, 'marker' => '__ID__'], false) }}',
             markerDelete: '{{ route('admin.assets.markers.destroy', ['asset' => $asset->id, 'marker' => '__ID__'], false) }}',
             edit: '{{ route('admin.assets.edit-session', $asset, false) }}',

@@ -117,6 +117,7 @@ class PlaybackController extends Controller
             'event_type' => $data['event_type'],
             'position_seconds' => $data['position_seconds'] ?? 0,
             'platform' => $data['platform'] ?? 'web',
+            'device' => $this->detectDevice($request),
             'region' => null,
             'created_at' => now(),
         ]);
@@ -139,6 +140,30 @@ class PlaybackController extends Controller
         }
 
         return response()->json(['message' => 'Event recorded.'], 202);
+    }
+
+    /**
+     * Coarse device class from the User-Agent for the analytics heat map
+     * (requirements §11 — "Listening activity by device"). Intentionally broad;
+     * no fingerprinting, no external UA library.
+     */
+    private function detectDevice(Request $request): ?string
+    {
+        $ua = strtolower((string) $request->userAgent());
+        if ($ua === '') {
+            return null;
+        }
+
+        return match (true) {
+            str_contains($ua, 'ipad'), str_contains($ua, 'tablet') => 'Tablet',
+            str_contains($ua, 'iphone'), str_contains($ua, 'ipod') => 'iPhone',
+            str_contains($ua, 'android') && str_contains($ua, 'mobile') => 'Android phone',
+            str_contains($ua, 'android') => 'Android tablet',
+            str_contains($ua, 'windows') => 'Windows desktop',
+            str_contains($ua, 'macintosh'), str_contains($ua, 'mac os') => 'Mac desktop',
+            str_contains($ua, 'linux') => 'Linux desktop',
+            default => 'Other',
+        };
     }
 
     /** FR-ADV-06 — record an ad impression/completion. */

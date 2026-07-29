@@ -526,6 +526,44 @@ function boot() {
 
     const chapterList = () => (CFG.markers || []).filter((m) => m.type === 'chapter').sort((a, b) => a.start - b.start);
 
+    // Chapters are edited locally and only persisted when the editor presses
+    // "Save" (a single bulk sync). Adds / renames / deletes never touch the
+    // database until then. `markersDirty` drives the Save button + hint.
+    let markersDirty = false;
+    let tmpMarkerSeq = 0;
+
+    function markMarkersDirty() { markersDirty = true; updateSaveButton(); }
+
+    function updateSaveButton() {
+        const btn = $('#btn-save-markers');
+        if (btn) {
+            const disabled = !markersDirty || !CFG.canEdit;
+            btn.disabled = disabled;
+            btn.classList.toggle('opacity-50', disabled);
+        }
+        $('#markers-dirty-hint')?.classList.toggle('hidden', !markersDirty);
+    }
+
+    function redrawMarkerRegions() {
+        regions.getRegions().filter((r) => r.id?.startsWith('mrk-')).forEach((r) => r.remove());
+        chapterList().forEach(addMarkerRegion);
+    }
+
+    // Persist the current chapter set (bulk replace on the server).
+    async function saveMarkers() {
+        if (!CFG.canEdit) return;
+        const chapters = chapterList().map((m) => ({ label: m.label, start_seconds: m.start }));
+        const res = await api('POST', CFG.urls.markerSync, { chapters });
+        if (res?.data) {
+            CFG.markers = (CFG.markers || []).filter((x) => x.type !== 'chapter').concat(res.data);
+            redrawMarkerRegions();
+            renderMarkerList();
+            markersDirty = false;
+            syncMarkersUI();
+            toast(res.data.length ? 'Chapters saved.' : 'Chapters cleared.');
+        }
+    }
+
     function drawMarkers() {
         chapterList().forEach(addMarkerRegion);
         renderMarkerList();
@@ -546,9 +584,12 @@ function boot() {
         const toggle = $('#markers-enable');
         const panel = $('#markers-panel');
         if (toggle) toggle.checked = enabled;
-        if (panel) panel.classList.toggle('hidden', !enabled);
+        // Keep the panel open while there are unsaved changes so Save stays
+        // reachable (e.g. after clearing every chapter, before saving).
+        if (panel) panel.classList.toggle('hidden', !(enabled || markersDirty));
         const cnt = $('#marker-count');
         if (cnt) cnt.textContent = chapterList().length;
+        updateSaveButton();
     }
 
     function parseTime(str) {
@@ -618,71 +659,77 @@ function boot() {
         if (cnt) cnt.textContent = chapters.length;
     }
 
-    async function createChapter(label, start) {
-        const res = await api('POST', CFG.urls.markerStore, { marker_type: 'chapter', label, start_seconds: start, end_seconds: null });
-        if (res?.data) { CFG.markers.push(res.data); addMarkerRegion(res.data); renderMarkerList(); }
-        return res?.data ?? null;
+    // Local-only: a new chapter with a temporary id, persisted on Save.
+    function createChapter(label, start) {
+        const m = { id: 'tmp' + (++tmpMarkerSeq), type: 'chapter', label, start, end: null, color: '#0ea5e9' };
+        CFG.markers.push(m);
+        addMarkerRegion(m);
+        renderMarkerList();
+        markMarkersDirty();
+        return m;
     }
 
-    async function updateChapterLabel(m, input) {
+    function updateChapterLabel(m, input) {
         const label = input.value.trim();
         if (!label || label === m.label) { input.value = m.label; return; }
-        const res = await api('PATCH', CFG.urls.markerUpdate.replace('__ID__', m.id), { label });
-        if (res?.data) { m.label = res.data.label; refreshRegion(m); }
-        else input.value = m.label;
+        m.label = label;
+        refreshRegion(m);
+        markMarkersDirty();
     }
 
-    async function updateChapterTime(m, input, dur) {
+    function updateChapterTime(m, input, dur) {
         let t = parseTime(input.value);
         if (t == null || t < 0) { input.value = fmt(m.start); toast('Enter a time like 1:30.'); return; }
         if (dur && t > dur) t = dur;
         t = Math.round(t * 10) / 10;
         if (t === m.start) { input.value = fmt(m.start); return; }
-        const res = await api('PATCH', CFG.urls.markerUpdate.replace('__ID__', m.id), { start_seconds: t });
-        if (res?.data) { m.start = res.data.start; refreshRegion(m); renderMarkerList(); }
-        else input.value = fmt(m.start);
+        m.start = t;
+        refreshRegion(m);
+        renderMarkerList();
+        markMarkersDirty();
     }
 
-    async function deleteMarker(m) {
-        await api('DELETE', CFG.urls.markerDelete.replace('__ID__', m.id));
+    function deleteMarker(m) {
         CFG.markers = (CFG.markers || []).filter((x) => x.id !== m.id);
         regions.getRegions().find((r) => r.id === 'mrk-' + m.id)?.remove();
         renderMarkerList();
+        markMarkersDirty();
         syncMarkersUI();
     }
 
     // Enable / disable content markers.
-    $('#markers-enable')?.addEventListener('change', async (e) => {
+    $('#markers-enable')?.addEventListener('change', (e) => {
         if (e.target.checked) {
-            if (chapterList().length === 0) {
-                const created = await createChapter('Complete', 0);
-                if (!created) { e.target.checked = false; return; }
-            }
+            if (chapterList().length === 0) createChapter('Complete', 0);
             $('#markers-panel')?.classList.remove('hidden');
-            renderMarkerList();
         } else {
-            for (const m of chapterList()) {
-                await api('DELETE', CFG.urls.markerDelete.replace('__ID__', m.id));
-                regions.getRegions().find((r) => r.id === 'mrk-' + m.id)?.remove();
-            }
+            // Clear chapters locally; the removal is persisted on Save.
+            chapterList().forEach((m) => regions.getRegions().find((r) => r.id === 'mrk-' + m.id)?.remove());
             CFG.markers = (CFG.markers || []).filter((x) => x.type !== 'chapter');
-            $('#markers-panel')?.classList.add('hidden');
-            renderMarkerList();
+            markMarkersDirty();
         }
+        renderMarkerList();
         syncMarkersUI();
     });
 
     // Add a break (new chapter). Uses the playhead when it's past the last
     // chapter, otherwise drops it midway to the end so a chapter is ALWAYS
     // added (the time is editable afterwards). Named "Ending" by default.
-    $('#btn-add-break')?.addEventListener('click', async () => {
+    $('#btn-add-break')?.addEventListener('click', () => {
         const chapters = chapterList();
         const lastStart = chapters.length ? chapters[chapters.length - 1].start : 0;
         const dur = ws.getDuration() || CFG.duration || (lastStart + 60);
         let t = ws.getCurrentTime() || 0;
         if (t <= lastStart + 0.5) t = lastStart + Math.max(1, (dur - lastStart) / 2);
         t = Math.min(t, Math.max(lastStart + 1, dur - 0.5));
-        await createChapter('Ending', Math.round(t * 10) / 10);
+        createChapter('Ending', Math.round(t * 10) / 10);
+    });
+
+    $('#btn-save-markers')?.addEventListener('click', () => saveMarkers());
+
+    // Warn before leaving with unsaved chapter changes.
+    window.addEventListener('beforeunload', (e) => {
+        if (markersDirty) { e.preventDefault(); e.returnValue = ''; }
     });
 
     /* ------------------------- editing (EDL) -------------------------- */

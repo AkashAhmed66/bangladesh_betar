@@ -14,6 +14,7 @@ use App\Models\EditSession;
 use App\Services\AudioRenderService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -195,6 +196,45 @@ class AudioStudioController extends Controller
         $marker->delete();
 
         return response()->json(['message' => 'Marker removed.']);
+    }
+
+    /**
+     * Bulk-replace this asset's chapter markers with the provided set. The Studio
+     * builds chapters locally and only persists them when the editor presses
+     * "Save", so adds/renames/deletes don't touch the database until then. Only
+     * `chapter` markers are affected — AI/other marker types are left untouched.
+     */
+    public function syncMarkers(Request $request, AudioAsset $asset): JsonResponse
+    {
+        $this->authorize('assets.edit');
+
+        $data = $request->validate([
+            'chapters' => ['present', 'array'],
+            'chapters.*.label' => ['required', 'string', 'max:255'],
+            'chapters.*.start_seconds' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        $userId = $request->user()->id;
+
+        DB::transaction(function () use ($asset, $data, $userId): void {
+            $asset->markers()->where('marker_type', 'chapter')->delete();
+
+            foreach ($data['chapters'] as $c) {
+                $asset->markers()->create([
+                    'marker_type' => 'chapter',
+                    'label' => $c['label'],
+                    'start_seconds' => $c['start_seconds'],
+                    'end_seconds' => null,
+                    'is_ai' => false,
+                    'created_by' => $userId,
+                ]);
+            }
+        });
+
+        $chapters = $asset->markers()->where('marker_type', 'chapter')
+            ->orderBy('start_seconds')->get()->map($this->markerArray())->values();
+
+        return response()->json(['data' => $chapters]);
     }
 
     /* ----------------------------- editing ---------------------------- */

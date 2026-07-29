@@ -19,6 +19,7 @@
     <div class="flex flex-wrap gap-2">
         @can('assets.view')
             <a href="{{ route('admin.assets.studio', $asset) }}" class="btn-accent"><x-icon name="wave" class="size-4" /> Open Studio</a>
+            <a href="{{ route('admin.assets.analytics', $asset) }}" class="btn-secondary"><x-icon name="chart-bar" class="size-4" /> Analytics</a>
         @endcan
         @can('assets.edit')
             <a href="{{ route('admin.assets.edit', $asset) }}" class="btn-secondary"><x-icon name="pencil" class="size-4" /> Edit</a>

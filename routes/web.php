@@ -79,6 +79,9 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
             Route::post('assets/{asset}/upload', [Admin\AudioAssetController::class, 'uploadMaster'])
                 ->middleware('permission:assets.upload')->name('assets.upload');
 
+            // Requirements §11 — per-asset listener analytics & heat map
+            Route::get('assets/{asset}/analytics', [Admin\AssetAnalyticsController::class, 'show'])->name('assets.analytics');
+
             // Audio Studio — visualization + non-destructive editing
             Route::get('assets/{asset}/studio', [Admin\AudioStudioController::class, 'show'])->name('assets.studio');
             Route::get('assets/{asset}/versions/{version}/audio', [Admin\AudioStudioController::class, 'streamVersion'])->name('assets.stream');
@@ -87,6 +90,9 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
             Route::get('assets/{asset}/markers', [Admin\AudioStudioController::class, 'markers'])->name('assets.markers');
             Route::post('assets/{asset}/markers', [Admin\AudioStudioController::class, 'storeMarker'])
                 ->middleware('permission:assets.edit')->name('assets.markers.store');
+            // Bulk-save chapters (Studio "Save" button) — persists only on save.
+            Route::post('assets/{asset}/markers/sync', [Admin\AudioStudioController::class, 'syncMarkers'])
+                ->middleware('permission:assets.edit')->name('assets.markers.sync');
             Route::patch('assets/{asset}/markers/{marker}', [Admin\AudioStudioController::class, 'updateMarker'])
                 ->middleware('permission:assets.edit')->name('assets.markers.update');
             Route::delete('assets/{asset}/markers/{marker}', [Admin\AudioStudioController::class, 'deleteMarker'])
