@@ -110,6 +110,15 @@
                     <button type="button" data-op="silence" class="op-btn" title="Silence the selection">🔇 Silence</button>
                     <button type="button" data-op="fadein" class="op-btn" title="Fade in over the selection">⟋ Fade in</button>
                     <button type="button" data-op="fadeout" class="op-btn" title="Fade out over the selection">⟍ Fade out</button>
+                    <label class="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 dark:text-slate-400" title="Fade curve shape">
+                        Curve
+                        <select id="fade-curve" class="rounded-md border border-slate-200 bg-white px-1.5 py-1 text-[11px] font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                            <option value="linear">Linear</option>
+                            <option value="exp">Exp</option>
+                            <option value="log">Log</option>
+                            <option value="scurve">S-curve</option>
+                        </select>
+                    </label>
                     <span class="mx-0.5 h-5 w-px self-center bg-slate-200 dark:bg-slate-700"></span>
                     <label class="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">
                         <x-icon name="wave" class="size-3.5" /> Volume
@@ -156,6 +165,9 @@
                     <x-icon name="pause" class="size-5 hidden" id="icon-pause" />
                 </button>
                 <button id="btn-stop" class="btn-ghost btn-sm" title="Stop"><x-icon name="x" class="size-4" /></button>
+                <button id="btn-ab" disabled aria-pressed="false" class="btn-secondary btn-sm opacity-40" title="A/B compare — flip between the edited preview and the original">
+                    <x-icon name="arrow-path" class="size-4" /> <span data-ab-label>A/B</span>
+                </button>
                 <div class="text-sm tabular-nums text-slate-600 dark:text-slate-300"><span id="cur-time">0:00</span> / <span id="total-time">0:00</span></div>
                 <label class="ml-auto flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                     Speed
@@ -221,6 +233,7 @@
             <div class="card-header"><h3 class="font-semibold text-slate-800 dark:text-slate-100">Loudness Meter</h3></div>
             <div class="card-body space-y-3">
                 <div id="clip-warn" class="hidden rounded-lg bg-rose-100 px-3 py-1.5 text-xs font-medium text-rose-700 dark:bg-rose-500/15 dark:text-rose-300">⚠ Clipping / over-level detected</div>
+                <div id="clip-ok" class="flex items-center gap-1.5 rounded-lg bg-emerald-100 px-3 py-1.5 text-xs font-medium text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"><x-icon name="check-badge" class="size-3.5" /> Levels OK — no clipping</div>
                 <div>
                     <div class="flex justify-between text-xs text-slate-500 dark:text-slate-400"><span>Momentary RMS</span><span id="meter-rms">— dB</span></div>
                     <div class="mt-1 h-2 rounded-full bg-slate-200 dark:bg-slate-700"><div id="bar-rms" class="h-2 rounded-full bg-emerald-500" style="width:0%"></div></div>
@@ -236,6 +249,24 @@
                     <div><dt class="text-xs text-slate-400">Target</dt><dd class="text-sm font-medium text-slate-700 dark:text-slate-200">−23 LUFS</dd></div>
                 </dl>
                 <p class="text-[11px] text-slate-400">EBU R128 broadcast target. Integrated values are measured on ingest.</p>
+
+                {{-- Loudness over time + EBU R128 compliance (on-demand analysis) --}}
+                <div class="border-t border-slate-100 pt-3 dark:border-slate-800">
+                    <div class="mb-2 flex items-center justify-between">
+                        <span class="text-xs font-semibold text-slate-600 dark:text-slate-300">Loudness over time · R128</span>
+                        <span id="r128-badge" class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-400">—</span>
+                    </div>
+                    <button id="btn-loudness" class="btn-secondary btn-sm w-full"><x-icon name="chart-bar" class="size-4" /> Analyze loudness over time</button>
+                    <span id="loudness-status" class="mt-1 block text-center text-[11px] text-slate-400"></span>
+                    <canvas id="loudness-graph" class="mt-2 w-full rounded-lg bg-slate-950" style="height:120px"></canvas>
+                    <div class="mt-1 flex justify-between text-[10px] tabular-nums text-slate-400"><span>−14</span><span>−23 target</span><span>−31 LUFS</span></div>
+                    <dl class="mt-2 grid grid-cols-2 gap-2 text-center">
+                        <div><dt class="text-[11px] text-slate-400">Integrated</dt><dd id="r128-integrated" class="text-sm font-semibold text-slate-800 dark:text-slate-100">—</dd></div>
+                        <div><dt class="text-[11px] text-slate-400">Loudness range</dt><dd id="r128-lra" class="text-sm font-semibold text-slate-800 dark:text-slate-100">—</dd></div>
+                        <div><dt class="text-[11px] text-slate-400">True peak</dt><dd id="r128-tp" class="text-sm font-semibold text-slate-800 dark:text-slate-100">—</dd></div>
+                        <div><dt class="text-[11px] text-slate-400">Short-term max</dt><dd id="r128-stmax" class="text-sm font-semibold text-slate-800 dark:text-slate-100">—</dd></div>
+                    </dl>
+                </div>
             </div>
         </div>
 
@@ -299,6 +330,7 @@
             renderStatus: '{{ route('admin.assets.render.status', ['asset' => $asset->id, 'editSession' => '__ID__'], false) }}',
             preview: '{{ route('admin.assets.preview', $asset, false) }}',
             peaks: '{{ route('admin.assets.peaks', $asset, false) }}',
+            loudness: '{{ route('admin.assets.loudness', $asset, false) }}',
         },
     };
 </script>

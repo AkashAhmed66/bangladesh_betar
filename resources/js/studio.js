@@ -428,7 +428,9 @@ function boot() {
         const rb = $('#bar-rms'), pb = $('#bar-peak');
         if (rb) rb.style.width = dbFrac(rmsDb) * 100 + '%';
         if (pb) pb.style.width = dbFrac(peakDb) * 100 + '%';
-        const clip = $('#clip-warn'); if (clip) clip.classList.toggle('hidden', peak < 0.99);
+        const clipping = peak >= 0.99;
+        const clip = $('#clip-warn'); if (clip) clip.classList.toggle('hidden', !clipping);
+        const ok = $('#clip-ok'); if (ok) ok.classList.toggle('hidden', clipping);
     }
 
     /* --------------------------- heatmap ------------------------------ */
@@ -886,8 +888,26 @@ function boot() {
     // element is reused, so the live Web Audio (cheap) effect chain persists.
     window.studioOriginalUrl = () => audioUrl(CFG.defaultVersionId);
     window.studioSetBusy = (on) => { $('#waveform-busy')?.classList.toggle('hidden', !on); };
+
+    // A/B compare state (updated by studioLoadAudio): remember the last edited
+    // preview URL and which side (A=original / B=edited) is currently loaded.
+    let abEditedUrl = null, abShowingOriginal = false;
+    function updateAbButton() {
+        const btn = document.getElementById('btn-ab');
+        if (!btn) return;
+        const has = !!abEditedUrl;
+        btn.disabled = !has;
+        btn.classList.toggle('opacity-40', !has);
+        btn.setAttribute('aria-pressed', String(has && abShowingOriginal));
+        const lbl = btn.querySelector('[data-ab-label]');
+        if (lbl) lbl.textContent = !has ? 'A/B' : (abShowingOriginal ? 'A · Original' : 'B · Edited');
+    }
+
     window.studioLoadAudio = async (url) => {
         if (!url) return;
+        const isOrig = url === window.studioOriginalUrl();
+        if (!isOrig) abEditedUrl = url;
+        abShowingOriginal = isOrig;
         window.studioSetBusy(true);
         const wasPlaying = ws.isPlaying();
         const pos = ws.getCurrentTime();
@@ -902,7 +922,78 @@ function boot() {
         try { if (pos) ws.setTime(Math.min(pos, ws.getDuration() || pos)); } catch (_) {}
         if (wasPlaying) { try { await ws.play(); } catch (_) {} }
         window.studioSetBusy(false);
+        updateAbButton();
     };
+
+    // A/B compare: flip the main waveform between the original (A) and the
+    // current edited preview (B), preserving position.
+    document.getElementById('btn-ab')?.addEventListener('click', () => {
+        if (!abEditedUrl) { toast('Apply an effect first, then A/B it against the original.'); return; }
+        window.studioLoadAudio(abShowingOriginal ? abEditedUrl : window.studioOriginalUrl());
+    });
+    updateAbButton();
+
+    /* -------------------- loudness analysis (EBU R128) ----------------- */
+    function drawLoudnessGraph(curve) {
+        const cv = document.getElementById('loudness-graph');
+        if (!cv) return;
+        const wCss = cv.clientWidth || 300, hCss = 120;
+        const dpr = window.devicePixelRatio || 1;
+        cv.width = wCss * dpr; cv.height = hCss * dpr;
+        const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, wCss, hCss);
+        const dark = document.documentElement.classList.contains('dark');
+        const LO = -40, HI = -6;                          // LUFS display range
+        const y = (l) => hCss - ((Math.max(LO, Math.min(HI, l)) - LO) / (HI - LO)) * hCss;
+        const dur = curve.length ? curve[curve.length - 1][0] : (ws.getDuration() || CFG.duration || 1);
+        const x = (t) => (t / (dur || 1)) * wCss;
+        ctx.strokeStyle = dark ? 'rgba(148,163,184,.14)' : 'rgba(100,116,139,.18)';
+        ctx.lineWidth = 1;
+        [-14, -31].forEach((l) => { ctx.beginPath(); ctx.moveTo(0, y(l)); ctx.lineTo(wCss, y(l)); ctx.stroke(); });
+        ctx.strokeStyle = '#f59e0b'; ctx.setLineDash([4, 3]);   // −23 LUFS target
+        ctx.beginPath(); ctx.moveTo(0, y(-23)); ctx.lineTo(wCss, y(-23)); ctx.stroke(); ctx.setLineDash([]);
+        if (curve.length) {
+            const trace = () => { curve.forEach((p, i) => { const px = x(p[0]), py = y(p[1]); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }); };
+            ctx.beginPath(); trace();
+            ctx.lineTo(x(curve[curve.length - 1][0]), hCss); ctx.lineTo(x(curve[0][0]), hCss); ctx.closePath();
+            ctx.fillStyle = 'rgba(20,184,166,.18)'; ctx.fill();
+            ctx.beginPath(); trace(); ctx.strokeStyle = '#14b8a6'; ctx.lineWidth = 1.5; ctx.stroke();
+        }
+    }
+    function fillR128(res) {
+        const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+        set('r128-integrated', res.integrated != null ? res.integrated.toFixed(1) + ' LUFS' : '—');
+        set('r128-lra', res.lra != null ? res.lra.toFixed(1) + ' LU' : '—');
+        set('r128-tp', res.true_peak != null ? res.true_peak.toFixed(1) + ' dBTP' : '—');
+        set('r128-stmax', res.short_term_max != null ? res.short_term_max.toFixed(1) + ' LUFS' : '—');
+        const badge = document.getElementById('r128-badge');
+        if (badge) {
+            const i = res.integrated, tp = res.true_peak;
+            const pass = i != null && i >= -24 && i <= -22 && (tp == null || tp <= -1);
+            badge.textContent = i == null ? '—' : (pass ? 'R128 PASS' : 'Review');
+            badge.className = 'rounded-full px-2 py-0.5 text-[11px] font-semibold ' + (i == null
+                ? 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                : pass ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+                       : 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300');
+        }
+    }
+    async function analyzeLoudness() {
+        const btn = document.getElementById('btn-loudness');
+        const status = document.getElementById('loudness-status');
+        if (btn) btn.disabled = true;
+        if (status) status.textContent = 'analysing… (a few seconds)';
+        const res = await fetch(CFG.urls.loudness, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CFG.csrf, Accept: 'application/json' },
+            body: JSON.stringify({ version_id: CFG.defaultVersionId }),
+        }).then((r) => r.json()).catch(() => null);
+        if (btn) btn.disabled = false;
+        if (!res || !res.ok) { if (status) status.textContent = (res && res.error) || 'analysis unavailable'; return; }
+        if (status) status.textContent = '';
+        drawLoudnessGraph(res.curve || []);
+        fillR128(res);
+    }
+    document.getElementById('btn-loudness')?.addEventListener('click', analyzeLoudness);
 
     // Let the editor panel read the current waveform selection / cursor.
     window.studioSelection = () => {
@@ -1027,6 +1118,7 @@ function boot() {
             if (type === 'trim') edit.ops = edit.ops.filter((o) => o.type !== 'trim'); // one crop
             const op = { type, start: +start.toFixed(3), end: +end.toFixed(3) };
             if (type === 'volume') op.db = db;
+            if (type === 'fadein' || type === 'fadeout') op.curve = document.getElementById('fade-curve')?.value || 'linear';
             edit.ops.push(op);
             announce();
         };
@@ -1077,8 +1169,8 @@ function boot() {
                 if (o.type === 'delete') return { op: 'cut', start: s, end: e };
                 if (o.type === 'trim') return { op: 'trim', start: s, end: e };
                 if (o.type === 'silence') return { op: 'silence', start: s, end: e };
-                if (o.type === 'fadein') return { op: 'fade', dir: 'in', start: s, end: e };
-                if (o.type === 'fadeout') return { op: 'fade', dir: 'out', start: s, end: e };
+                if (o.type === 'fadein') return { op: 'fade', dir: 'in', start: s, end: e, curve: o.curve || 'linear' };
+                if (o.type === 'fadeout') return { op: 'fade', dir: 'out', start: s, end: e, curve: o.curve || 'linear' };
                 if (o.type === 'volume') return { op: 'gain', db: o.db, start: s, end: e };
                 return null;
             }).filter(Boolean),

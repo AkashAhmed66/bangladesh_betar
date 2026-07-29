@@ -19,7 +19,7 @@ class AudioRenderService
      *  of the order the UI sends them, so the chain is always sensible. */
     private const ORDER = [
         'trim', 'cut', 'reverse',
-        'declip', 'declick', 'denoise', 'dehum',
+        'declip', 'declick', 'denoise', 'dehum', 'gate', 'deesser',
         'eq', 'compress', 'limit', 'exciter',
         'gain', 'normalize',
         'pitch', 'tempo',
@@ -68,6 +68,8 @@ class AudioRenderService
                     'declick' => $filters[] = 'adeclick',
                     'denoise' => $filters[] = 'afftdn=nr='.$this->clamp((float) ($op['strength'] ?? 0.5) * 30 + 6, 3, 40),
                     'dehum' => $filters[] = $this->dehum((int) ($op['freq'] ?? 50)),
+                    'gate' => $filters[] = $this->gate($op),
+                    'deesser' => $filters[] = 'deesser=i='.$this->clamp((float) ($op['intensity'] ?? 0.4), 0, 1),
                     'eq' => $filters = array_merge($filters, $this->eq($op)),
                     'compress' => $filters[] = 'acompressor=threshold=-18dB:ratio=3:attack=20:release=250:makeup=2',
                     'limit' => $filters[] = 'alimiter=limit=0.97',
@@ -83,7 +85,7 @@ class AudioRenderService
                         ? $regionFilters[] = $this->regionVolume((float) $op['start'], (float) $op['end'], '0')
                         : null,
                     'fade' => isset($op['start'], $op['end'])
-                        ? $regionFilters[] = $this->regionFade((string) ($op['dir'] ?? 'in'), (float) $op['start'], (float) $op['end'])
+                        ? $regionFilters[] = $this->regionFade((string) ($op['dir'] ?? 'in'), (float) $op['start'], (float) $op['end'], (string) ($op['curve'] ?? 'linear'))
                         : $filters[] = $this->fade($op, $finalDuration),
                     'channels' => $outFlags = array_merge($outFlags, ['-ac', ($op['layout'] ?? 'stereo') === 'mono' ? '1' : '2']),
                     'resample' => $outFlags = array_merge($outFlags, ['-ar', (string) ((int) ($op['rate'] ?? $sr))]),
@@ -115,7 +117,7 @@ class AudioRenderService
     }
 
     /** Sound-shaping ops that can be auto-previewed over a short window. */
-    public const SOUND_OPS = ['denoise', 'dehum', 'declick', 'declip', 'eq', 'compress', 'limit', 'exciter', 'gain', 'normalize', 'pitch', 'tempo'];
+    public const SOUND_OPS = ['denoise', 'dehum', 'gate', 'deesser', 'declick', 'declip', 'eq', 'compress', 'limit', 'exciter', 'gain', 'normalize', 'pitch', 'tempo'];
 
     /**
      * Run the full render. Returns ['ok' => bool, 'error' => ?string, 'cmd' => string].
@@ -133,7 +135,7 @@ class AudioRenderService
 
     /** Duration-preserving sound effects that can be baked into the main
      *  waveform preview without breaking marker/segment alignment. */
-    public const PREVIEW_OPS = ['denoise', 'declick', 'declip', 'pitch', 'normalize', 'exciter'];
+    public const PREVIEW_OPS = ['denoise', 'declick', 'declip', 'gate', 'deesser', 'pitch', 'normalize', 'exciter'];
 
     /**
      * Preview render: apply the given sound effects and export a compact MP3
@@ -159,6 +161,113 @@ class AudioRenderService
         }
 
         return $this->runArgs($args, $output);
+    }
+
+    /**
+     * Measure EBU R128 loudness (integrated LUFS, LRA, true-peak) and a
+     * short-term loudness curve over time, by running ffmpeg's ebur128 filter
+     * and parsing its log. Read-only — writes nothing.
+     *
+     * @return array{ok: bool, error?: string, integrated?: ?float, lra?: ?float,
+     *   true_peak?: ?float, momentary_max?: ?float, short_term_max?: ?float,
+     *   curve?: array<int, array{0: float, 1: float}>}
+     */
+    public function measureLoudness(string $input): array
+    {
+        if (! is_file($input)) {
+            return ['ok' => false, 'error' => 'Source audio file not found.'];
+        }
+        if (! $this->available()) {
+            return ['ok' => false, 'error' => 'ffmpeg is not available on this server.'];
+        }
+
+        $args = ['-hide_banner', '-nostats', '-i', $input, '-af', 'ebur128=peak=true', '-f', 'null', '-'];
+        $cmd = $this->processor->binary('ffmpeg').' '.implode(' ', array_map('escapeshellarg', $args));
+
+        // ebur128 logs a measurement every 100 ms, so a long file prints megabytes
+        // to stderr. Capture it to a FILE (not a pipe) so a full pipe buffer can
+        // never deadlock ffmpeg while we wait for it to finish.
+        $errFile = tempnam(sys_get_temp_dir(), 'ebur');
+        $descriptors = [
+            0 => ['file', '/dev/null', 'r'],
+            1 => ['file', '/dev/null', 'w'],
+            2 => ['file', $errFile, 'w'],
+        ];
+        $proc = @proc_open($cmd, $descriptors, $pipes);
+        if (! is_resource($proc)) {
+            @unlink($errFile);
+
+            return ['ok' => false, 'error' => 'Failed to start ffmpeg.'];
+        }
+        proc_close($proc); // blocks until ffmpeg finishes; stderr is in $errFile
+
+        $log = @file_get_contents($errFile) ?: '';
+        @unlink($errFile);
+
+        return $this->parseEbur128($log);
+    }
+
+    /** Parse ebur128 per-frame lines + the Summary block into numbers + a curve. */
+    private function parseEbur128(string $log): array
+    {
+        $floor = -70.0;
+        $toNum = static function (string $s) use ($floor): float {
+            if (! is_numeric($s)) {
+                return $floor;
+            }
+
+            return max($floor, (float) $s);
+        };
+
+        // Per-frame short-term loudness curve: "t: <sec> ... M: <m> ... S: <s>".
+        $curve = [];
+        $mMax = $floor;
+        $sMax = $floor;
+        if (preg_match_all('/\bt:\s*([\d.]+).*?\bM:\s*(-?[\d.a-z]+).*?\bS:\s*(-?[\d.a-z]+)/i', $log, $m, PREG_SET_ORDER)) {
+            foreach ($m as $row) {
+                $t = (float) $row[1];
+                $mv = $toNum($row[2]);
+                $sv = $toNum($row[3]);
+                $mMax = max($mMax, $mv);
+                $sMax = max($sMax, $sv);
+                $curve[] = [round($t, 2), round($sv, 1)];
+            }
+        }
+
+        // Down-sample the curve to at most ~600 points for a light payload.
+        $curve = $this->decimate($curve, 600);
+
+        // Summary block: integrated I, LRA, true Peak.
+        $summary = ($pos = strrpos($log, 'Summary:')) !== false ? substr($log, $pos) : $log;
+        $grab = static function (string $re) use ($summary): ?float {
+            return preg_match($re, $summary, $mm) ? (float) $mm[1] : null;
+        };
+
+        return [
+            'ok' => true,
+            'integrated' => $grab('/\bI:\s*(-?[\d.]+)\s*LUFS/'),
+            'lra' => $grab('/\bLRA:\s*(-?[\d.]+)\s*LU\b/'),
+            'true_peak' => $grab('/\bPeak:\s*(-?[\d.]+)\s*dBFS/'),
+            'momentary_max' => $mMax > $floor ? round($mMax, 1) : null,
+            'short_term_max' => $sMax > $floor ? round($sMax, 1) : null,
+            'curve' => $curve,
+        ];
+    }
+
+    /** Keep at most $max evenly-spaced points from a series. */
+    private function decimate(array $points, int $max): array
+    {
+        $n = count($points);
+        if ($n <= $max) {
+            return $points;
+        }
+        $step = $n / $max;
+        $out = [];
+        for ($i = 0; $i < $max; $i++) {
+            $out[] = $points[(int) floor($i * $step)];
+        }
+
+        return $out;
     }
 
     /** Execute an ffmpeg argument list. */
@@ -257,13 +366,35 @@ class AudioRenderService
     private function fade(array $op, float $finalDuration): string
     {
         $d = max(0.1, (float) ($op['duration'] ?? 2));
+        $curve = $this->afadeCurve((string) ($op['curve'] ?? 'linear'));
+        $c = $curve !== '' ? ':curve='.$curve : '';
         if (($op['dir'] ?? 'in') === 'out') {
             $st = max(0, $finalDuration - $d);
 
-            return 'afade=t=out:st='.$this->num($st).':d='.$this->num($d);
+            return 'afade=t=out:st='.$this->num($st).':d='.$this->num($d).$c;
         }
 
-        return 'afade=t=in:st=0:d='.$this->num($d);
+        return 'afade=t=in:st=0:d='.$this->num($d).$c;
+    }
+
+    /** Map a friendly fade-curve name to an ffmpeg afade curve (empty = linear default). */
+    private function afadeCurve(string $name): string
+    {
+        return match ($name) {
+            'exp' => 'exp',
+            'log' => 'log',
+            'scurve' => 'hsin',   // half-sine ≈ smooth S-curve
+            default => '',        // linear = afade's default ('tri')
+        };
+    }
+
+    /** Noise gate: threshold given in dB, converted to ffmpeg agate's linear scale. */
+    private function gate(array $op): string
+    {
+        $db = (float) ($op['threshold_db'] ?? -45);
+        $lin = $this->clamp(10 ** ($db / 20), 0.0001, 1);
+
+        return 'agate=threshold='.$this->num($lin).':ratio=2:attack=10:release=200:knee=2.83';
     }
 
     /**
@@ -279,14 +410,24 @@ class AudioRenderService
         return "volume=eval=frame:volume='if(between(t,".$this->num($s).','.$this->num($e).'),'.$expr.",1)'";
     }
 
-    /** A fade envelope over the selection only (audio outside is unchanged). */
-    private function regionFade(string $dir, float $s, float $e): string
+    /**
+     * A fade envelope over the selection only (audio outside is unchanged). The
+     * curve shapes the ramp: linear, exp (slow-in), log (fast-in) or scurve
+     * (smoothstep). Progress is mirrored for fade-out so the shape matches.
+     */
+    private function regionFade(string $dir, float $s, float $e, string $curve = 'linear'): string
     {
         $s = max(0, $s);
         $d = max(0.001, $e - $s);
-        $ramp = $dir === 'out'
-            ? '1-(t-'.$this->num($s).')/'.$this->num($d)
-            : '(t-'.$this->num($s).')/'.$this->num($d);
+        // p = progress 0..1 within the region; mirror for fade-out.
+        $p = '((t-'.$this->num($s).')/'.$this->num($d).')';
+        $x = $dir === 'out' ? '(1-'.$p.')' : $p;
+        $ramp = match ($curve) {
+            'exp' => $x.'*'.$x,                    // concave — slow start
+            'log' => 'sqrt('.$x.')',               // convex — fast start
+            'scurve' => $x.'*'.$x.'*(3-2*'.$x.')', // smoothstep S-curve
+            default => $x,                          // linear
+        };
 
         return $this->regionVolume($s, $e, $ramp);
     }

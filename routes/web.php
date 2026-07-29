@@ -85,6 +85,8 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
             // Audio Studio — visualization + non-destructive editing
             Route::get('assets/{asset}/studio', [Admin\AudioStudioController::class, 'show'])->name('assets.studio');
             Route::get('assets/{asset}/versions/{version}/audio', [Admin\AudioStudioController::class, 'streamVersion'])->name('assets.stream');
+            // EBU R128 loudness analysis (integrated LUFS, LRA, true-peak, curve)
+            Route::post('assets/{asset}/loudness', [Admin\AudioStudioController::class, 'loudness'])->name('assets.loudness');
             Route::post('assets/{asset}/peaks', [Admin\AudioStudioController::class, 'savePeaks'])
                 ->middleware('permission:assets.edit')->name('assets.peaks');
             Route::get('assets/{asset}/markers', [Admin\AudioStudioController::class, 'markers'])->name('assets.markers');

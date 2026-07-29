@@ -71,6 +71,12 @@
                 <div class="flex items-center gap-2 text-xs text-slate-500" :class="!normalize && 'opacity-40'">
                     <span>Target</span><input type="number" step="1" x-model.number="normalizeTarget" class="form-input py-1 w-20 text-xs"> LUFS
                 </div>
+                <div class="flex flex-wrap gap-1">
+                    <span class="self-center text-[11px] text-slate-400">Presets:</span>
+                    <button class="btn-ghost btn-sm" :class="normalize && normalizeTarget===-23 && 'text-primary-600'" @click="normalize=true; normalizeTarget=-23" title="EBU R128 broadcast">−23 Broadcast</button>
+                    <button class="btn-ghost btn-sm" :class="normalize && normalizeTarget===-16 && 'text-primary-600'" @click="normalize=true; normalizeTarget=-16" title="Podcast / spoken word">−16 Podcast</button>
+                    <button class="btn-ghost btn-sm" :class="normalize && normalizeTarget===-14 && 'text-primary-600'" @click="normalize=true; normalizeTarget=-14" title="Streaming platforms">−14 Streaming</button>
+                </div>
                 <div class="flex gap-4">
                     <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="compress" class="rounded"> Compressor</label>
                     <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="limit" class="rounded"> Limiter</label>
@@ -109,7 +115,26 @@
                     <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="declick" class="rounded"> De-click</label>
                     <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="declip" class="rounded"> De-clip</label>
                 </div>
-                <p class="text-[11px] text-slate-400">Denoise / de-click / de-clip render into the waveform (~1s).</p>
+                <div class="space-y-1 border-t border-slate-100 pt-2 dark:border-slate-800">
+                    <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="deesser" class="rounded"> De-esser <span class="text-xs text-slate-400">tame sibilance</span></label>
+                    <div class="flex items-center gap-2 text-xs text-slate-500" :class="!deesser && 'opacity-40'">
+                        <span>Intensity</span><input type="range" min="0" max="1" step="0.05" x-model.number="deesserIntensity" class="flex-1"><span x-text="Math.round(deesserIntensity*100)+'%'"></span>
+                    </div>
+                </div>
+                <div class="space-y-1">
+                    <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="gate" class="rounded"> Noise gate <span class="text-xs text-slate-400">cut between phrases</span></label>
+                    <div class="flex items-center gap-2 text-xs text-slate-500" :class="!gate && 'opacity-40'">
+                        <span>Threshold</span><input type="range" min="-70" max="-20" step="1" x-model.number="gateThreshold" class="flex-1"><span x-text="gateThreshold+' dB'"></span>
+                    </div>
+                </div>
+                <div class="space-y-1 border-t border-slate-100 pt-2 dark:border-slate-800">
+                    <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="silenceRemove" class="rounded"> Remove silences <span class="text-xs text-slate-400">auto-tighten gaps</span></label>
+                    <div class="flex items-center gap-2 text-xs text-slate-500" :class="!silenceRemove && 'opacity-40'">
+                        <span>Below</span><input type="number" step="1" x-model.number="silenceThreshold" class="form-input py-0.5 w-16 text-xs"> dB
+                        <span>for ≥</span><input type="number" step="0.1" min="0.1" x-model.number="silenceGap" class="form-input py-0.5 w-16 text-xs"> s
+                    </div>
+                </div>
+                <p class="text-[11px] text-slate-400">Denoise / de-click / de-clip / gate / de-esser render into the waveform (~1s).</p>
             </div>
 
             {{-- Pitch & Tempo --}}
@@ -122,7 +147,8 @@
                     <label class="flex justify-between text-xs text-slate-500"><span>Tempo (keeps pitch)</span><span x-text="tempo + '×'"></span></label>
                     <input type="range" min="0.5" max="2" step="0.05" x-model.number="tempo" class="w-full">
                 </div>
-                <p class="text-[11px] text-slate-400">Pitch renders into the waveform; tempo previews instantly.</p>
+                <label class="flex items-center gap-2 border-t border-slate-100 pt-2 text-sm dark:border-slate-800"><input type="checkbox" x-model="reverse" class="rounded"> Reverse <span class="text-xs text-slate-400">play the audio backwards</span></label>
+                <p class="text-[11px] text-slate-400">Pitch / reverse render into the waveform; tempo previews instantly.</p>
             </div>
 
 
@@ -199,6 +225,7 @@
             gain: 0, normalize: false, normalizeTarget: -16, compress: false, limit: false,
             eq: { bass: 0, mid: 0, treble: 0 },
             denoise: false, denoiseStrength: 0.5, dehum: false, dehumFreq: 50, declick: false, declip: false,
+            gate: false, gateThreshold: -45, deesser: false, deesserIntensity: 0.4,
             pitch: 0, tempo: 1,
             reverse: false, fadeIn: 0, fadeOut: 0,
             silenceRemove: false, silenceThreshold: -40, silenceGap: 0.5,
@@ -230,8 +257,8 @@
                 const m = {
                     volume: () => this.gain || this.normalize || this.compress || this.limit,
                     eq: () => this.eq.bass || this.eq.mid || this.eq.treble,
-                    restore: () => this.denoise || this.dehum || this.declick || this.declip,
-                    pitch: () => this.pitch || this.tempo !== 1,
+                    restore: () => this.denoise || this.dehum || this.declick || this.declip || this.gate || this.deesser || this.silenceRemove,
+                    pitch: () => this.pitch || this.tempo !== 1 || this.reverse,
                 };
                 return m[id] ? !!m[id]() : false;
             },
@@ -263,6 +290,8 @@
                 if (this.declick) o.push({ op: 'declick' });
                 if (this.denoise) o.push({ op: 'denoise', strength: +this.denoiseStrength });
                 if (this.dehum) o.push({ op: 'dehum', freq: +this.dehumFreq });
+                if (this.gate) o.push({ op: 'gate', threshold_db: +this.gateThreshold });
+                if (this.deesser) o.push({ op: 'deesser', intensity: +this.deesserIntensity });
                 if (this.eq.bass || this.eq.mid || this.eq.treble) o.push({ op: 'eq', bass: +this.eq.bass, mid: +this.eq.mid, treble: +this.eq.treble });
                 if (this.compress) o.push({ op: 'compress' });
                 if (this.limit) o.push({ op: 'limit' });
@@ -286,6 +315,7 @@
                     silence: (o) => `Silence ${o.start}–${o.end}s`,
                     reverse: () => 'Reverse', declip: () => 'De-clip', declick: () => 'De-click',
                     denoise: (o) => `Noise reduction ${Math.round(o.strength * 100)}%`, dehum: (o) => `De-hum ${o.freq}Hz`,
+                    gate: (o) => `Noise gate ${o.threshold_db}dB`, deesser: (o) => `De-esser ${Math.round(o.intensity * 100)}%`,
                     eq: (o) => `EQ b${o.bass}/m${o.mid}/t${o.treble}`, compress: () => 'Compressor', limit: () => 'Limiter',
                     gain: (o) => o.start != null ? `Volume ${o.db > 0 ? '+' : ''}${o.db}dB @ ${o.start}–${o.end}s` : `Gain ${o.db}dB`,
                     normalize: (o) => `Normalize ${o.target_lufs} LUFS`,
@@ -301,6 +331,7 @@
                 window.studioClearEdits?.();   // clear cuts/trim on the waveform
                 Object.assign(this, { gain: 0, normalize: false,
                     compress: false, limit: false, eq: { bass: 0, mid: 0, treble: 0 }, denoise: false, dehum: false,
+                    gate: false, deesser: false,
                     declick: false, declip: false, pitch: 0, tempo: 1, reverse: false, fadeIn: 0, fadeOut: 0,
                     silenceRemove: false, resultMsg: '', errorMsg: '' });
             },
