@@ -27,13 +27,12 @@ php artisan storage:link 2>/dev/null || true
 #   - Set FORCE_SEED=true to deliberately re-run the seeders.
 if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
     if php artisan migrate:status >/dev/null 2>&1; then
-        # Database was already initialized on a previous boot.
-        if php artisan migrate:status 2>/dev/null | grep -qi 'pending'; then
-            echo "Applying new pending migrations only…"
-            php artisan migrate --force
-        else
-            echo "Database already set up — no migrations to run."
-        fi
+        # Database was already initialized on a previous boot. Always apply any
+        # pending migrations: `migrate` is idempotent (it only runs migrations
+        # that have not run yet), so every deploy reliably picks up new
+        # migrations — no fragile "is anything pending?" text-parsing check.
+        echo "Applying pending migrations (if any)…"
+        php artisan migrate --force
 
         if [ "${FORCE_SEED:-false}" = "true" ]; then
             echo "FORCE_SEED=true — re-seeding on request…"
