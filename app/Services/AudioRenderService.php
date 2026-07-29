@@ -59,6 +59,21 @@ class AudioRenderService
 
         $finalDuration = $this->estimateDuration($ops, (float) ($ctx['duration'] ?? 0));
 
+        // Route sound-shaping filters: when an op carries a [start,end] selection
+        // AND the filter supports ffmpeg timeline editing, apply it only inside
+        // that window (via :enable) in ORIGINAL time — so it goes into
+        // $regionFilters, ahead of any cut/crop select. Otherwise it is global.
+        $region = function (array $flist, array $op) use (&$filters, &$regionFilters): void {
+            $en = $this->enable($op);
+            foreach ($flist as $f) {
+                if ($en !== '') {
+                    $regionFilters[] = $f.$en;
+                } else {
+                    $filters[] = $f;
+                }
+            }
+        };
+
         foreach (self::ORDER as $type) {
             foreach ($byOp[$type] ?? [] as $op) {
                 match ($type) {
@@ -66,14 +81,15 @@ class AudioRenderService
                     'reverse' => $filters[] = 'areverse',
                     'declip' => $filters[] = 'adeclip',
                     'declick' => $filters[] = 'adeclick',
-                    'denoise' => $filters[] = 'afftdn=nr='.$this->clamp((float) ($op['strength'] ?? 0.5) * 30 + 6, 3, 40),
-                    'dehum' => $filters[] = $this->dehum((int) ($op['freq'] ?? 50)),
-                    'gate' => $filters[] = $this->gate($op),
-                    'deesser' => $filters[] = 'deesser=i='.$this->clamp((float) ($op['intensity'] ?? 0.4), 0, 1),
-                    'eq' => $filters = array_merge($filters, $this->eq($op)),
+                    'denoise' => $region(['afftdn=nr='.$this->clamp((float) ($op['strength'] ?? 0.5) * 30 + 6, 3, 40)], $op),
+                    'dehum' => $region(explode(',', $this->dehum((int) ($op['freq'] ?? 50))), $op),
+                    'gate' => $region([$this->gate($op)], $op),
+                    'deesser' => $region(['deesser=i='.$this->clamp((float) ($op['intensity'] ?? 0.4), 0, 1)], $op),
+                    'eq' => $region($this->eq($op), $op),
+                    // acompressor has no timeline support in ffmpeg → always global.
                     'compress' => $filters[] = 'acompressor=threshold=-18dB:ratio=3:attack=20:release=250:makeup=2',
-                    'limit' => $filters[] = 'alimiter=limit=0.97',
-                    'exciter' => $filters[] = 'aexciter=amount='.$this->clamp((float) ($op['amount'] ?? 1), 0, 5),
+                    'limit' => $region(['alimiter=limit=0.97'], $op),
+                    'exciter' => $region(['aexciter=amount='.$this->clamp((float) ($op['amount'] ?? 1), 0, 5)], $op),
                     'gain' => isset($op['start'], $op['end'])
                         ? $regionFilters[] = $this->regionVolume((float) $op['start'], (float) $op['end'], $this->num(10 ** ((float) ($op['db'] ?? 0) / 20)))
                         : $filters[] = 'volume='.$this->num((float) ($op['db'] ?? 0)).'dB',
@@ -315,6 +331,19 @@ class AudioRenderService
         }
 
         return "aselect='".implode('*', $parts)."',asetpts=N/SR/TB";
+    }
+
+    /**
+     * ffmpeg timeline-editing suffix that limits a filter to a [start,end]
+     * window. Empty when the op is whole-track (no valid selection).
+     */
+    private function enable(array $op): string
+    {
+        if (! isset($op['start'], $op['end']) || (float) $op['end'] <= (float) $op['start']) {
+            return '';
+        }
+
+        return ":enable='between(t,".$this->num((float) $op['start']).','.$this->num((float) $op['end']).")'";
     }
 
     private function dehum(int $freq): string

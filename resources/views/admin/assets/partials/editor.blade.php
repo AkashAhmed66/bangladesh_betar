@@ -52,6 +52,15 @@
         </div>
     </div>
 
+    {{-- Floating "Apply to selection" — locks the pending region effects to the
+         current selection so they STOP following it when a new region is picked. --}}
+    <div x-show="canApplyRegion()" x-cloak class="fixed bottom-20 left-1/2 z-50 -translate-x-1/2">
+        <button @click="applyToSelection()" class="btn-primary shadow-xl ring-2 ring-primary-300/50">
+            <x-icon name="clipboard-check" class="size-4" />
+            Apply <span x-text="regionEffectOps().length"></span> effect(s) to selection
+        </button>
+    </div>
+
     {{-- ---------------------------- Draggable dialog ---------------------------- --}}
     <div x-show="openTool" x-cloak :style="`left:${dialogX}px; top:${dialogY}px`"
          class="fixed z-50 w-80 rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
@@ -176,6 +185,21 @@
 
             {{-- Processing chain --}}
             <div x-show="openTool==='chain'" class="space-y-2">
+                <p class="rounded bg-slate-50 px-2 py-1.5 text-[11px] font-medium text-slate-600 dark:bg-slate-800/60 dark:text-slate-300" x-text="scopeLabel()"></p>
+                <button x-show="canApplyRegion()" x-cloak @click="applyToSelection()" class="btn-primary btn-sm w-full">
+                    <x-icon name="clipboard-check" class="size-4" /> Apply <span x-text="regionEffectOps().length"></span> effect(s) to the selection
+                </button>
+                <template x-if="fxCommits.length">
+                    <div class="space-y-1 rounded-lg border border-slate-200 p-2 dark:border-slate-700">
+                        <p class="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Locked to regions</p>
+                        <template x-for="(c, i) in fxCommits" :key="i">
+                            <div class="flex items-center justify-between gap-2 text-xs">
+                                <span class="text-slate-600 dark:text-slate-300" x-text="`${c.ops.length} effect(s) · ${fmtSec(c.start)}–${fmtSec(c.end)}`"></span>
+                                <button @click="removeCommit(i)" class="shrink-0 text-slate-400 hover:text-rose-500" title="Remove">✕</button>
+                            </div>
+                        </template>
+                    </div>
+                </template>
                 <ol class="max-h-56 space-y-1 overflow-y-auto scrollbar-slim text-sm">
                     <template x-for="(item,i) in chain()" :key="i">
                         <li class="flex items-center gap-2 rounded bg-slate-50 px-2 py-1 dark:bg-slate-800/60">
@@ -222,6 +246,7 @@
             autoPreview: true, previewLoading: false, previewErr: '', _pvTimer: null, _pvKey: '', _previewLoaded: false,
             openTool: null, dialogX: 0, dialogY: 0,
             editsRev: 0,   // bumped by the inline waveform editor so the chain/save button react to cuts & trim
+            fxCommits: [], // region effects LOCKED to a region: [{ start, end, ops:[…] }]
             gain: 0, normalize: false, normalizeTarget: -16, compress: false, limit: false,
             eq: { bass: 0, mid: 0, treble: 0 },
             denoise: false, denoiseStrength: 0.5, dehum: false, dehumFreq: 50, declick: false, declip: false,
@@ -281,21 +306,22 @@
             /* ---- op chain ---- */
             ops() {
                 const o = [];
-                // Editing ops (delete/crop/silence/fade/volume) come from the
-                // inline waveform editor (studio.js), already in render format.
+                // Editing ops (delete/crop/silence/fade/volume) from the inline editor.
                 const edits = window.studioGetEdits ? window.studioGetEdits() : { ops: [] };
                 (edits.ops || []).forEach((e) => o.push(e));
+                // Region effects already LOCKED to a region via "Apply to selection".
+                // These are frozen — they never move when the selection changes.
+                this.fxCommits.forEach((c) => c.ops.forEach((op) => o.push(op)));
+                // PENDING region effects preview on the CURRENT selection (or the
+                // whole track if none). They stop following once you Apply them.
+                const reg = window.studioEffectRegion ? window.studioEffectRegion() : null;
+                const s = (op) => reg ? { ...op, start: reg.start, end: reg.end } : op;
+                this.regionEffectOps().forEach((op) => o.push(s(op)));
+                // Whole-track effects (never region-scoped).
                 if (this.reverse) o.push({ op: 'reverse' });
                 if (this.declip) o.push({ op: 'declip' });
                 if (this.declick) o.push({ op: 'declick' });
-                if (this.denoise) o.push({ op: 'denoise', strength: +this.denoiseStrength });
-                if (this.dehum) o.push({ op: 'dehum', freq: +this.dehumFreq });
-                if (this.gate) o.push({ op: 'gate', threshold_db: +this.gateThreshold });
-                if (this.deesser) o.push({ op: 'deesser', intensity: +this.deesserIntensity });
-                if (this.eq.bass || this.eq.mid || this.eq.treble) o.push({ op: 'eq', bass: +this.eq.bass, mid: +this.eq.mid, treble: +this.eq.treble });
                 if (this.compress) o.push({ op: 'compress' });
-                if (this.limit) o.push({ op: 'limit' });
-                if (+this.gain) o.push({ op: 'gain', db: +this.gain });
                 if (this.normalize) o.push({ op: 'normalize', target_lufs: +this.normalizeTarget });
                 if (+this.pitch) o.push({ op: 'pitch', semitones: +this.pitch });
                 if (+this.tempo !== 1) o.push({ op: 'tempo', factor: +this.tempo });
@@ -307,7 +333,45 @@
                 o.push({ op: 'export', format: this.format, bit_depth: +this.bitDepth, bitrate: +this.bitrate });
                 return o;
             },
+            // The region-scopable effects currently configured (no region attached).
+            regionEffectOps() {
+                const o = [];
+                if (this.denoise) o.push({ op: 'denoise', strength: +this.denoiseStrength });
+                if (this.dehum) o.push({ op: 'dehum', freq: +this.dehumFreq });
+                if (this.gate) o.push({ op: 'gate', threshold_db: +this.gateThreshold });
+                if (this.deesser) o.push({ op: 'deesser', intensity: +this.deesserIntensity });
+                if (this.eq.bass || this.eq.mid || this.eq.treble) o.push({ op: 'eq', bass: +this.eq.bass, mid: +this.eq.mid, treble: +this.eq.treble });
+                if (this.limit) o.push({ op: 'limit' });
+                if (+this.gain) o.push({ op: 'gain', db: +this.gain });
+                return o;
+            },
+            // True when there are pending region effects AND a selection to lock to.
+            canApplyRegion() {
+                void this.editsRev;
+                const reg = window.studioEffectRegion ? window.studioEffectRegion() : null;
+                return !!reg && this.regionEffectOps().length > 0;
+            },
+            // Lock the pending region effects to the current selection, then reset
+            // the controls so the next region starts fresh. Already-locked effects
+            // never move when the selection changes.
+            applyToSelection() {
+                const reg = window.studioEffectRegion ? window.studioEffectRegion() : null;
+                const ops = this.regionEffectOps();
+                if (!reg || ops.length === 0) return;
+                this.fxCommits.push({ start: reg.start, end: reg.end, ops: ops.map((op) => ({ ...op, start: reg.start, end: reg.end })) });
+                this.gain = 0; this.eq = { bass: 0, mid: 0, treble: 0 };
+                this.denoise = false; this.dehum = false; this.gate = false; this.deesser = false; this.limit = false;
+                this.editsRev++; this.schedulePreview();
+            },
+            removeCommit(i) { this.fxCommits.splice(i, 1); this.editsRev++; this.schedulePreview(); },
+            fmtSec(x) { const m = Math.floor(x / 60), s = Math.floor(x % 60); return m + ':' + String(s).padStart(2, '0'); },
             activeCount() { void this.editsRev; return this.ops().filter((o) => o.op !== 'export').length; },
+            scopeLabel() {
+                void this.editsRev;
+                const r = window.studioEffectRegion ? window.studioEffectRegion() : null;
+                if (!r) return 'Effects apply to the whole track — select a region on the waveform to scope one.';
+                return `Selection ${this.fmtSec(r.start)}–${this.fmtSec(r.end)}. Configure effects, then “Apply to selection” to lock them here (compress / normalize / pitch / tempo stay whole-track).`;
+            },
             chain() {
                 void this.editsRev;
                 const label = {
@@ -325,11 +389,18 @@
                     channels: (o) => `Channels ${o.layout}`, resample: (o) => `Resample ${o.rate}Hz`,
                     export: (o) => `Export ${o.format.toUpperCase()}`,
                 };
-                return this.ops().map((o) => (label[o.op] ? label[o.op](o) : o.op));
+                return this.ops().map((o) => {
+                    let base = label[o.op] ? label[o.op](o) : o.op;
+                    // Show the region on scoped effects whose label doesn't already.
+                    if (o.start != null && o.op !== 'export' && !/@|–/.test(base)) {
+                        base += ` @ ${this.fmtSec(o.start)}–${this.fmtSec(o.end)}`;
+                    }
+                    return base;
+                });
             },
             reset() {
                 window.studioClearEdits?.();   // clear cuts/trim on the waveform
-                Object.assign(this, { gain: 0, normalize: false,
+                Object.assign(this, { gain: 0, normalize: false, fxCommits: [],
                     compress: false, limit: false, eq: { bass: 0, mid: 0, treble: 0 }, denoise: false, dehum: false,
                     gate: false, deesser: false,
                     declick: false, declip: false, pitch: 0, tempo: 1, reverse: false, fadeIn: 0, fadeOut: 0,

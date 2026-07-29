@@ -911,6 +911,7 @@ function boot() {
         window.studioSetBusy(true);
         const wasPlaying = ws.isPlaying();
         const pos = ws.getCurrentTime();
+        const savedSel = window.studioGetSelection?.();   // survive the reload
         try { await ws.load(url); } catch (e) { console.warn('Studio load failed:', e); }
         try { regions.getRegions().forEach((r) => r.remove()); } catch (_) {}
         dataDrawn = false;
@@ -918,6 +919,7 @@ function boot() {
         // The wrapper is recreated on load — re-arm drag-to-select so the editor
         // keeps working on the freshly-rendered (edited) waveform.
         try { window.studioEnableSelect?.(false); window.studioEnableSelect?.(true); } catch (_) {}
+        if (savedSel) window.studioRestoreSelection?.(savedSel);   // keep the region highlighted
         window.dispatchEvent(new CustomEvent('studio-waveform-reloaded'));
         try { if (pos) ws.setTime(Math.min(pos, ws.getDuration() || pos)); } catch (_) {}
         if (wasPlaying) { try { await ws.play(); } catch (_) {} }
@@ -1030,6 +1032,7 @@ function boot() {
         if (!stage) return;
 
         const edit = { ops: [], sel: null, snap: false, undo: [], redo: [] };
+        let fxRestoring = false;   // true while restoring the selection after a reload (suppresses re-preview)
         const OURS = /^(seg-|mrk-|sil-|edl-)/;   // segments / markers / silence overlays
 
         // The ORIGINAL audio length, captured once (preview loads change getDuration).
@@ -1056,7 +1059,13 @@ function boot() {
                 ? `${fmt(edit.sel.start)} – ${fmt(edit.sel.end)}  ·  ${asSamples(edit.sel.end - edit.sel.start)} samples`
                 : '';
         };
-        const clearSelection = () => { if (edit.sel) { edit.sel.remove(); edit.sel = null; } setToolbarEnabled(false); updateSelInfo(); };
+        const clearSelection = () => {
+            const had = !!edit.sel;
+            if (edit.sel) { edit.sel.remove(); edit.sel = null; }
+            setToolbarEnabled(false); updateSelInfo();
+            // Losing the selection reverts right-panel effects to the whole track.
+            if (had && !fxRestoring) window.dispatchEvent(new CustomEvent('studio-edits-changed'));
+        };
 
         // ---- edited-time → original-time mapping (accounts for crop + cuts) ----
         // Only cut/crop change the timeline; effects are duration-preserving.
@@ -1130,8 +1139,13 @@ function boot() {
             edit.sel = region;
             region.setOptions({ color: 'rgba(245,158,11,0.28)', drag: true, resize: true });
             setToolbarEnabled(true); updateSelInfo();
+            // A new selection re-scopes right-panel effects → re-preview (but not
+            // when we're programmatically restoring after a reload).
+            if (!fxRestoring) window.dispatchEvent(new CustomEvent('studio-edits-changed'));
         });
-        regions.on('region-updated', (region) => { if (region === edit.sel) updateSelInfo(); });
+        regions.on('region-updated', (region) => {
+            if (region === edit.sel) { updateSelInfo(); if (!fxRestoring) window.dispatchEvent(new CustomEvent('studio-edits-changed')); }
+        });
 
         /* ---- op toolbar (acts on the current selection) ---- */
         opToolbar?.querySelectorAll('[data-op]').forEach((b) => b.addEventListener('click', () => {
@@ -1176,6 +1190,28 @@ function boot() {
             }).filter(Boolean),
         });
         window.studioClearEdits = () => { edit.ops = []; edit.undo = []; edit.redo = []; clearSelection(); announce(); };
+
+        // Effect region: the current selection mapped to ORIGINAL time, or null
+        // (whole track). Right-panel effects read this to scope themselves.
+        window.studioEffectRegion = () => {
+            if (!edit.sel) return null;
+            let s = editedToOriginal(edit.sel.start), e = editedToOriginal(edit.sel.end);
+            if (e < s) { const t = s; s = e; e = t; }
+            return (e - s >= 0.02) ? { start: +s.toFixed(3), end: +e.toFixed(3) } : null;
+        };
+        // Capture / restore the visible selection across preview reloads (which
+        // wipe every region) so the region persists while tweaking effects.
+        window.studioGetSelection = () => edit.sel ? { start: edit.sel.start, end: edit.sel.end } : null;
+        window.studioRestoreSelection = (s) => {
+            if (!s) return;
+            const dur = ws.getDuration() || origDuration || 0;
+            const start = Math.max(0, Math.min(s.start, dur || s.start));
+            const end = Math.max(start, Math.min(s.end, dur || s.end));
+            if (end - start < 0.02) return;
+            fxRestoring = true;
+            try { regions.addRegion({ start, end, color: 'rgba(245,158,11,0.28)', drag: true, resize: true }); }
+            finally { fxRestoring = false; }
+        };
 
         announce(); updateSelInfo();
     }
