@@ -24,6 +24,7 @@ use App\Models\Programme;
 use App\Models\Song;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 
 /**
  * M17 — read-only catalogue browsing of published content:
@@ -93,14 +94,82 @@ class CatalogueController extends Controller
         abort_unless($artist->is_published, 404);
         $this->markFollowing($artist, $request->user());
 
-        $songs = $artist->songs()->published()->with(['audioAsset', 'album', 'artists'])->take(50)->get();
-        $albums = $artist->albums()->where('is_published', true)->get();
+        // Every published recording by the artist, most-played first — this one
+        // list powers the "Popular" section, the by-genre grouping and the full
+        // discography on the public profile.
+        $songs = $artist->songs()->published()
+            ->with(['audioAsset', 'album', 'artists', 'genre'])
+            ->get()
+            ->sortByDesc(fn ($song) => (int) ($song->audioAsset?->play_count ?? 0))
+            ->values();
 
+        $albums = $artist->albums()->where('is_published', true)
+            ->withCount('songs')->orderByDesc('year')->get();
+
+        // Reach metrics + related artists.
+        $assetIds = $this->artistAssetIds($artist);
+        $artist->setAttribute('monthly_listeners', $this->monthlyListeners($assetIds));
+        $artist->setAttribute('songs_count', $songs->count());
+        $artist->setAttribute('albums_count', $albums->count());
+
+        // Wrap each list in {data: […]} so the JSON contract matches the paginated
+        // shape the public app expects (a bare nested resource collection would
+        // serialize without the "data" key).
         return response()->json([
             'data' => (new ArtistResource($artist))->resolve(),
-            'songs' => SongResource::collection($songs),
-            'albums' => AlbumResource::collection($albums),
+            'songs' => ['data' => SongResource::collection($songs)],
+            'albums' => ['data' => AlbumResource::collection($albums)],
+            'similar' => ['data' => ArtistResource::collection($this->similarArtists($artist))],
         ]);
+    }
+
+    /** All AudioAsset ids attributed to an artist (via songs and direct credits). */
+    private function artistAssetIds(Artist $artist): array
+    {
+        return $artist->songs()->pluck('songs.audio_asset_id')
+            ->merge($artist->audioAssets()->pluck('audio_assets.id'))
+            ->filter()->unique()->values()->all();
+    }
+
+    /** Distinct listeners of the artist's content so far this calendar month. */
+    private function monthlyListeners(array $assetIds): int
+    {
+        if ($assetIds === []) {
+            return 0;
+        }
+
+        return (int) \Illuminate\Support\Facades\DB::table('play_events')
+            ->whereIn('audio_asset_id', $assetIds)
+            ->whereIn('event_type', ['play', 'replay'])
+            ->where('created_at', '>=', now()->startOfMonth())
+            ->distinct()
+            ->count(\Illuminate\Support\Facades\DB::raw('COALESCE(CAST(user_id AS CHAR), anonymous_id)'));
+    }
+
+    /**
+     * "Fans also like" — other published artists who share this artist's genres,
+     * topped up with same-type artists, most-followed first.
+     */
+    private function similarArtists(Artist $artist): Collection
+    {
+        $genreIds = $artist->songs()->pluck('songs.genre_id')->filter()->unique()->values();
+
+        $base = fn () => Artist::query()->published()->where('id', '!=', $artist->id);
+
+        $similar = $genreIds->isNotEmpty()
+            ? $base()->whereHas('songs', fn ($s) => $s->whereIn('genre_id', $genreIds))
+                ->orderByDesc('followers_count')->take(12)->get()
+            : collect();
+
+        if ($similar->count() < 6) {
+            $similar = $similar->concat(
+                $base()->whereNotIn('id', $similar->pluck('id'))
+                    ->when($artist->artist_type, fn ($q) => $q->where('artist_type', $artist->artist_type))
+                    ->orderByDesc('followers_count')->take(12 - $similar->count())->get()
+            );
+        }
+
+        return $similar;
     }
 
     // ---- Programmes & episodes ----

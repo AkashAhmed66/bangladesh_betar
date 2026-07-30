@@ -23,6 +23,10 @@ class ArtistResource extends JsonResource
             'is_featured' => (bool) $this->is_featured,
             'is_verified' => (bool) $this->is_verified,
             'followers_count' => $this->followers_count,
+            // Set only by the artist show endpoint (reach metrics for the profile).
+            'monthly_listeners' => $this->when(isset($this->monthly_listeners), fn () => (int) $this->monthly_listeners),
+            'songs_count' => $this->when(isset($this->songs_count), fn () => (int) $this->songs_count),
+            'albums_count' => $this->when(isset($this->albums_count), fn () => (int) $this->albums_count),
             'bio' => $this->when($request->routeIs('*.show'), $this->bio),
             'bio_bn' => $this->when($request->routeIs('*.show'), $this->bio_bn),
             'social_links' => $this->when($request->routeIs('*.show'), fn () => $this->social_links ?: null),

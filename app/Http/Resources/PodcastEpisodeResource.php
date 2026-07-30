@@ -30,6 +30,12 @@ class PodcastEpisodeResource extends JsonResource
             'chapters' => $this->chapters,
             'play_count' => $this->play_count,
             'hosts' => $this->whenLoaded('artists', fn () => $this->artists->where('pivot.role', 'host')->pluck('name')->values()),
+            // Credited artists (with ids) so each links to their profile.
+            'artists' => $this->whenLoaded('artists', fn () => $this->artists->map(fn ($a) => [
+                'id' => $a->id,
+                'name' => $a->name,
+                'role' => $a->pivot->role ?? null,
+            ])->values()),
         ];
     }
 }

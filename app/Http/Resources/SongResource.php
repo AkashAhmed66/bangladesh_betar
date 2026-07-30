@@ -30,6 +30,13 @@ class SongResource extends JsonResource
             'play_count' => $asset?->play_count,
             'avg_rating' => $asset?->avg_rating,
             'singers' => $this->whenLoaded('artists', fn () => $this->artists->where('pivot.role', 'singer')->pluck('name')->values()),
+            // Full credited artists (with ids) so the client can link each to
+            // their profile.
+            'artists' => $this->whenLoaded('artists', fn () => $this->artists->map(fn ($a) => [
+                'id' => $a->id,
+                'name' => $a->name,
+                'role' => $a->pivot->role ?? null,
+            ])->values()),
             'album' => new AlbumResource($this->whenLoaded('album')),
             'lyrics' => $this->when($request->routeIs('*.show'), [
                 'en' => $this->lyrics,
