@@ -62,7 +62,7 @@ function boot() {
 
     const state = {
         ws, regions, zoom: 0, edl: [], redo: [], compareWs: null,
-        ctx: null, analyserMain: null, analyserL: null, analyserR: null,
+        ctx: null, analyserMain: null, analyserL: null, analyserR: null, analyserK: null,
         fx: null, previewSettings: null,
         buf: null, running: false, frame: 0, holdL: 0, holdR: 0, eqHold: null,
         overlays: { heatmap: true, segments: true, silence: false },
@@ -242,11 +242,20 @@ function boot() {
             splitter.connect(state.analyserL, 0);
             splitter.connect(state.analyserR, channels > 1 ? 1 : 0); // mono → mirror
 
+            // K-weighted tap for the live (approximate) LUFS meter — BS.1770
+            // pre-filter (high-shelf ≈ +4 dB) + RLB high-pass. Approximate: the
+            // authoritative loudness is the on-demand ffmpeg R128 analysis.
+            const kShelf = ctx.createBiquadFilter(); kShelf.type = 'highshelf'; kShelf.frequency.value = 1500; kShelf.gain.value = 4;
+            const kHp = ctx.createBiquadFilter(); kHp.type = 'highpass'; kHp.frequency.value = 38; kHp.Q.value = 0.5;
+            state.analyserK = ctx.createAnalyser(); state.analyserK.fftSize = 2048; state.analyserK.smoothingTimeConstant = 0;
+            fx.out.connect(kShelf); kShelf.connect(kHp); kHp.connect(state.analyserK);
+
             const N = state.analyserMain.frequencyBinCount;
             state.buf = {
                 freq: new Uint8Array(N),
                 timeL: new Float32Array(state.analyserL.fftSize),
                 timeR: new Float32Array(state.analyserR.fftSize),
+                timeK: new Float32Array(state.analyserK.fftSize),
             };
 
             applyPreview(state.previewSettings); // apply any settings set before playback
@@ -293,10 +302,11 @@ function boot() {
 
     function renderLoop() {
         if (!state.running) return;
-        const { analyserMain, analyserL, analyserR, buf } = state;
+        const { analyserMain, analyserL, analyserR, analyserK, buf } = state;
         analyserMain.getByteFrequencyData(buf.freq);
         analyserL.getFloatTimeDomainData(buf.timeL);
         analyserR.getFloatTimeDomainData(buf.timeR);
+        if (analyserK) analyserK.getFloatTimeDomainData(buf.timeK);
 
         const l = channelStats(buf.timeL);
         const r = channelStats(buf.timeR);
@@ -307,6 +317,13 @@ function boot() {
         drawGoniometer(buf.timeL, buf.timeR);
         drawLevels(l, r);
         updateLoudness(l, r);
+        drawLufs(buf.timeK);
+        drawTruePeak(buf.timeL, buf.timeR);
+        drawCorrelation(buf.timeL, buf.timeR);
+        drawVu(l, r);
+        drawPpm(l, r);
+        drawScope(buf.timeL, buf.timeR);
+        drawMidSide(buf.timeL, buf.timeR);
 
         state.frame++;
         requestAnimationFrame(renderLoop);
@@ -431,6 +448,217 @@ function boot() {
         const clipping = peak >= 0.99;
         const clip = $('#clip-warn'); if (clip) clip.classList.toggle('hidden', !clipping);
         const ok = $('#clip-ok'); if (ok) ok.classList.toggle('hidden', clipping);
+    }
+
+    /* ------------------ broadcast metering (real-time) ---------------- */
+    // Size a canvas's backing store to its *displayed* size × devicePixelRatio
+    // and return a context pre-scaled so drawing happens in CSS pixels. Keeps
+    // text / needles razor-sharp on HiDPI screens and when the canvas is
+    // stretched to its container (w-full) instead of shown at its bitmap size.
+    function prepCanvas(c) {
+        const dpr = window.devicePixelRatio || 1;
+        const rect = c.getBoundingClientRect();
+        const cw = Math.max(1, Math.round(rect.width * dpr));
+        const ch = Math.max(1, Math.round(rect.height * dpr));
+        if (c.width !== cw || c.height !== ch) { c.width = cw; c.height = ch; }
+        const x = c.getContext('2d');
+        x.setTransform(dpr, 0, 0, dpr, 0, 0);
+        return { x, w: rect.width, h: rect.height };
+    }
+    const _msToLufs = (ms) => (ms > 1e-10 ? -0.691 + 10 * Math.log10(ms) : -70);
+
+    // --- 7. Live loudness — momentary (−400ms) / short-term (−3s) / integrated ---
+    function drawLufs(timeK) {
+        const c = $('#lufs'); if (!c) return;
+        const { x, w, h } = prepCanvas(c);
+        let ms = 0; if (timeK && timeK.length) { for (let i = 0; i < timeK.length; i++) ms += timeK[i] * timeK[i]; ms /= timeK.length; }
+        if (!state.lufsM) { state.lufsM = []; state.lufsS = []; state.lufsI = []; }
+        state.lufsM.push(ms); if (state.lufsM.length > 10) state.lufsM.shift();  // ~400 ms
+        state.lufsS.push(ms); if (state.lufsS.length > 70) state.lufsS.shift();  // ~3 s
+        const mean = (a) => a.reduce((p, v) => p + v, 0) / Math.max(1, a.length);
+        const M = _msToLufs(mean(state.lufsM)), S = _msToLufs(mean(state.lufsS));
+        if (state.frame % 15 === 0) state.lufsI.push(mean(state.lufsM));         // integrated sample
+        let I = -70;
+        const abs = state.lufsI.filter((v) => _msToLufs(v) > -70);               // absolute −70 LUFS gate
+        if (abs.length) {
+            const relT = _msToLufs(mean(abs)) - 10;                              // relative −10 LU gate
+            const rel = abs.filter((v) => _msToLufs(v) > relT);
+            I = _msToLufs(mean(rel.length ? rel : abs));
+        }
+        x.clearRect(0, 0, w, h);
+        const lo = -36, hi = 0, frac = (v) => Math.max(0, Math.min(1, (v - lo) / (hi - lo)));
+        const pad = 10, barW = w - pad * 2, barY = h - 34, barH = 12;
+        x.fillStyle = 'rgba(148,163,184,0.18)'; x.fillRect(pad, barY, barW, barH);
+        const col = S > -14 ? '#ef4444' : S > -20 ? '#f59e0b' : S > -28 ? '#10b981' : '#38bdf8';
+        x.fillStyle = col; x.fillRect(pad, barY, barW * frac(S), barH);
+        const tx = pad + barW * frac(-23);
+        x.fillStyle = '#e2e8f0'; x.fillRect(tx - 1, barY - 4, 2, barH + 8);      // −23 target
+        const fmt = (v) => (v <= -70 ? '−∞' : v.toFixed(1));
+        x.textAlign = 'left'; x.fillStyle = '#94a3b8'; x.font = '11px sans-serif';
+        x.fillText('Loudness (LUFS · live approx)', pad, 16);
+        x.textAlign = 'center'; x.font = 'bold 15px ui-monospace, monospace'; x.fillStyle = '#e2e8f0';
+        x.fillText(`M ${fmt(M)}   S ${fmt(S)}   I ${fmt(I)}`, w / 2, 40);
+        x.font = '9px sans-serif'; x.fillStyle = '#64748b';
+        x.textAlign = 'left'; x.fillText('−36', pad, barY + barH + 12);
+        x.textAlign = 'right'; x.fillText('0', w - pad, barY + barH + 12);
+        x.textAlign = 'center'; x.fillStyle = '#cbd5e1'; x.fillText('−23', tx, barY - 7);
+    }
+
+    // --- 8. True Peak (dBTP) — 4× Catmull-Rom oversampling reveals inter-sample peaks ---
+    function _oversamplePeak(t) {
+        if (!t || t.length < 4) return 0;
+        let peak = 0;
+        for (let i = 1; i < t.length - 2; i++) {
+            const p0 = t[i - 1], p1 = t[i], p2 = t[i + 1], p3 = t[i + 2];
+            for (let s = 0; s < 4; s++) {
+                const u = s / 4, u2 = u * u, u3 = u2 * u;
+                const v = 0.5 * ((2 * p1) + (-p0 + p2) * u + (2 * p0 - 5 * p1 + 4 * p2 - p3) * u2 + (-p0 + 3 * p1 - 3 * p2 + p3) * u3);
+                const a = Math.abs(v); if (a > peak) peak = a;
+            }
+        }
+        return peak;
+    }
+    function drawTruePeak(tL, tR) {
+        const c = $('#truepeak'); if (!c) return;
+        const { x, w, h } = prepCanvas(c);
+        const tpDb = (() => { const tp = Math.max(_oversamplePeak(tL), _oversamplePeak(tR)); return tp > 0 ? 20 * Math.log10(tp) : -60; })();
+        if (state.tpHold == null) state.tpHold = -60;
+        state.tpHold = Math.max(tpDb, state.tpHold - 0.05);
+        x.clearRect(0, 0, w, h);
+        const lo = -18, hi = 3, frac = (v) => Math.max(0, Math.min(1, (v - lo) / (hi - lo)));
+        const bx = w * 0.32, bw = w * 0.36, top = 20, bot = h - 20;
+        x.fillStyle = 'rgba(148,163,184,0.15)'; x.fillRect(bx, top, bw, bot - top);
+        const overY = bot - (bot - top) * frac(-1);
+        x.fillStyle = 'rgba(239,68,68,0.16)'; x.fillRect(bx, top, bw, overY - top);   // over −1 dBTP zone
+        const fillH = (bot - top) * frac(tpDb);
+        x.fillStyle = tpDb > -1 ? '#ef4444' : tpDb > -6 ? '#f59e0b' : '#10b981';
+        x.fillRect(bx, bot - fillH, bw, fillH);
+        const hy = bot - (bot - top) * frac(state.tpHold);
+        x.fillStyle = state.tpHold > -1 ? '#ef4444' : '#e2e8f0'; x.fillRect(bx, hy - 1, bw, 2);
+        x.textAlign = 'center'; x.fillStyle = '#94a3b8'; x.font = '11px sans-serif'; x.fillText('True Peak', w / 2, 13);
+        x.font = 'bold 14px ui-monospace, monospace'; x.fillStyle = state.tpHold > -1 ? '#fca5a5' : '#e2e8f0';
+        x.fillText((state.tpHold <= -60 ? '−∞' : state.tpHold.toFixed(1)) + ' dBTP', w / 2, h - 5);
+        x.textAlign = 'left'; x.font = '9px sans-serif'; x.fillStyle = '#94a3b8'; x.fillText('−1', bx + bw + 4, overY + 3);
+    }
+
+    // --- 9. Phase correlation (−1 anti-phase … 0 wide … +1 mono) ---
+    function drawCorrelation(tL, tR) {
+        const c = $('#correlation'); if (!c) return;
+        const { x, w, h } = prepCanvas(c);
+        let sLR = 0, sLL = 0, sRR = 0;
+        for (let i = 0; i < tL.length; i++) { sLR += tL[i] * tR[i]; sLL += tL[i] * tL[i]; sRR += tR[i] * tR[i]; }
+        let corr = (sLL > 1e-9 && sRR > 1e-9) ? sLR / Math.sqrt(sLL * sRR) : 1;
+        corr = Math.max(-1, Math.min(1, corr));
+        if (state.corr == null) state.corr = corr;
+        state.corr += (corr - state.corr) * 0.2;
+        const val = state.corr;
+        x.clearRect(0, 0, w, h);
+        const pad = 12, barW = w - pad * 2, midY = h - 30, barH = 14;
+        const g = x.createLinearGradient(pad, 0, pad + barW, 0);
+        g.addColorStop(0, '#ef4444'); g.addColorStop(0.5, '#475569'); g.addColorStop(1, '#10b981');
+        x.globalAlpha = 0.4; x.fillStyle = g; x.fillRect(pad, midY, barW, barH); x.globalAlpha = 1;
+        x.fillStyle = 'rgba(226,232,240,0.5)'; x.fillRect(pad + barW / 2 - 1, midY - 3, 2, barH + 6);
+        const ix = pad + barW * ((val + 1) / 2);
+        x.fillStyle = val < 0 ? '#ef4444' : '#e2e8f0'; x.fillRect(ix - 2, midY - 4, 4, barH + 8);
+        x.textAlign = 'center'; x.fillStyle = '#94a3b8'; x.font = '11px sans-serif'; x.fillText('Phase Correlation', w / 2, 15);
+        x.font = 'bold 18px ui-monospace, monospace'; x.fillStyle = val < 0 ? '#fca5a5' : '#e2e8f0'; x.fillText(val.toFixed(2), w / 2, 42);
+        x.font = '9px sans-serif'; x.fillStyle = '#94a3b8';
+        x.textAlign = 'left'; x.fillText('−1 anti', pad, midY + barH + 12);
+        x.textAlign = 'right'; x.fillText('+1 mono', w - pad, midY + barH + 12);
+    }
+
+    // --- 10. VU meter (analog needle, ~300ms ballistics, 0 VU ≈ −18 dBFS) ---
+    function drawVu(l, r) {
+        const c = $('#vu'); if (!c) return;
+        const { x, w, h } = prepCanvas(c), cx = w / 2, cy = h - 16, R = Math.min(w * 0.4, h * 0.72);
+        const vuDb = ampDb((l.rms + r.rms) / 2) + 18;
+        if (state.vu == null) state.vu = -20;
+        state.vu += (vuDb - state.vu) * 0.15;
+        const v = Math.max(-20, Math.min(3, state.vu));
+        const ang = (val) => -Math.PI * 5 / 6 + ((val + 20) / 23) * (Math.PI * 2 / 3);
+        x.clearRect(0, 0, w, h);
+        x.lineWidth = 3; x.strokeStyle = 'rgba(148,163,184,0.3)';
+        x.beginPath(); x.arc(cx, cy, R, ang(-20), ang(3)); x.stroke();
+        x.strokeStyle = '#ef4444';
+        x.beginPath(); x.arc(cx, cy, R, ang(0), ang(3)); x.stroke();                 // red zone 0…+3
+        x.fillStyle = '#94a3b8'; x.font = '8px sans-serif'; x.textAlign = 'center';
+        [-20, -10, -5, -3, 0, 3].forEach((t) => { const a = ang(t); x.fillText(t > 0 ? '+' + t : '' + t, cx + Math.cos(a) * (R + 9), cy + Math.sin(a) * (R + 9) + 3); });
+        const na = ang(v);
+        x.strokeStyle = v > 0 ? '#ef4444' : '#e2e8f0'; x.lineWidth = 2;
+        x.beginPath(); x.moveTo(cx, cy); x.lineTo(cx + Math.cos(na) * R * 0.92, cy + Math.sin(na) * R * 0.92); x.stroke();
+        x.fillStyle = '#e2e8f0'; x.beginPath(); x.arc(cx, cy, 3, 0, Math.PI * 2); x.fill();
+        x.fillStyle = '#94a3b8'; x.font = '11px sans-serif'; x.fillText('VU', cx, 14);
+    }
+
+    // --- 11. PPM (Peak Programme Meter) — quasi-peak, fast attack / slow decay ---
+    function drawPpm(l, r) {
+        const c = $('#ppm'); if (!c) return;
+        const { x, w, h } = prepCanvas(c);
+        if (state.ppmL == null) { state.ppmL = -60; state.ppmR = -60; state.ppmLh = -60; state.ppmRh = -60; }
+        const lDb = ampDb(l.peak), rDb = ampDb(r.peak);
+        // Fast attack (instant), EBU-style slow decay (~20 dB / 1.7 s ≈ 0.2 dB/frame).
+        state.ppmL = lDb > state.ppmL ? lDb : Math.max(lDb, state.ppmL - 0.2);
+        state.ppmR = rDb > state.ppmR ? rDb : Math.max(rDb, state.ppmR - 0.2);
+        state.ppmLh = Math.max(state.ppmL, state.ppmLh - 0.02);   // peak-hold cap
+        state.ppmRh = Math.max(state.ppmR, state.ppmRh - 0.02);
+        x.clearRect(0, 0, w, h);
+        const lo = -30, hi = 0, frac = (v) => Math.max(0, Math.min(1, (v - lo) / (hi - lo)));
+        const top = 18, bot = h - 22;
+        x.textAlign = 'center'; x.fillStyle = '#94a3b8'; x.font = '11px sans-serif'; x.fillText('PPM (quasi-peak)', w / 2, 12);
+        x.fillStyle = '#475569'; x.font = '8px sans-serif'; x.textAlign = 'left';
+        [0, -6, -12, -18, -24].forEach((t) => { const y = bot - (bot - top) * frac(t); x.fillText(String(t), 2, y + 3); });
+        [['L', state.ppmL, state.ppmLh], ['R', state.ppmR, state.ppmRh]].forEach(([lab, val, hold], i) => {
+            const colW = w / 2, bw = colW * 0.36, bx = i * colW + (colW - bw) / 2 + colW * 0.14;
+            x.fillStyle = 'rgba(148,163,184,0.15)'; x.fillRect(bx, top, bw, bot - top);
+            const g = x.createLinearGradient(0, bot, 0, top);
+            g.addColorStop(0, '#10b981'); g.addColorStop(0.75, '#f59e0b'); g.addColorStop(1, '#ef4444');
+            x.fillStyle = g; const fh = (bot - top) * frac(val); x.fillRect(bx, bot - fh, bw, fh);
+            const hy = bot - (bot - top) * frac(hold); x.fillStyle = hold > -1 ? '#ef4444' : '#e2e8f0'; x.fillRect(bx, hy - 1, bw, 2);
+            x.fillStyle = '#cbd5e1'; x.font = '9px sans-serif'; x.textAlign = 'center'; x.fillText(lab, bx + bw / 2, bot + 11);
+            x.fillStyle = hold > -1 ? '#fca5a5' : '#94a3b8'; x.font = 'bold 10px ui-monospace, monospace';
+            x.fillText(hold <= -60 ? '−∞' : hold.toFixed(1), bx + bw / 2, bot + 21);
+        });
+    }
+
+    // --- 12. Oscilloscope — zero-crossing-triggered time-domain trace ---
+    function drawScope(tL, tR) {
+        const c = $('#scope'); if (!c) return;
+        const { x, w, h } = prepCanvas(c);
+        x.clearRect(0, 0, w, h);
+        x.strokeStyle = 'rgba(148,163,184,0.12)'; x.lineWidth = 1;
+        x.beginPath(); x.moveTo(0, h / 2); x.lineTo(w, h / 2); x.stroke();
+        const n = tL.length, mid = (i) => (tL[i] + tR[i]) * 0.5;
+        let start = 0;
+        for (let i = 1; i < n / 2; i++) { if (mid(i - 1) <= 0 && mid(i) > 0) { start = i; break; } } // rising trigger
+        const span = Math.min(n - start, Math.floor(n * 0.75));
+        const grad = x.createLinearGradient(0, 0, w, 0); grad.addColorStop(0, primary); grad.addColorStop(1, accent);
+        x.strokeStyle = grad; x.lineWidth = 1.5; x.beginPath();
+        for (let i = 0; i < span; i++) { const px = (i / span) * w, py = h / 2 - mid(start + i) * (h * 0.46); i ? x.lineTo(px, py) : x.moveTo(px, py); }
+        x.stroke();
+        x.fillStyle = '#94a3b8'; x.font = '11px sans-serif'; x.textAlign = 'left'; x.fillText('Oscilloscope', 8, 14);
+    }
+
+    // --- 13. Mid/Side meters — mono (M) vs stereo (S) energy + width ---
+    function drawMidSide(tL, tR) {
+        const c = $('#midside'); if (!c) return;
+        const { x, w, h } = prepCanvas(c);
+        let mSum = 0, sSum = 0;
+        for (let i = 0; i < tL.length; i++) { const m = (tL[i] + tR[i]) * 0.5, s = (tL[i] - tR[i]) * 0.5; mSum += m * m; sSum += s * s; }
+        const mRms = Math.sqrt(mSum / tL.length), sRms = Math.sqrt(sSum / tL.length);
+        const mDb = ampDb(mRms), sDb = ampDb(sRms);
+        const width = mRms > 1e-6 ? Math.min(200, Math.round((sRms / mRms) * 100)) : 0;
+        x.clearRect(0, 0, w, h);
+        x.textAlign = 'center'; x.fillStyle = '#94a3b8'; x.font = '11px sans-serif'; x.fillText('Mid / Side', w / 2, 12);
+        const lo = -60, hi = 0, frac = (v) => Math.max(0, Math.min(1, (v - lo) / (hi - lo)));
+        const top = 22, bot = h - 30;
+        [['M (mono)', mDb, '#38bdf8'], ['S (stereo)', sDb, '#a78bfa']].forEach(([lab, val, col], i) => {
+            const colW = w / 2, bw = colW * 0.4, bx = i * colW + (colW - bw) / 2;
+            x.fillStyle = 'rgba(148,163,184,0.15)'; x.fillRect(bx, top, bw, bot - top);
+            x.fillStyle = col; const fh = (bot - top) * frac(val); x.fillRect(bx, bot - fh, bw, fh);
+            x.fillStyle = '#cbd5e1'; x.font = '9px sans-serif'; x.textAlign = 'center'; x.fillText(lab, bx + bw / 2, bot + 12);
+            x.fillStyle = '#94a3b8'; x.font = 'bold 10px ui-monospace, monospace'; x.fillText(val <= -60 ? '−∞' : val.toFixed(1), bx + bw / 2, bot + 23);
+        });
+        x.textAlign = 'center'; x.fillStyle = '#cbd5e1'; x.font = '9px sans-serif'; x.fillText('width ' + width + '%', w / 2, h - 3);
     }
 
     /* --------------------------- heatmap ------------------------------ */
@@ -996,6 +1224,87 @@ function boot() {
         fillR128(res);
     }
     document.getElementById('btn-loudness')?.addEventListener('click', analyzeLoudness);
+
+    /* --------- signal analysis (ffmpeg astats, on demand) --------- */
+    function fillAstats(res) {
+        const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+        const db = (v) => (v == null ? '—' : v.toFixed(1) + ' dB');
+        set('as-dc', res.dc_offset == null ? '—' : (res.dc_offset * 100).toFixed(3) + '%');
+        set('as-peak', db(res.peak_db));
+        set('as-rms', db(res.rms_db));
+        set('as-crest', res.crest_db == null ? '—' : res.crest_db.toFixed(1) + ' dB');
+        set('as-noise', res.noise_floor_db == null ? '−∞' : db(res.noise_floor_db));
+        set('as-flat', res.flat == null ? '—' : res.flat.toFixed(2));
+        set('as-peakn', res.peak_count == null ? '—' : String(res.peak_count));
+        set('as-bits', res.bit_depth || '—');
+        document.getElementById('astats-grid')?.classList.remove('hidden');
+    }
+    async function analyzeAstats() {
+        const btn = document.getElementById('btn-astats');
+        const status = document.getElementById('astats-status');
+        if (btn) btn.disabled = true;
+        if (status) status.textContent = 'analysing… (a few seconds)';
+        const res = await fetch(CFG.urls.astats, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CFG.csrf, Accept: 'application/json' },
+            body: JSON.stringify({ version_id: CFG.defaultVersionId }),
+        }).then((r) => r.json()).catch(() => null);
+        if (btn) btn.disabled = false;
+        if (!res || !res.ok) { if (status) status.textContent = (res && res.error) || 'analysis unavailable'; return; }
+        if (status) status.textContent = '';
+        fillAstats(res);
+    }
+    document.getElementById('btn-astats')?.addEventListener('click', analyzeAstats);
+
+    /* --------- tonal balance (average octave spectrum, browser-side) --------- */
+    // RBJ band-pass (constant 0 dB peak) applied direct-form-I over the samples;
+    // returns the band RMS in dBFS. Runs on the decoded audio — no server round trip.
+    function bandRmsDb(sig, fs, f0, Q) {
+        const w0 = 2 * Math.PI * f0 / fs, cw = Math.cos(w0), sw = Math.sin(w0), alpha = sw / (2 * Q);
+        const a0 = 1 + alpha, B0 = alpha / a0, B2 = -alpha / a0, A1 = (-2 * cw) / a0, A2 = (1 - alpha) / a0;
+        let x1 = 0, x2 = 0, y1 = 0, y2 = 0, sum = 0;
+        for (let i = 0; i < sig.length; i++) {
+            const xi = sig[i], y = B0 * xi + B2 * x2 - A1 * y1 - A2 * y2;
+            x2 = x1; x1 = xi; y2 = y1; y1 = y; sum += y * y;
+        }
+        const rms = Math.sqrt(sum / sig.length);
+        return rms > 1e-7 ? 20 * Math.log10(rms) : -80;
+    }
+    function drawTonal(bands, levels) {
+        const c = $('#tonal'); if (!c) return;
+        const { x, w, h } = prepCanvas(c);
+        x.clearRect(0, 0, w, h);
+        const max = Math.max(...levels), norm = levels.map((v) => v - max); // 0 dB = loudest band
+        const lo = -36, hi = 2, frac = (v) => Math.max(0, Math.min(1, (v - lo) / (hi - lo)));
+        const padL = 8, padR = 8, padT = 8, padB = 16, gw = w - padL - padR, gh = h - padT - padB;
+        x.strokeStyle = 'rgba(148,163,184,0.12)'; x.lineWidth = 1;
+        [-30, -24, -18, -12, -6, 0].forEach((db) => { const y = padT + gh * (1 - frac(db)); x.beginPath(); x.moveTo(padL, y); x.lineTo(w - padR, y); x.stroke(); });
+        const bw = gw / bands.length;
+        for (let i = 0; i < bands.length; i++) { const bh = gh * frac(norm[i]); x.fillStyle = 'rgba(56,189,248,0.45)'; x.fillRect(padL + i * bw + 2, padT + gh - bh, bw - 4, bh); }
+        x.beginPath(); x.strokeStyle = accent; x.lineWidth = 2;
+        for (let i = 0; i < bands.length; i++) { const cx = padL + i * bw + bw / 2, cy = padT + gh * (1 - frac(norm[i])); i ? x.lineTo(cx, cy) : x.moveTo(cx, cy); }
+        x.stroke();
+        x.fillStyle = '#64748b'; x.font = '8px sans-serif'; x.textAlign = 'center';
+        bands.forEach((f, i) => x.fillText(f >= 1000 ? (f / 1000) + 'k' : String(f), padL + i * bw + bw / 2, h - 5));
+    }
+    function analyzeTonalBalance() {
+        const status = document.getElementById('tonal-status');
+        const buf = (typeof ws !== 'undefined' && ws.getDecodedData) ? ws.getDecodedData() : null;
+        if (!buf) { if (status) status.textContent = 'audio still loading — try again in a moment'; return; }
+        if (status) status.textContent = 'analysing…';
+        setTimeout(() => {                                     // let the status paint before the heavy loop
+            const fs = buf.sampleRate, len = buf.length;
+            const exLen = Math.min(len, Math.floor(30 * fs));  // representative 30 s from the middle
+            const start = Math.max(0, Math.floor((len - exLen) / 2));
+            const chs = buf.numberOfChannels, mono = new Float32Array(exLen);
+            for (let ch = 0; ch < chs; ch++) { const d = buf.getChannelData(ch); for (let i = 0; i < exLen; i++) mono[i] += d[start + i] / chs; }
+            const bands = [31.5, 63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
+            const levels = bands.map((f) => bandRmsDb(mono, fs, f, 1.41));
+            if (status) status.textContent = '';
+            drawTonal(bands, levels);
+        }, 30);
+    }
+    document.getElementById('btn-tonal')?.addEventListener('click', analyzeTonalBalance);
 
     // Let the editor panel read the current waveform selection / cursor.
     window.studioSelection = () => {

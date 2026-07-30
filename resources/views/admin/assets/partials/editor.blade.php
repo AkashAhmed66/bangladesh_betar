@@ -37,6 +37,13 @@
 
         <div class="my-1 h-px w-6 bg-slate-200 dark:bg-slate-700"></div>
 
+        {{-- Visualization panels — shared $store.studioPanels (also drives the view rail for non-editors) --}}
+        <div class="group relative">
+            <button @click="toggleTool('panels')" class="tool-btn" :class="btnClass('panels')"><x-icon name="squares" class="size-5" /></button>
+            <span x-show="$store.studioPanels.any()" x-cloak class="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-primary-600 text-[9px] font-bold text-white" x-text="$store.studioPanels.openCount()"></span>
+            <span class="tool-tip">Visualization panels</span>
+        </div>
+
         <div class="group relative">
             <button @click="toggleTool('chain')" class="tool-btn" :class="btnClass('chain')"><x-icon name="queue" class="size-5" /></button>
             <span x-show="activeCount()>0" x-cloak class="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-primary-600 text-[9px] font-bold text-white" x-text="activeCount()"></span>
@@ -69,6 +76,22 @@
             <button @click="openTool=null" @mousedown.stop class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"><x-icon name="x" class="size-4" /></button>
         </div>
         <div class="max-h-[70vh] space-y-3 overflow-y-auto scrollbar-slim p-4">
+
+            {{-- Visualization panels — workspace show/hide (shared $store.studioPanels) --}}
+            <div x-show="openTool==='panels'" class="space-y-1.5">
+                <p class="text-[11px] text-slate-400">Show a panel in the workspace below. Hide it with the ✕ on the panel, or toggle it here.</p>
+                @foreach ($docks as [$key, $label, $icon])
+                <button type="button" @click="$store.studioPanels.toggle('{{ $key }}')" class="panel-toggle" :class="$store.studioPanels.open.{{ $key }} && 'on'">
+                    <span class="flex min-w-0 items-center gap-2.5">
+                        <span class="pt-ico"><x-icon name="{{ $icon }}" class="size-4" /></span>
+                        <span class="truncate">{{ $label }}</span>
+                    </span>
+                    <span x-show="$store.studioPanels.open.{{ $key }}"><x-icon name="check-badge" class="size-4" /></span>
+                    <span x-show="!$store.studioPanels.open.{{ $key }}" x-cloak><x-icon name="plus" class="size-4 text-slate-400" /></span>
+                </button>
+                @endforeach
+                <button type="button" @click="$store.studioPanels.hideAll()" x-show="$store.studioPanels.any()" x-cloak class="mt-1 w-full rounded-lg px-2 py-1.5 text-[11px] font-medium text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300">Hide all</button>
+            </div>
 
             {{-- Volume & Dynamics --}}
             <div x-show="openTool==='volume'" class="space-y-3">
@@ -271,7 +294,7 @@
                 this.openTool = id;
             },
             toolLabel() {
-                return ({ volume: 'Volume & Dynamics', eq: 'Equalizer', restore: 'Restoration',
+                return ({ panels: 'Visualization Panels', volume: 'Volume & Dynamics', eq: 'Equalizer', restore: 'Restoration',
                     pitch: 'Pitch & Tempo', export: 'Export Format', chain: 'Processing Chain', save: 'Save Version' })[this.openTool] || '';
             },
             btnClass(id) {

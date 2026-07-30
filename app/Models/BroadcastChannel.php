@@ -11,10 +11,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Laravel\Scout\Searchable;
 
 class BroadcastChannel extends Model
 {
-    use Auditable, SoftDeletes;
+    use Auditable, Searchable, SoftDeletes;
 
     protected $guarded = [];
 
@@ -51,5 +52,29 @@ class BroadcastChannel extends Model
     public function scopeLive(Builder $query): Builder
     {
         return $query->whereHas('sessions', fn (Builder $q) => $q->where('status', 'live'));
+    }
+
+    /* ------------------------------ search ---------------------------- */
+
+    /** Live-radio channels are searchable while the channel is active. */
+    public function shouldBeSearchable(): bool
+    {
+        return (bool) $this->is_active;
+    }
+
+    public function toSearchableArray(): array
+    {
+        return [
+            'type' => 'live_radio',
+            'entity_id' => $this->id,
+            'title' => $this->name,
+            'title_bn' => $this->name_bn,
+            'people' => [],
+            'body' => $this->description,
+            'body_bn' => null,
+            'transcript' => null,
+            'popularity' => 0,
+            'published_at' => null,
+        ];
     }
 }

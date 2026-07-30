@@ -137,6 +137,28 @@ class AudioStudioController extends Controller
         return response()->json($res, ($res['ok'] ?? false) ? 200 : 422);
     }
 
+    /** Signal statistics (ffmpeg astats) for the Studio "Signal Analysis" panel. */
+    public function astats(Request $request, AudioAsset $asset, AudioRenderService $renderer): JsonResponse
+    {
+        $versionId = (int) $request->input('version_id');
+        $version = ($versionId ? $asset->versions()->find($versionId) : null)
+            ?? $asset->versions()->where('is_default', true)->first()
+            ?? $asset->versions()->first();
+
+        $disk = Storage::disk('local');
+        $relative = $version && $version->file_path && $disk->exists($version->file_path)
+            ? $version->file_path
+            : $this->demoTrackFor($asset->id, $disk);
+
+        if (! $relative || ! $disk->exists($relative)) {
+            return response()->json(['ok' => false, 'error' => 'Media file not available.'], 404);
+        }
+
+        $res = $renderer->measureAstats($disk->path($relative));
+
+        return response()->json($res, ($res['ok'] ?? false) ? 200 : 422);
+    }
+
     /**
      * Resolve a demo track for an asset, generating the demo set on demand if
      * the container has none yet (so streaming never 404s).

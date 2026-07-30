@@ -87,6 +87,8 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
             Route::get('assets/{asset}/versions/{version}/audio', [Admin\AudioStudioController::class, 'streamVersion'])->name('assets.stream');
             // EBU R128 loudness analysis (integrated LUFS, LRA, true-peak, curve)
             Route::post('assets/{asset}/loudness', [Admin\AudioStudioController::class, 'loudness'])->name('assets.loudness');
+            // Signal statistics (astats): RMS, peak, DC offset, crest factor, noise floor, clipping
+            Route::post('assets/{asset}/astats', [Admin\AudioStudioController::class, 'astats'])->name('assets.astats');
             Route::post('assets/{asset}/peaks', [Admin\AudioStudioController::class, 'savePeaks'])
                 ->middleware('permission:assets.edit')->name('assets.peaks');
             Route::get('assets/{asset}/markers', [Admin\AudioStudioController::class, 'markers'])->name('assets.markers');

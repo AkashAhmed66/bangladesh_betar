@@ -223,6 +223,86 @@ class AudioRenderService
         return $this->parseEbur128($log);
     }
 
+    /**
+     * One-pass signal statistics (ffmpeg astats) — RMS/peak levels, DC offset,
+     * crest factor, noise floor, dynamic range and clipping indicators. Powers
+     * the Studio "Signal Analysis" panel (restoration QC).
+     */
+    public function measureAstats(string $input): array
+    {
+        if (! is_file($input)) {
+            return ['ok' => false, 'error' => 'Source audio file not found.'];
+        }
+        if (! $this->available()) {
+            return ['ok' => false, 'error' => 'ffmpeg is not available on this server.'];
+        }
+
+        $args = ['-hide_banner', '-nostats', '-i', $input, '-af', 'astats', '-f', 'null', '-'];
+        $cmd = $this->processor->binary('ffmpeg').' '.implode(' ', array_map('escapeshellarg', $args));
+
+        // astats prints its summary to stderr once at EOF; capture to a FILE so a
+        // full pipe buffer can never deadlock ffmpeg while we wait.
+        $errFile = tempnam(sys_get_temp_dir(), 'astats');
+        $descriptors = [
+            0 => ['file', '/dev/null', 'r'],
+            1 => ['file', '/dev/null', 'w'],
+            2 => ['file', $errFile, 'w'],
+        ];
+        $proc = @proc_open($cmd, $descriptors, $pipes);
+        if (! is_resource($proc)) {
+            @unlink($errFile);
+
+            return ['ok' => false, 'error' => 'Failed to start ffmpeg.'];
+        }
+        proc_close($proc); // blocks until ffmpeg finishes; stderr is in $errFile
+
+        $log = @file_get_contents($errFile) ?: '';
+        @unlink($errFile);
+
+        return $this->parseAstats($log);
+    }
+
+    /** Parse the "Overall" section of ffmpeg's astats summary into numbers. */
+    private function parseAstats(string $log): array
+    {
+        $section = ($pos = strrpos($log, 'Overall')) !== false ? substr($log, $pos) : $log;
+
+        $num = static function (string $label) use ($section): ?float {
+            return preg_match('/'.preg_quote($label, '/').':\s*(-?[\d.]+)\b/i', $section, $m) && is_numeric($m[1])
+                ? (float) $m[1] : null;
+        };
+        $str = static function (string $label) use ($section): ?string {
+            return preg_match('/'.preg_quote($label, '/').':\s*(\S+)/i', $section, $m) ? $m[1] : null;
+        };
+
+        $peak = $num('Peak level dB');
+        $rms = $num('RMS level dB');
+
+        $data = [
+            'dc_offset' => $num('DC offset'),
+            'peak_db' => $peak,
+            'rms_db' => $rms,
+            'rms_peak_db' => $num('RMS peak dB'),
+            // Crest factor (dB) = peak − RMS. Derived so it is available on every
+            // ffmpeg build (some print no linear "Crest factor" line). High crest
+            // = dynamic; low = heavily compressed / limited.
+            'crest_db' => ($peak !== null && $rms !== null) ? round($peak - $rms, 1) : null,
+            'noise_floor_db' => $num('Noise floor dB'),  // -inf on digital silence → null
+            'flat' => $num('Flat factor'),               // >0 hints at clipping / flat lines
+            'peak_count' => $num('Peak count'),
+            'entropy' => $num('Entropy'),
+            'bit_depth' => $str('Bit depth'),
+            'samples' => $num('Number of samples'),
+        ];
+
+        $data['ok'] = $peak !== null || $rms !== null;
+        if (! $data['ok']) {
+            $data['error'] = 'Could not read signal statistics.';
+        }
+
+        return $data;
+    }
+
     /** Parse ebur128 per-frame lines + the Summary block into numbers + a curve. */
     private function parseEbur128(string $log): array
     {

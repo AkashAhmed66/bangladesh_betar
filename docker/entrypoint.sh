@@ -54,6 +54,23 @@ fi
 # present in a fresh container) remain playable in the Studio and public API.
 php artisan demo:audio 2>/dev/null || echo "Demo audio generation skipped."
 
+# Search (M06): ensure the Elasticsearch indices exist and are populated. Safe
+# to run on every boot — it only imports indices that are still empty (first
+# boot / after data loss); ongoing sync is handled by the Scout observers and a
+# nightly reconcile. Never blocks boot if Elasticsearch is unavailable.
+if [ "${RUN_SEARCH_SETUP:-true}" = "true" ] && [ "${SCOUT_DRIVER:-}" = "elastic" ]; then
+    # ES starts alongside the app (service_started, not health-gated), so give it
+    # a bounded moment to accept connections before the first-boot import. We
+    # proceed regardless after the timeout — search has a SQL fallback.
+    echo "Waiting for Elasticsearch at ${ELASTIC_HOST} (up to 60s)…"
+    i=0
+    until curl -fsS "${ELASTIC_HOST}/_cluster/health" >/dev/null 2>&1 || [ "$i" -ge 30 ]; do
+        i=$((i + 1)); sleep 2
+    done
+    echo "Setting up search indices…"
+    php artisan search:index --if-empty || echo "Search index setup skipped (Elasticsearch unavailable)."
+fi
+
 # Cache framework config/routes/views for production.
 if [ "${APP_ENV}" = "production" ]; then
     php artisan config:cache

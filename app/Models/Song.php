@@ -11,10 +11,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Laravel\Scout\Searchable;
 
 class Song extends Model
 {
-    use Auditable, SoftDeletes;
+    use Auditable, Searchable, SoftDeletes;
 
     protected $guarded = [];
 
@@ -66,5 +67,40 @@ class Song extends Model
     public function scopePublished(Builder $query): Builder
     {
         return $query->whereHas('audioAsset', fn (Builder $q) => $q->published());
+    }
+
+    /* ------------------------------ search ---------------------------- */
+
+    /** Only songs whose underlying asset is publicly published get indexed. */
+    public function shouldBeSearchable(): bool
+    {
+        return $this->audioAsset?->isPublished() ?? false;
+    }
+
+    public function toSearchableArray(): array
+    {
+        $asset = $this->audioAsset;
+        $people = $this->artists
+            ->flatMap(fn ($a) => [$a->name, $a->name_bn])
+            ->filter()->unique()->values()->all();
+
+        return [
+            'type' => 'song',
+            'entity_id' => $this->id,
+            'title' => $asset?->title,
+            'title_bn' => $asset?->title_bn,
+            'people' => $people,
+            'body' => trim(($this->lyrics ?? '').' '.($asset?->description ?? '')),
+            'body_bn' => trim(($this->lyrics_bn ?? '').' '.($asset?->description_bn ?? '')),
+            'transcript' => $asset?->transcripts->pluck('full_text')->filter()->implode(' '),
+            'popularity' => (int) ($asset?->play_count ?? 0),
+            'published_at' => $asset?->published_at?->toIso8601String(),
+        ];
+    }
+
+    /** Eager-load the relations the searchable payload needs for bulk import. */
+    protected function makeAllSearchableUsing(Builder $query): Builder
+    {
+        return $query->with(['audioAsset.transcripts', 'artists']);
     }
 }

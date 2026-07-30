@@ -18,6 +18,10 @@ services:
         condition: service_healthy
       livekit:
         condition: service_started
+      # service_started (not _healthy): a slow or unhealthy ES must never block
+      # the app from booting — search degrades to a SQL LIKE fallback.
+      elasticsearch:
+        condition: service_started
     environment:
       APP_ENV: ${APP_ENV:-local}
       APP_DEBUG: ${APP_DEBUG:-true}
@@ -35,6 +39,15 @@ services:
       QUEUE_CONNECTION: ${QUEUE_CONNECTION:-database}
       SESSION_DRIVER: ${SESSION_DRIVER:-database}
       REDIS_HOST: redis
+      # Search (Elasticsearch, M06). SCOUT_DRIVER=elastic routes model index
+      # sync through the Elasticsearch Scout driver; SCOUT_QUEUE pushes those
+      # writes onto the database queue worker so requests stay fast. ELASTIC_HOST
+      # is the in-network address of the ES node.
+      SCOUT_DRIVER: ${SCOUT_DRIVER:-elastic}
+      SCOUT_QUEUE: ${SCOUT_QUEUE:-true}
+      ELASTIC_HOST: ${ELASTIC_HOST:-http://elasticsearch:9200}
+      # Auto-provision the search index + import the catalogue on boot (idempotent).
+      RUN_SEARCH_SETUP: ${RUN_SEARCH_SETUP:-true}
       # Live broadcasting (M27). LIVEKIT_HOST is the internal (server-side)
       # address for room/webhook APIs; LIVEKIT_WS_URL is what browsers connect
       # to. Key/secret MUST match docker/livekit.yaml.
@@ -109,9 +122,40 @@ services:
     networks:
       - betar
 
+  # Full-text search engine (M06). Single-node, security disabled for the
+  # in-network deployment. Heap is capped low (512m) to keep the footprint
+  # modest; raise ES_JAVA_OPTS on a box with more RAM for better performance.
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.4.0
+    container_name: betar_elasticsearch
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      xpack.security.http.ssl.enabled: "false"
+      ES_JAVA_OPTS: ${ES_JAVA_OPTS:--Xms512m -Xmx512m}
+      bootstrap.memory_lock: "true"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "${ES_PORT_HOST:-9201}:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200/_cluster/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 12
+      start_period: 40s
+    networks:
+      - betar
+
 volumes:
   db_data:
   app_storage:
+  es_data:
 
 networks:
   betar:

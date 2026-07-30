@@ -11,10 +11,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Laravel\Scout\Searchable;
 
 class PodcastChannel extends Model
 {
-    use Auditable, SoftDeletes;
+    use Auditable, Searchable, SoftDeletes;
 
     protected $guarded = [];
 
@@ -52,5 +53,28 @@ class PodcastChannel extends Model
     public function scopePublished(Builder $query): Builder
     {
         return $query->where('is_published', true);
+    }
+
+    /* ------------------------------ search ---------------------------- */
+
+    public function shouldBeSearchable(): bool
+    {
+        return (bool) $this->is_published;
+    }
+
+    public function toSearchableArray(): array
+    {
+        return [
+            'type' => 'podcast',
+            'entity_id' => $this->id,
+            'title' => $this->title,
+            'title_bn' => $this->title_bn,
+            'people' => [],
+            'body' => $this->description,
+            'body_bn' => null,
+            'transcript' => null,
+            'popularity' => (int) ($this->followers_count ?? 0),
+            'published_at' => null,
+        ];
     }
 }
