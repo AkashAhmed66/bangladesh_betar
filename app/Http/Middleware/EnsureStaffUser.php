@@ -9,8 +9,10 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * The Admin Portal is for Bangladesh Betar staff accounts only.
- * Listener accounts must use the public application / API.
+ * The Admin Portal is for Bangladesh Betar staff accounts and linked artist
+ * accounts. Artists get a minimal, profile-only view (every feature route is
+ * permission-gated, and artists hold no admin permissions). Listener accounts
+ * must use the public application / API.
  */
 class EnsureStaffUser
 {
@@ -18,12 +20,12 @@ class EnsureStaffUser
     {
         $user = $request->user();
 
-        if ($user === null || ! $user->isStaff() || $user->status !== 'active') {
+        if ($user === null || ! $user->canAccessAdmin() || $user->status !== 'active') {
             auth()->guard('web')->logout();
             $request->session()->invalidate();
 
             return redirect()->route('admin.login')
-                ->withErrors(['email' => 'This portal is restricted to active Bangladesh Betar staff accounts.']);
+                ->withErrors(['email' => 'This portal is restricted to active Bangladesh Betar staff and artist accounts.']);
         }
 
         return $next($request);

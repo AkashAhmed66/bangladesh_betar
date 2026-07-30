@@ -3,7 +3,7 @@
 @section('title', 'Users')
 
 @section('content')
-<x-page-header title="User Management" subtitle="Staff and listener accounts with role-based access (M01)">
+<x-page-header title="User Management" subtitle="Staff, artist and listener accounts with role-based access (M01)">
     @can('users.create')
         <a href="{{ route('admin.users.create') }}" class="btn-primary"><x-icon name="plus" class="size-4" /> New User</a>
     @endcan
@@ -19,6 +19,7 @@
             <select name="type" class="form-input w-36" onchange="this.form.submit()">
                 <option value="">All types</option>
                 <option value="staff" @selected(request('type') === 'staff')>Staff</option>
+                <option value="artist" @selected(request('type') === 'artist')>Artist</option>
                 <option value="listener" @selected(request('type') === 'listener')>Listener</option>
             </select>
             <select name="role" class="form-input w-48" onchange="this.form.submit()">
@@ -49,8 +50,12 @@
                     <tr>
                         <td>
                             <div class="flex items-center gap-3">
-                                <span class="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-800 dark:bg-primary-500/20 dark:text-primary-300">
-                                    {{ strtoupper(substr($user->name, 0, 1)) }}
+                                <span class="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-100 text-sm font-semibold text-primary-800 dark:bg-primary-500/20 dark:text-primary-300">
+                                    @if ($user->avatar_path)
+                                        <img src="{{ $user->avatarUrl() }}" alt="{{ $user->name }}" class="size-full object-cover">
+                                    @else
+                                        {{ strtoupper(substr($user->name, 0, 1)) }}
+                                    @endif
                                 </span>
                                 <div class="min-w-0">
                                     <p class="truncate font-medium text-slate-800 dark:text-slate-100">{{ $user->name }}</p>
@@ -58,7 +63,7 @@
                                 </div>
                             </div>
                         </td>
-                        <td><span class="badge-{{ $user->user_type === 'staff' ? 'primary' : 'blue' }}">{{ ucfirst($user->user_type) }}</span></td>
+                        <td><span class="badge-{{ ['staff' => 'primary', 'artist' => 'purple', 'listener' => 'blue'][$user->user_type] ?? 'slate' }}">{{ ucfirst($user->user_type) }}</span></td>
                         <td class="text-sm">{{ $user->getRoleNames()->implode(', ') ?: '—' }}</td>
                         <td><x-status-badge :status="$user->status" /></td>
                         <td class="text-sm text-slate-500">{{ $user->last_login_at?->diffForHumans() ?? 'Never' }}</td>

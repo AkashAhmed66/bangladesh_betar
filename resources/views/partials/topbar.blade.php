@@ -46,23 +46,31 @@
     </a>
 
     {{-- User menu --}}
+    @php $me = auth()->user(); $avatar = $me->avatarUrl(); @endphp
     <div x-data="{ open: false }" class="relative">
         <button @click="open = !open" class="flex items-center gap-2.5 rounded-full py-1 pl-1 pr-2 hover:bg-slate-100 dark:hover:bg-slate-800">
-            <span class="flex size-8 items-center justify-center rounded-full bg-primary-700 text-sm font-semibold text-white">
-                {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
+            <span class="flex size-8 items-center justify-center overflow-hidden rounded-full bg-primary-700 text-sm font-semibold text-white">
+                @if ($avatar)
+                    <img src="{{ $avatar }}" alt="{{ $me->name }}" class="size-full object-cover">
+                @else
+                    {{ strtoupper(substr($me->name, 0, 1)) }}
+                @endif
             </span>
             <span class="hidden text-left sm:block">
-                <span class="block max-w-32 truncate text-sm font-medium text-slate-800 dark:text-slate-100">{{ auth()->user()->name }}</span>
-                <span class="block max-w-32 truncate text-[11px] text-slate-500 dark:text-slate-400">{{ auth()->user()->getRoleNames()->first() }}</span>
+                <span class="block max-w-32 truncate text-sm font-medium text-slate-800 dark:text-slate-100">{{ $me->name }}</span>
+                <span class="block max-w-32 truncate text-[11px] text-slate-500 dark:text-slate-400">{{ $me->getRoleNames()->first() }}</span>
             </span>
             <x-icon name="chevron-down" class="hidden size-3.5 text-slate-400 sm:block" />
         </button>
         <div x-show="open" @click.outside="open = false" x-transition.origin.top.right class="dropdown-panel" x-cloak>
             <div class="border-b border-slate-100 px-3 py-2.5 dark:border-slate-700">
-                <p class="truncate text-sm font-medium text-slate-800 dark:text-slate-100">{{ auth()->user()->name }}</p>
-                <p class="truncate text-xs text-slate-500 dark:text-slate-400">{{ auth()->user()->email }}</p>
+                <p class="truncate text-sm font-medium text-slate-800 dark:text-slate-100">{{ $me->name }}</p>
+                <p class="truncate text-xs text-slate-500 dark:text-slate-400">{{ $me->email }}</p>
             </div>
-            <form method="POST" action="{{ route('admin.logout') }}" class="mt-1">
+            <a href="{{ route('admin.profile.edit') }}" class="dropdown-item mt-1 w-full">
+                <x-icon name="user-circle" class="size-4" /> My Profile
+            </a>
+            <form method="POST" action="{{ route('admin.logout') }}">
                 @csrf
                 <button type="submit" class="dropdown-item w-full text-rose-600 dark:text-rose-400">
                     <x-icon name="logout" class="size-4" /> Sign out

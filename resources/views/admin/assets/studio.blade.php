@@ -193,15 +193,17 @@
     </div>
 </div>
 
-{{-- ===================== Workspace: toggled panels stack here (full width) ===================== --}}
-<div class="mt-5 space-y-5">
+{{-- ===================== Workspace: toggled panels (2-column masonry) ===================== --}}
+{{-- Empty state — spans the full width --}}
+<div x-show="!$store.studioPanels.any()" x-cloak x-transition.opacity.duration.200ms class="panel-empty mt-5">
+    <span class="sc-ico accent mb-1"><x-icon name="chart-bar" class="size-4" /></span>
+    <p class="text-sm font-semibold text-slate-600 dark:text-slate-200">Your workspace is clear</p>
+    <p class="mt-1 max-w-sm text-xs text-slate-400">Show meters, analysis and markers from the <b>Panels</b> list on the right. Hide any panel again with its ✕ button.</p>
+</div>
 
-        {{-- Empty state --}}
-        <div x-show="!$store.studioPanels.any()" x-cloak x-transition.opacity.duration.200ms class="panel-empty">
-            <span class="sc-ico accent mb-1"><x-icon name="chart-bar" class="size-4" /></span>
-            <p class="text-sm font-semibold text-slate-600 dark:text-slate-200">Your workspace is clear</p>
-            <p class="mt-1 max-w-sm text-xs text-slate-400">Show meters, analysis and markers from the <b>Panels</b> list on the right. Hide any panel again with its ✕ button.</p>
-        </div>
+{{-- With 2+ panels open they pack into two balanced columns; a single open
+     panel stays full width (a lone half-width panel would look off-balance). --}}
+<div class="mt-5" :class="$store.studioPanels.openCount() > 1 ? 'studio-grid' : ''">
 
         {{-- Live audio visualizers --}}
         <div x-show="$store.studioPanels.open.visualizers" x-cloak x-transition.opacity.duration.200ms>
@@ -219,7 +221,7 @@
                     <button type="button" @click="$store.studioPanels.hide('visualizers')" class="panel-x" title="Hide panel"><x-icon name="x" class="size-4" /></button>
                 </div>
             </div>
-            <div class="card-body grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div class="card-body grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div class="viz-tile">
                     <p class="viz-label"><span class="d" style="background:#38bdf8"></span> Frequency Spectrum</p>
                     <canvas id="spectrum" width="420" height="150" class="w-full rounded-lg bg-slate-950" style="height:150px"></canvas>
@@ -324,7 +326,7 @@
                     <div class="flex justify-between text-xs text-slate-500 dark:text-slate-400"><span>Peak</span><span id="meter-peak" class="tabular-nums font-medium">— dB</span></div>
                     <div class="mt-1 meter-track"><div id="bar-peak" class="h-full rounded-full meter-fill-peak" style="width:0%"></div></div>
                 </div>
-                <dl class="grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 dark:border-slate-800 sm:grid-cols-4">
+                <dl class="grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
                     <div class="stat-tile"><dt class="text-[11px] text-slate-400">Integrated LUFS</dt><dd class="text-lg font-semibold {{ $loudnessWarn ? 'text-amber-600 dark:text-amber-400' : 'text-slate-800 dark:text-slate-100' }}">{{ $lufs !== null ? number_format($lufs,1) : '—' }}</dd></div>
                     <div class="stat-tile"><dt class="text-[11px] text-slate-400">Peak dBFS</dt><dd class="text-lg font-semibold text-slate-800 dark:text-slate-100">{{ $peak !== null ? number_format($peak,1) : '—' }}</dd></div>
                     <div class="stat-tile"><dt class="text-[11px] text-slate-400">Silence</dt><dd class="text-sm font-medium text-slate-700 dark:text-slate-200">{{ $asset->silence_percent !== null ? $asset->silence_percent.'%' : '—' }}</dd></div>
@@ -342,7 +344,7 @@
                     <span id="loudness-status" class="mt-1 block text-center text-[11px] text-slate-400"></span>
                     <canvas id="loudness-graph" class="mt-2 w-full rounded-lg bg-slate-950" style="height:120px"></canvas>
                     <div class="mt-1 flex justify-between text-[10px] tabular-nums text-slate-400"><span>−14</span><span>−23 target</span><span>−31 LUFS</span></div>
-                    <dl class="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <dl class="mt-2 grid grid-cols-2 gap-2">
                         <div class="stat-tile"><dt class="text-[11px] text-slate-400">Integrated</dt><dd id="r128-integrated" class="text-sm font-semibold text-slate-800 dark:text-slate-100">—</dd></div>
                         <div class="stat-tile"><dt class="text-[11px] text-slate-400">Loudness range</dt><dd id="r128-lra" class="text-sm font-semibold text-slate-800 dark:text-slate-100">—</dd></div>
                         <div class="stat-tile"><dt class="text-[11px] text-slate-400">True peak</dt><dd id="r128-tp" class="text-sm font-semibold text-slate-800 dark:text-slate-100">—</dd></div>
@@ -366,7 +368,7 @@
             <div class="card-body space-y-3">
                 <button id="btn-astats" class="btn-secondary btn-sm w-full"><x-icon name="chart-bar" class="size-4" /> Analyze signal (astats)</button>
                 <span id="astats-status" class="block text-center text-[11px] text-slate-400"></span>
-                <dl id="astats-grid" class="hidden grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <dl id="astats-grid" class="hidden grid grid-cols-2 gap-2">
                     <div class="stat-tile"><dt class="text-[11px] text-slate-400">DC offset</dt><dd id="as-dc" class="text-sm font-semibold text-slate-800 dark:text-slate-100">—</dd></div>
                     <div class="stat-tile"><dt class="text-[11px] text-slate-400">Crest factor</dt><dd id="as-crest" class="text-sm font-semibold text-slate-800 dark:text-slate-100">—</dd></div>
                     <div class="stat-tile"><dt class="text-[11px] text-slate-400">Peak level</dt><dd id="as-peak" class="text-sm font-semibold text-slate-800 dark:text-slate-100">—</dd></div>
@@ -595,6 +597,14 @@
     .panel-toggle.on .pt-ico { background:linear-gradient(135deg,var(--primary-500),var(--primary-700)); color:#fff; }
     .panel-empty { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.25rem; text-align:center; border-radius:1rem; border:1px dashed rgba(148,163,184,.35); padding:3rem 1.5rem; }
     .dark .panel-empty { border-color:rgba(148,163,184,.22); }
+
+    /* Workspace masonry — open panels pack into two balanced columns on large
+       screens, so panels of different heights don't leave awkward grid gaps. */
+    .studio-grid > * { margin-bottom: 1.25rem; }
+    @media (min-width: 1024px) {
+        .studio-grid { columns: 2; column-gap: 1.25rem; }
+        .studio-grid > * { break-inside: avoid; }
+    }
 
     /* Hero */
     .studio-hero { position:relative; overflow:hidden; border-radius:1rem;

@@ -160,7 +160,12 @@ class RolePermissionSeeder extends Seeder
         // Public listener role — no admin permissions, used by the API guard.
         Role::findOrCreate('Listener', 'web');
 
-        $this->command?->info('Roles: '.count(self::ROLES).' + Listener, permissions: '.count($all));
+        // Artist role — no admin permissions. Artist accounts enter the portal
+        // only to manage their own profile (profile routes are not permission-
+        // gated); everything else stays 403 for them.
+        Role::findOrCreate('Artist', 'web');
+
+        $this->command?->info('Roles: '.count(self::ROLES).' + Listener + Artist, permissions: '.count($all));
     }
 
     /** @param list<string> $spec @param list<string> $all @return list<string> */

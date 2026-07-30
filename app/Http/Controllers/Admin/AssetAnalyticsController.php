@@ -71,6 +71,20 @@ class AssetAnalyticsController extends Controller
             fputcsv($out, ['Skip rate (%)', $k['skip_rate']]);
             fputcsv($out, []);
 
+            $rk = $data['ranking'];
+            $eng = $data['engagement'];
+            fputcsv($out, ['Popularity & engagement']);
+            fputcsv($out, ['Popularity rank', $rk['rank'] !== null ? '#'.$rk['rank'].' of '.$rk['total'] : 'Not ranked this period']);
+            fputcsv($out, ['Trending (top 10)', $rk['is_trending'] ? 'Yes' : 'No']);
+            fputcsv($out, ['Rank movement vs last period', $rk['movement'] ?? ($rk['is_new'] ? 'New entry' : 'n/a')]);
+            fputcsv($out, ['Favourites (total)', $eng['favorites']]);
+            fputcsv($out, ['Favourites (this period)', $eng['favorites_new']]);
+            fputcsv($out, ['Downloads (total)', $eng['downloads']]);
+            fputcsv($out, ['Downloads (this period)', $eng['downloads_new']]);
+            fputcsv($out, ['Shares (total)', $eng['shares']]);
+            fputcsv($out, ['Shares (this period)', $eng['shares_new']]);
+            fputcsv($out, []);
+
             fputcsv($out, ['Heat map (per section)']);
             fputcsv($out, ['From', 'To', 'Intensity %', 'Tier', 'Plays', 'Replays', 'Skips', 'Retention %']);
             foreach ($data['heat'] as $b) {

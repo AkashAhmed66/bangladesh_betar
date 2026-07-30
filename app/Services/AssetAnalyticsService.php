@@ -156,6 +156,34 @@ class AssetAnalyticsService
             ->groupBy('d')->orderBy('d')->pluck('c', 'd');
         $trend = $this->fillDailyTrend($trendRows, $start, $end);
 
+        // ---- Engagement counters (favourites / downloads / shares) ---------
+        // Favourites are a persisted state (denormalized `favorite_count`);
+        // downloads & shares are event-sourced from the play-events stream.
+        $favNew = (int) DB::table('favorites')
+            ->where('favoritable_type', 'audio_asset')
+            ->where('favoritable_id', $asset->id)
+            ->when($start, fn ($q) => $q->where('created_at', '>=', $start))
+            ->when($end, fn ($q) => $q->where('created_at', '<', $end))
+            ->count();
+
+        $lifetime = DB::table('play_events')
+            ->where('audio_asset_id', $asset->id)
+            ->whereIn('event_type', ['download', 'share'])
+            ->selectRaw('event_type, COUNT(*) as c')
+            ->groupBy('event_type')->pluck('c', 'event_type');
+
+        $engagement = [
+            'favorites' => max(0, (int) $asset->favorite_count),
+            'favorites_new' => $favNew,
+            'downloads' => (int) ($lifetime['download'] ?? 0),
+            'downloads_new' => (int) ($byType['download'] ?? 0),
+            'shares' => (int) ($lifetime['share'] ?? 0),
+            'shares_new' => (int) ($byType['share'] ?? 0),
+        ];
+
+        // ---- Popularity rank + trending (this period vs the one before) ----
+        $ranking = $this->computeRanking($asset, $start, $end);
+
         return [
             'range' => $range,
             'rangeLabel' => $rangeLabel,
@@ -188,6 +216,83 @@ class AssetAnalyticsService
             'device' => $device,
             'region' => $region,
             'trend' => $trend,
+            'engagement' => $engagement,
+            'ranking' => $ranking,
+        ];
+    }
+
+    /**
+     * Rank this asset by play volume against every other live recording that
+     * was played in the same window, and compare it to the previous equal-
+     * length window so the dashboard can show momentum (▲/▼) and a "Trending"
+     * flag (top 10).
+     *
+     * @return array<string, mixed>
+     */
+    private function computeRanking(AudioAsset $asset, ?Carbon $start, ?Carbon $end): array
+    {
+        $cur = $this->rankSnapshot($asset->id, $start, $end);
+
+        // Previous window = the same duration immediately before this one.
+        // "All time" ($start === null) has no comparable prior window.
+        $prev = ['rank' => null, 'total' => 0, 'plays' => 0, 'top' => 0];
+        if ($start !== null) {
+            $refEnd = $end ?? now();
+            $windowSeconds = max(1, (int) abs($start->diffInSeconds($refEnd)));
+            $prevStart = $start->copy()->subSeconds($windowSeconds);
+            $prev = $this->rankSnapshot($asset->id, $prevStart, $start);
+        }
+
+        $rank = $cur['rank'];
+        $total = $cur['total'];
+        $hasPrev = $start !== null && $prev['total'] > 0;
+
+        return [
+            'rank' => $rank,
+            'total' => $total,
+            'plays' => $cur['plays'],
+            'top_plays' => $cur['top'],
+            'top_pct' => ($rank !== null && $total > 0) ? max(1, (int) ceil($rank / $total * 100)) : null,
+            'is_trending' => $rank !== null && $rank <= 10,
+            'prev_rank' => $prev['rank'],
+            // + = climbed, - = slipped; null when either window is unranked.
+            'movement' => ($rank !== null && $prev['rank'] !== null) ? $prev['rank'] - $rank : null,
+            'is_new' => $rank !== null && $hasPrev && $prev['rank'] === null,
+            'has_prev' => $hasPrev,
+            'plays_prev' => $prev['plays'],
+            'plays_delta_pct' => $prev['plays'] > 0
+                ? (int) round(($cur['plays'] - $prev['plays']) / $prev['plays'] * 100)
+                : null,
+        ];
+    }
+
+    /**
+     * Play-volume standing of one asset within a window. Competition ranking
+     * (ties share a rank); rank is null when the asset had no plays in the
+     * window. Only live (non-trashed) recordings are counted.
+     *
+     * @return array{rank: ?int, total: int, plays: int, top: int}
+     */
+    private function rankSnapshot(int $assetId, ?Carbon $start, ?Carbon $end): array
+    {
+        $counts = DB::table('play_events as pe')
+            ->join('audio_assets as aa', 'aa.id', '=', 'pe.audio_asset_id')
+            ->whereNull('aa.deleted_at')
+            ->whereIn('pe.event_type', ['play', 'replay'])
+            ->when($start, fn ($q) => $q->where('pe.created_at', '>=', $start))
+            ->when($end, fn ($q) => $q->where('pe.created_at', '<', $end))
+            ->groupBy('pe.audio_asset_id')
+            ->selectRaw('pe.audio_asset_id as id, COUNT(*) as c')
+            ->pluck('c', 'id');
+
+        $mine = (int) ($counts[$assetId] ?? 0);
+        $rank = $mine > 0 ? $counts->filter(fn ($c) => (int) $c > $mine)->count() + 1 : null;
+
+        return [
+            'rank' => $rank,
+            'total' => $counts->count(),
+            'plays' => $mine,
+            'top' => $counts->isEmpty() ? 0 : (int) $counts->max(),
         ];
     }
 

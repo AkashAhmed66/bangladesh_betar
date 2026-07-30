@@ -24,6 +24,11 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
     Route::middleware(['auth', 'staff'])->group(function (): void {
         Route::post('logout', [Admin\AuthController::class, 'logout'])->name('logout');
 
+        // ---- Self-service profile (every portal user, incl. artists) ----
+        // Not permission-gated: a user may always manage their own account.
+        Route::get('profile', [Admin\ProfileController::class, 'edit'])->name('profile.edit');
+        Route::put('profile', [Admin\ProfileController::class, 'update'])->name('profile.update');
+
         Route::get('/', [Admin\DashboardController::class, 'index'])
             ->middleware('permission:dashboard.view')->name('dashboard');
 

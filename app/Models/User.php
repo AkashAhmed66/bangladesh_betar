@@ -47,6 +47,32 @@ class User extends Authenticatable
         return $this->user_type === 'listener';
     }
 
+    public function isArtist(): bool
+    {
+        return $this->user_type === 'artist';
+    }
+
+    /**
+     * Who may enter the Admin Portal: Bangladesh Betar staff and linked artist
+     * accounts (artists get a minimal, profile-only view). Listeners never do.
+     */
+    public function canAccessAdmin(): bool
+    {
+        return in_array($this->user_type, ['staff', 'artist'], true);
+    }
+
+    /** The artist profile this account owns, if it is an artist account. */
+    public function artist(): HasOne
+    {
+        return $this->hasOne(Artist::class);
+    }
+
+    /** URL for the account avatar, or null. */
+    public function avatarUrl(): ?string
+    {
+        return $this->avatar_path ? asset('storage/'.$this->avatar_path) : null;
+    }
+
     public function activeSubscription(): HasOne
     {
         return $this->hasOne(Subscription::class)

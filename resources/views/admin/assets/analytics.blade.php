@@ -14,39 +14,138 @@
 @endphp
 
 @section('content')
+<style>
+    /* Popularity-rank hero — a rich broadcast-teal gradient with a soft
+       top-right sheen. Self-contained (no design-token dependency) so it
+       renders identically in light and dark. */
+    .rank-hero {
+        background:
+            radial-gradient(1100px 180px at 100% -40%, rgba(255, 255, 255, .16), transparent 55%),
+            linear-gradient(135deg, #0f766e 0%, #0d9488 48%, #0891b2 100%);
+    }
+    .rank-trend-badge {
+        position: absolute;
+        top: 0;
+        right: 0;
+        display: inline-flex;
+        align-items: center;
+        gap: .25rem;
+        padding: .35rem .7rem;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: .02em;
+        color: #7c2d12;
+        background: linear-gradient(135deg, #fde68a, #f59e0b);
+        border-bottom-left-radius: .85rem;
+        box-shadow: 0 4px 14px -4px rgba(245, 158, 11, .65);
+    }
+    .rank-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: .25rem;
+        padding: .15rem .55rem;
+        border-radius: 9999px;
+        background: rgba(255, 255, 255, .18);
+        font-size: 11px;
+        font-weight: 700;
+        width: fit-content;
+    }
+    /* Section label with a small accent tick. */
+    .section-label {
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+        margin: 2rem 0 .85rem;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+        color: rgb(100 116 139);
+    }
+    .dark .section-label { color: rgb(148 163 184); }
+    .section-label::before {
+        content: "";
+        width: .25rem;
+        height: 1rem;
+        border-radius: 9999px;
+        background: linear-gradient(180deg, var(--primary-500, #14b8a6), var(--primary-700, #0f766e));
+    }
+    .section-label span { margin-left: -.15rem; }
+    /* Content-type icon tile in the header. */
+    .asset-thumb {
+        background: linear-gradient(135deg, #0f766e, #0891b2);
+        color: #fff;
+    }
+    /* Gentle staggered entrance for the dashboard blocks. */
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    .fade-up { animation: fadeUp .45s cubic-bezier(.16, .84, .44, 1) both; }
+    @media (prefers-reduced-motion: reduce) { .fade-up { animation: none; } }
+    /* KPI hover lift. */
+    .kpi-card { transition: transform .18s ease, box-shadow .18s ease; }
+    .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 14px 26px -16px rgba(15, 23, 42, .45); }
+    .dark .kpi-card:hover { box-shadow: 0 14px 26px -14px rgba(0, 0, 0, .65); }
+</style>
 {{-- Header ------------------------------------------------------------------}}
-<div class="mb-6 flex flex-wrap items-start justify-between gap-4">
-    <div class="min-w-0">
-        <a href="{{ route('admin.assets.show', $asset) }}" class="mb-1 inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-primary-600 dark:text-slate-400">
-            <x-icon name="chevron-left" class="size-3.5" /> Back to asset
-        </a>
-        <div class="flex flex-wrap items-center gap-2">
-            <h2 class="page-title">Listener Analytics</h2>
-            <span class="badge-slate">{{ ucfirst(str_replace('_', ' ', $asset->content_type)) }}</span>
+@php
+    $ctIcon = [
+        'song' => 'music', 'programme' => 'radio', 'podcast' => 'microphone',
+        'story' => 'chat', 'news' => 'document-text', 'interview' => 'users',
+        'drama' => 'sparkles', 'speech' => 'megaphone', 'jingle' => 'music',
+        'psa' => 'megaphone', 'advert' => 'megaphone', 'voice_over' => 'microphone',
+        'historical' => 'archive',
+    ][$asset->content_type] ?? 'wave';
+@endphp
+<div class="mb-6">
+    <a href="{{ route('admin.assets.show', $asset) }}" class="mb-2 inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-primary-600 dark:text-slate-400">
+        <x-icon name="chevron-left" class="size-3.5" /> Back to asset
+    </a>
+    <div class="flex flex-wrap items-start justify-between gap-4">
+        <div class="flex min-w-0 items-start gap-4">
+            <div class="asset-thumb hidden size-14 shrink-0 items-center justify-center rounded-xl shadow-sm sm:flex">
+                <x-icon name="{{ $ctIcon }}" class="size-7" />
+            </div>
+            <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-2">
+                    <h2 class="page-title">Listener Analytics</h2>
+                    <span class="badge-slate">{{ ucfirst(str_replace('_', ' ', $asset->content_type)) }}</span>
+                </div>
+                <p class="mt-1 truncate text-sm font-medium text-slate-700 dark:text-slate-200">{{ $asset->title }}</p>
+                <div class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+                    <span class="inline-flex items-center gap-1"><x-icon name="archive" class="size-3.5 text-slate-400" /> {{ $asset->archive_no }}</span>
+                    <span class="inline-flex items-center gap-1"><x-icon name="clock" class="size-3.5 text-slate-400" /> {{ $fmt($asset->duration_seconds) }} runtime</span>
+                    @if ($asset->published_at)
+                        <span class="inline-flex items-center gap-1"><x-icon name="calendar" class="size-3.5 text-slate-400" /> Published {{ $asset->published_at->format('d M Y') }}</span>
+                    @endif
+                    @if ($asset->rating_count > 0)
+                        <span class="inline-flex items-center gap-1 font-medium text-amber-500"><x-icon name="star" class="size-3.5" /> {{ number_format($asset->avg_rating, 1) }} <span class="font-normal text-slate-400">({{ number_format($asset->rating_count) }})</span></span>
+                    @endif
+                </div>
+            </div>
         </div>
-        <p class="mt-1 truncate text-sm text-slate-500 dark:text-slate-400">
-            {{ $asset->title }} · {{ $asset->archive_no }} · {{ $fmt($asset->duration_seconds) }} runtime
-        </p>
-    </div>
-    <div class="flex flex-wrap items-center gap-2">
-        <a href="{{ route('admin.assets.analytics', [$asset, 'range' => $a['range'], 'export' => 'csv']) }}"
-           class="btn-secondary"><x-icon name="download" class="size-4" /> Export CSV</a>
-        <a href="{{ route('admin.assets.studio', $asset) }}" class="btn-accent"><x-icon name="wave" class="size-4" /> Open Studio</a>
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="{{ route('admin.assets.analytics', [$asset, 'range' => $a['range'], 'export' => 'csv']) }}"
+               class="btn-secondary"><x-icon name="download" class="size-4" /> Export CSV</a>
+            <a href="{{ route('admin.assets.studio', $asset) }}" class="btn-accent"><x-icon name="wave" class="size-4" /> Open Studio</a>
+        </div>
     </div>
 </div>
 
-{{-- Date-range filter -------------------------------------------------------}}
-<div class="mb-6 flex flex-wrap items-center gap-1.5">
-    @foreach ($ranges as $key => $label)
-        <a href="{{ route('admin.assets.analytics', [$asset, 'range' => $key]) }}"
-           class="rounded-lg px-3 py-1.5 text-xs font-medium transition
-                  {{ $a['range'] === $key
-                     ? 'bg-primary-600 text-white shadow-sm'
-                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700' }}">
-            {{ $label }}
-        </a>
-    @endforeach
-    <span class="ml-1 text-xs text-slate-400">Showing {{ $a['rangeLabel'] }}</span>
+{{-- Date-range filter (segmented control) -----------------------------------}}
+<div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <div class="inline-flex flex-wrap items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-slate-800 dark:bg-slate-900/60">
+        @foreach ($ranges as $key => $label)
+            <a href="{{ route('admin.assets.analytics', [$asset, 'range' => $key]) }}"
+               class="rounded-lg px-3 py-1.5 text-xs font-semibold transition
+                      {{ $a['range'] === $key
+                         ? 'bg-white text-primary-700 shadow-sm dark:bg-slate-700 dark:text-white'
+                         : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100' }}">
+                {{ $label }}
+            </a>
+        @endforeach
+    </div>
+    <span class="inline-flex items-center gap-1 text-xs text-slate-400">
+        <x-icon name="calendar" class="size-3.5" /> Showing {{ $a['rangeLabel'] }}
+    </span>
 </div>
 
 @unless ($a['hasData'])
@@ -64,8 +163,104 @@
     </div>
 @else
 
-{{-- KPI band ----------------------------------------------------------------}}
-<div class="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
+{{-- Popularity rank + engagement (hero) -------------------------------------}}
+@php $rk = $a['ranking']; $eng = $a['engagement']; @endphp
+<div class="rank-hero fade-up mb-6 overflow-hidden rounded-2xl text-white shadow-lg">
+    <div class="grid sm:grid-cols-[1.5fr_1fr]">
+        {{-- Left — rank + trend + momentum ---------------------------------}}
+        <div class="relative p-5 sm:p-6">
+            @if ($rk['is_trending'])
+                <span class="rank-trend-badge"><x-icon name="fire" class="size-3.5" /> Trending</span>
+            @endif
+
+            <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-white/70">
+                <x-icon name="trophy" class="size-4" /> Popularity rank
+                <span class="font-normal normal-case tracking-normal text-white/45">· {{ $a['rangeLabel'] }}</span>
+            </div>
+
+            @if ($rk['rank'])
+                <div class="mt-3 flex flex-wrap items-end gap-x-4 gap-y-2">
+                    <span class="text-5xl font-black leading-none sm:text-6xl">#{{ number_format($rk['rank']) }}</span>
+                    <div class="mb-1 flex flex-col gap-1.5">
+                        @if ($rk['top_pct'] !== null)
+                            <span class="rank-chip"><x-icon name="sparkles" class="size-3" /> Top {{ $rk['top_pct'] }}%</span>
+                        @endif
+                        @if ($rk['movement'] !== null && $rk['movement'] !== 0)
+                            <span class="flex items-center gap-1 text-xs font-semibold {{ $rk['movement'] > 0 ? 'text-emerald-200' : 'text-rose-200' }}">
+                                <x-icon name="{{ $rk['movement'] > 0 ? 'arrow-trending-up' : 'arrow-trending-down' }}" class="size-4" />
+                                {{ $rk['movement'] > 0 ? 'Up' : 'Down' }} {{ abs($rk['movement']) }} vs last period
+                            </span>
+                        @elseif ($rk['is_new'])
+                            <span class="flex items-center gap-1 text-xs font-semibold text-amber-200">
+                                <x-icon name="sparkles" class="size-4" /> New entry this period
+                            </span>
+                        @elseif ($rk['has_prev'])
+                            <span class="text-xs font-medium text-white/55">Holding steady vs last period</span>
+                        @endif
+                    </div>
+                </div>
+
+                <p class="mt-2.5 text-sm text-white/75">
+                    out of <span class="font-semibold text-white">{{ number_format($rk['total']) }}</span>
+                    {{ \Illuminate\Support\Str::plural('recording', $rk['total']) }} played in this period
+                </p>
+
+                @if ($rk['top_plays'] > 0)
+                    <div class="mt-4 max-w-md">
+                        <div class="mb-1 flex items-center justify-between text-[11px] font-medium text-white/60">
+                            <span>{{ number_format($rk['plays']) }} plays</span>
+                            <span>#1 has {{ number_format($rk['top_plays']) }}</span>
+                        </div>
+                        <div class="h-2 overflow-hidden rounded-full bg-white/15">
+                            <div class="h-full rounded-full bg-white/90"
+                                 style="width: {{ max(4, (int) round($rk['plays'] / max(1, $rk['top_plays']) * 100)) }}%"></div>
+                        </div>
+                    </div>
+                @endif
+            @else
+                <div class="mt-3 flex items-center gap-4">
+                    <span class="text-4xl font-black leading-none text-white/45">—</span>
+                    <p class="max-w-sm text-sm text-white/75">
+                        No plays in this period, so this recording isn't ranked yet.
+                        Widen the range to <strong class="text-white">All time</strong> to see its standing.
+                    </p>
+                </div>
+            @endif
+        </div>
+
+        {{-- Right — favourites / downloads / shares ------------------------}}
+        <div class="grid grid-cols-3 border-t border-white/10 sm:grid-cols-1 sm:border-l sm:border-t-0">
+            @php
+                $engCards = [
+                    ['label' => 'Favourites', 'value' => $eng['favorites'], 'delta' => $eng['favorites_new'], 'icon' => 'heart',    'sub' => 'saved to libraries'],
+                    ['label' => 'Downloads',  'value' => $eng['downloads'],  'delta' => $eng['downloads_new'], 'icon' => 'download', 'sub' => 'offline saves'],
+                    ['label' => 'Shares',     'value' => $eng['shares'],     'delta' => $eng['shares_new'],    'icon' => 'share',    'sub' => 'shared out'],
+                ];
+            @endphp
+            @foreach ($engCards as $c)
+                <div class="flex items-center gap-3 px-4 py-4 [&:not(:last-child)]:border-r [&:not(:last-child)]:border-white/10 sm:[&:not(:last-child)]:border-b sm:[&:not(:last-child)]:border-r-0">
+                    <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-white/15">
+                        <x-icon name="{{ $c['icon'] }}" class="size-4.5" />
+                    </div>
+                    <div class="min-w-0">
+                        <p class="flex items-baseline gap-1.5 text-xl font-bold leading-none">
+                            {{ number_format($c['value']) }}
+                            @if ($c['delta'] > 0)
+                                <span class="text-[11px] font-semibold text-emerald-200">+{{ number_format($c['delta']) }}</span>
+                            @endif
+                        </p>
+                        <p class="mt-1 truncate text-xs font-medium text-white/70">{{ $c['label'] }}</p>
+                        <p class="truncate text-[10px] text-white/45">{{ $c['sub'] }}</p>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    </div>
+</div>
+
+{{-- Performance overview ----------------------------------------------------}}
+<p class="section-label"><span>Performance overview</span></p>
+<div class="mb-2 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
     @php
         $kpiCards = [
             ['Total plays', number_format($k['total_plays']), 'play', 'primary', number_format($k['replays']).' replays'],
@@ -85,23 +280,28 @@
         ];
     @endphp
     @foreach ($kpiCards as [$label, $value, $icon, $color, $sub])
-        <div class="card p-4">
+        <div class="kpi-card card fade-up p-4" style="animation-delay: {{ 40 * $loop->index }}ms">
             <div class="mb-2 flex size-9 items-center justify-center rounded-lg {{ $kpiTint[$color] }}">
                 <x-icon name="{{ $icon }}" class="size-4.5" />
             </div>
-            <p class="text-2xl font-bold tracking-tight text-slate-800 dark:text-slate-100">{{ $value }}</p>
+            <p class="text-2xl font-bold tracking-tight text-slate-800 tabular-nums dark:text-slate-100">{{ $value }}</p>
             <p class="mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">{{ $label }}</p>
             <p class="mt-1 text-[11px] text-slate-400">{{ $sub }}</p>
         </div>
     @endforeach
 </div>
 
-{{-- Engagement heat map (hero) ---------------------------------------------}}
+{{-- Listener engagement -----------------------------------------------------}}
+<p class="section-label"><span>Listener engagement</span></p>
+
+{{-- Engagement heat map (hero chart) --}}
 <div class="card mb-6">
     <div class="card-header">
         <div>
-            <h3 class="font-semibold text-slate-800 dark:text-slate-100">Listener Engagement</h3>
-            <p class="text-xs text-slate-400">total listeners active across the runtime · coloured blocks below the line show engagement</p>
+            <h3 class="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-100">
+                <x-icon name="chart-bar" class="size-4 text-primary-500" /> Engagement across the runtime
+            </h3>
+            <p class="mt-0.5 text-xs text-slate-400">total listeners active at each point · coloured strip below the line shows engagement intensity</p>
         </div>
         {{-- Heat-map key (top-right): explains the coloured blocks under the line --}}
         <div class="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">
@@ -115,23 +315,109 @@
     <div class="card-body"><div class="h-72"><canvas id="heatChart"></canvas></div></div>
 </div>
 
+{{-- Notable moments — the standout sections the listening data reveals ------}}
+@php
+    $sec = $a['sections'];
+    $notable = [];
+    if (! empty($sec['most_played'])) {
+        $notable[] = ['title' => 'Peak listening', 'icon' => 'fire',
+            'tint' => 'bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400',
+            'b' => $sec['most_played'], 'metric' => number_format($sec['most_played']['plays']).' listeners here'];
+    }
+    if (! empty($sec['most_replayed'])) {
+        $notable[] = ['title' => 'Most replayed', 'icon' => 'arrow-path',
+            'tint' => 'bg-primary-50 text-primary-600 dark:bg-primary-500/10 dark:text-primary-400',
+            'b' => $sec['most_replayed'], 'metric' => number_format($sec['most_replayed']['replays']).' replays'];
+    }
+    if (! empty($sec['most_skipped'])) {
+        $notable[] = ['title' => 'Most skipped', 'icon' => 'chevron-right',
+            'tint' => 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400',
+            'b' => $sec['most_skipped'], 'metric' => number_format($sec['most_skipped']['skips']).' skips / seeks'];
+    }
+    if (! empty($sec['drop_off'])) {
+        $notable[] = ['title' => 'Biggest drop-off', 'icon' => 'arrow-trending-down',
+            'tint' => 'bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400',
+            'b' => $sec['drop_off'], 'metric' => 'audience fell to '.$sec['drop_off']['retention'].'%'];
+    }
+@endphp
+@if (count($notable))
+    <div class="mb-6 grid grid-cols-2 gap-4 xl:grid-cols-4">
+        @foreach ($notable as $n)
+            <div class="card fade-up p-4" style="animation-delay: {{ 50 * $loop->index }}ms">
+                <div class="flex items-center gap-2">
+                    <div class="flex size-8 items-center justify-center rounded-lg {{ $n['tint'] }}">
+                        <x-icon name="{{ $n['icon'] }}" class="size-4" />
+                    </div>
+                    <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ $n['title'] }}</p>
+                </div>
+                <p class="mt-3 text-lg font-bold tabular-nums text-slate-800 dark:text-slate-100">
+                    {{ $fmt($n['b']['start']) }}<span class="mx-0.5 font-normal text-slate-300 dark:text-slate-600">–</span>{{ $fmt($n['b']['end']) }}
+                </p>
+                <p class="mt-0.5 text-xs text-slate-400">{{ $n['metric'] }}</p>
+            </div>
+        @endforeach
+    </div>
+@endif
+
 {{-- Retention + trend -------------------------------------------------------}}
 <div class="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
     <div class="card">
         <div class="card-header">
-            <h3 class="font-semibold text-slate-800 dark:text-slate-100">Audience Retention</h3>
+            <h3 class="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-100">
+                <x-icon name="funnel" class="size-4 text-primary-500" /> Audience retention
+            </h3>
             <span class="text-xs text-slate-400">% still listening across the timeline</span>
         </div>
         <div class="card-body"><div class="h-64"><canvas id="retentionChart"></canvas></div></div>
     </div>
     <div class="card">
         <div class="card-header">
-            <h3 class="font-semibold text-slate-800 dark:text-slate-100">Daily Listening Trend</h3>
+            <h3 class="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-100">
+                <x-icon name="calendar" class="size-4 text-indigo-500" /> Daily listening trend
+            </h3>
             <span class="text-xs text-slate-400">plays per day</span>
         </div>
         <div class="card-body"><div class="h-64"><canvas id="trendChart"></canvas></div></div>
     </div>
 </div>
+
+{{-- Audience breakdown — where and how listeners tuned in ------------------}}
+@php
+    $breakdowns = array_values(array_filter([
+        ['title' => 'By platform', 'icon' => 'computer', 'color' => '#14b8a6', 'data' => $a['platform']],
+        ['title' => 'By device',   'icon' => 'radio',    'color' => '#6366f1', 'data' => $a['device']],
+        ['title' => 'By region',   'icon' => 'globe',    'color' => '#f59e0b', 'data' => $a['region']],
+    ], fn ($bd) => ! empty($bd['data'])));
+@endphp
+@if (count($breakdowns))
+    <p class="section-label"><span>Audience breakdown</span></p>
+    <div class="mb-6 grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+        @foreach ($breakdowns as $bd)
+            @php $tot = max(1, array_sum($bd['data'])); $mx = max($bd['data']); @endphp
+            <div class="card fade-up" style="animation-delay: {{ 50 * $loop->index }}ms">
+                <div class="card-header">
+                    <h3 class="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-100">
+                        <x-icon name="{{ $bd['icon'] }}" class="size-4 text-slate-400" /> {{ $bd['title'] }}
+                    </h3>
+                    <span class="text-xs text-slate-400">{{ number_format($tot) }} plays</span>
+                </div>
+                <div class="card-body space-y-3">
+                    @foreach ($bd['data'] as $label => $count)
+                        <div>
+                            <div class="mb-1 flex items-center justify-between text-xs">
+                                <span class="font-medium text-slate-600 dark:text-slate-300">{{ ucfirst((string) $label) }}</span>
+                                <span class="tabular-nums text-slate-400">{{ number_format($count) }} · {{ round($count / $tot * 100) }}%</span>
+                            </div>
+                            <div class="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                                <div class="h-full rounded-full" style="width: {{ max(3, round($count / max(1, $mx) * 100)) }}%; background: {{ $bd['color'] }}"></div>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @endforeach
+    </div>
+@endif
 
 @endunless
 

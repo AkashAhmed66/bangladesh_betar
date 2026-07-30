@@ -91,6 +91,25 @@ class PlaybackController extends Controller
         $ext = strtolower(pathinfo($relative, PATHINFO_EXTENSION)) ?: 'wav';
         $filename = \Illuminate\Support\Str::slug($asset->title ?: 'recording').'.'.$ext;
 
+        // FR-ANL-01 — record the offline download so it surfaces in the asset
+        // analytics engagement counters. Never let a logging hiccup block the
+        // actual file transfer.
+        try {
+            PlayEvent::query()->create([
+                'audio_asset_id' => $asset->id,
+                'user_id' => $user->id,
+                'anonymous_id' => null,
+                'event_type' => 'download',
+                'position_seconds' => 0,
+                'platform' => 'web',
+                'device' => $this->detectDevice($request),
+                'region' => null,
+                'created_at' => now(),
+            ]);
+        } catch (\Throwable) {
+            // best-effort analytics only
+        }
+
         return $this->mediaResponse($disk->path($relative))
             ->setContentDisposition('attachment', $filename);
     }
@@ -102,7 +121,11 @@ class PlaybackController extends Controller
     public function event(Request $request, AudioAsset $asset): JsonResponse
     {
         $data = $request->validate([
-            'event_type' => ['required', Rule::in(['play', 'pause', 'seek', 'replay', 'skip', 'progress', 'complete'])],
+            // 'download' and 'share' are engagement events the public app emits
+            // alongside the playback lifecycle; they feed the asset analytics
+            // engagement counters and never touch the retention/heat map (which
+            // only look at presence events — play/progress/complete/replay).
+            'event_type' => ['required', Rule::in(['play', 'pause', 'seek', 'replay', 'skip', 'progress', 'complete', 'download', 'share'])],
             'position_seconds' => ['nullable', 'integer', 'min:0'],
             'platform' => ['nullable', Rule::in(['web', 'android', 'ios'])],
             'anonymous_id' => ['nullable', 'string', 'max:64'],

@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Models\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -16,14 +17,25 @@ class Artist extends Model
 {
     use Auditable, Searchable, SoftDeletes;
 
+    /** Valid artist_type values (single source of truth for admin + user forms). */
+    public const TYPES = ['singer', 'composer', 'lyricist', 'presenter', 'producer', 'voice_artist', 'narrator', 'speaker', 'band'];
+
     protected $guarded = [];
 
     protected $casts = [
         'is_featured' => 'boolean',
         'is_published' => 'boolean',
+        'is_verified' => 'boolean',
+        'social_links' => 'array',
         'born_on' => 'date',
         'died_on' => 'date',
     ];
+
+    /** The user account that owns this artist profile, if any. */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
 
     public function songs(): BelongsToMany
     {
@@ -70,6 +82,7 @@ class Artist extends Model
             'transcript' => null,
             'popularity' => (int) ($this->followers_count ?? 0),
             'published_at' => null,
+            'is_verified' => (bool) $this->is_verified,
         ];
     }
 }

@@ -235,7 +235,7 @@
     <div class="card">
         <div class="card-header">
             <div>
-                <h3 class="font-semibold text-slate-800 dark:text-slate-100">Most Played</h3>
+                <h3 class="font-semibold text-slate-800 dark:text-slate-100">Tranding Now</h3>
                 <p class="text-xs text-slate-500 dark:text-slate-400">Your best-performing recordings</p>
             </div>
             @can('assets.view')

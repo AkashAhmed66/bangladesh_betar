@@ -52,7 +52,15 @@ class AuthController extends Controller
         $user->forceFill(['last_login_at' => now()])->saveQuietly();
         AuditLog::record('login', $user, null, null, $user->name.' signed in');
 
-        return redirect()->intended(route('admin.dashboard'));
+        // Staff land on the dashboard (honouring any intended URL). Artists hold
+        // no admin permissions, so their only valid destination is their own
+        // profile — send them there directly rather than to a page they'd be
+        // 403'd from.
+        if ($user->can('dashboard.view')) {
+            return redirect()->intended(route('admin.dashboard'));
+        }
+
+        return redirect()->route('admin.profile.edit');
     }
 
     public function logout(Request $request): RedirectResponse

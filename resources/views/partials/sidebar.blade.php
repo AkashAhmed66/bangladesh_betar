@@ -58,6 +58,15 @@
     ];
 @endphp
 
+{{-- Always visible: every portal user can reach their own profile
+     (artists have no other permissions, so this is their home). --}}
+<div class="space-y-0.5 pt-3">
+    <a href="{{ route('admin.profile.edit') }}" class="nav-item {{ request()->routeIs('admin.profile.*') ? 'active' : '' }}" title="My Profile">
+        <x-icon name="user-circle" class="size-[18px] shrink-0" />
+        <span class="nav-label truncate">My Profile</span>
+    </a>
+</div>
+
 @foreach ($nav as $section => $items)
     @php
         $visible = array_filter($items, function ($item) {
