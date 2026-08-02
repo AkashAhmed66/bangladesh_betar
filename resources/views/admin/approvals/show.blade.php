@@ -107,6 +107,76 @@
             </div>
         </div>
 
+        {{-- ---- Full asset record inline: everything a reviewer needs ---- --}}
+        @if ($reviewAsset)
+            {{-- Description --}}
+            @if ($reviewAsset->description)
+                <div class="card">
+                    <div class="card-header"><h3 class="font-semibold text-slate-800 dark:text-slate-100">Description</h3></div>
+                    <div class="card-body"><p class="whitespace-pre-line text-sm text-slate-600 dark:text-slate-300">{{ $reviewAsset->description }}</p></div>
+                </div>
+            @endif
+
+            {{-- AI Safety Analysis (M16) --}}
+            @if ($aiJob = $reviewAsset->latestAiAnalysisJob)
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="font-semibold text-slate-800 dark:text-slate-100">AI Safety Analysis</h3>
+                        @if ($aiJob->status === 'error')
+                            <span class="badge-red">Analysis failed</span>
+                        @elseif ($aiJob->isFlagged())
+                            <span class="badge-amber">Flagged for review</span>
+                        @else
+                            <span class="badge-green">Cleared</span>
+                        @endif
+                    </div>
+                    <div class="card-body space-y-3">
+                        <div class="flex flex-wrap gap-1.5">
+                            @if ($aiJob->is_duplicate)<span class="badge-amber">Duplicate</span>@endif
+                            @if ($aiJob->violence_detected)<span class="badge-red">Violence</span>@endif
+                            @if ($aiJob->anti_government_detected)<span class="badge-red">Anti-government</span>@endif
+                            @if ($aiJob->status === 'done' && ! $aiJob->isFlagged())<span class="badge-slate">No issues found</span>@endif
+                        </div>
+                        @if ($aiJob->summary)<p class="text-sm text-slate-600 dark:text-slate-300">{{ $aiJob->summary }}</p>@endif
+                        @if ($aiJob->review_comments)
+                            <p class="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">
+                                AI Reviewer{{ $aiJob->reviewer ? ' '.$aiJob->reviewer->name : '' }}: “{{ $aiJob->review_comments }}”
+                            </p>
+                        @endif
+                    </div>
+                </div>
+            @endif
+
+            {{-- Transcripts (M16) --}}
+            @if ($reviewAsset->transcripts->isNotEmpty())
+                <div class="card" x-data="{ fullTranscript: false }">
+                    <div class="card-header">
+                        <h3 class="font-semibold text-slate-800 dark:text-slate-100">Transcripts & Lyrics</h3>
+                        <button type="button" @click="fullTranscript = ! fullTranscript" class="text-xs font-medium text-primary-700 hover:underline dark:text-primary-300">
+                            <span x-text="fullTranscript ? 'Show less' : 'Show full'"></span>
+                        </button>
+                    </div>
+                    <div class="card-body space-y-4">
+                        @foreach ($reviewAsset->transcripts as $transcript)
+                            <div class="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+                                <div class="mb-2 flex items-center gap-2">
+                                    <span class="badge-slate">{{ ucfirst($transcript->transcript_type) }}</span>
+                                    @if ($transcript->is_ai_generated)<span class="badge-purple">AI generated</span>@endif
+                                    @if ($transcript->is_verified)<span class="badge-green">Verified</span>@else<span class="badge-amber">Unverified draft</span>@endif
+                                </div>
+                                <div class="text-sm text-slate-600 dark:text-slate-300">
+                                    @if ($transcript->full_text)
+                                        <p x-show="! fullTranscript" class="font-bangla whitespace-pre-wrap leading-relaxed">{{ Str::limit($transcript->full_text, 500) }}</p>
+                                        <p x-show="fullTranscript" x-cloak class="font-bangla max-h-96 overflow-y-auto whitespace-pre-wrap leading-relaxed">{{ $transcript->full_text }}</p>
+                                    @endif
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+        @endif
+
         {{-- Action form --}}
         @can('approvals.act')
             @if ($canAct)
@@ -190,8 +260,89 @@
         </div>
     </div>
 
-    {{-- Stage progression --}}
+    {{-- Stage progression + asset context rail --}}
     <div class="space-y-6">
+        @if ($reviewAsset)
+            {{-- Catalogue details — same facts as the asset record page --}}
+            <div class="card">
+                <div class="card-header"><h3 class="font-semibold text-slate-800 dark:text-slate-100">Catalogue Details</h3></div>
+                <dl class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+                    @foreach ([
+                        'Archive no' => $reviewAsset->archive_no,
+                        'Content type' => ucfirst(str_replace('_', ' ', $reviewAsset->content_type)),
+                        'Station' => $reviewAsset->station?->name,
+                        'Department' => $reviewAsset->department?->name,
+                        'Programme' => $reviewAsset->programme?->title,
+                        'Category' => $reviewAsset->category?->name,
+                        'Language' => $reviewAsset->language?->name,
+                        'Duration' => $reviewAsset->duration_seconds ? gmdate($reviewAsset->duration_seconds >= 3600 ? 'G:i:s' : 'i:s', (int) $reviewAsset->duration_seconds) : null,
+                        'Format' => $reviewAsset->format ? strtoupper($reviewAsset->format).($reviewAsset->sample_rate ? ' · '.($reviewAsset->sample_rate / 1000).' kHz' : '').($reviewAsset->bit_depth ? ' · '.$reviewAsset->bit_depth.' bit' : '') : null,
+                        'Loudness' => $reviewAsset->loudness_lufs !== null ? $reviewAsset->loudness_lufs.' LUFS · peak '.$reviewAsset->peak_db.' dB' : null,
+                        'Recorded' => $reviewAsset->recorded_on?->format('j M Y'),
+                        'First broadcast' => $reviewAsset->first_broadcast_on?->format('j M Y'),
+                        'Uploaded by' => $reviewAsset->uploader?->name,
+                        'Uploaded' => $reviewAsset->created_at?->format('j M Y H:i'),
+                        'Source' => ucfirst(str_replace('_', ' ', $reviewAsset->source)),
+                        'Size' => $reviewAsset->size_bytes ? round($reviewAsset->size_bytes / 1048576, 1).' MB' : null,
+                    ] as $label => $value)
+                        @if ($value)
+                            <div class="flex justify-between gap-3 px-5 py-2.5">
+                                <dt class="text-slate-500 dark:text-slate-400">{{ $label }}</dt>
+                                <dd class="text-right font-medium text-slate-700 dark:text-slate-200">{{ $value }}</dd>
+                            </div>
+                        @endif
+                    @endforeach
+                </dl>
+                @if ($reviewAsset->artists->isNotEmpty() || $reviewAsset->tags->isNotEmpty())
+                    <div class="flex flex-wrap gap-1.5 border-t border-slate-100 px-5 py-3 dark:border-slate-800">
+                        @foreach ($reviewAsset->artists as $artist)
+                            <span class="badge-purple">{{ $artist->name }}{{ $artist->pivot->role ? ' · '.$artist->pivot->role : '' }}</span>
+                        @endforeach
+                        @foreach ($reviewAsset->tags as $tag)<span class="badge-slate">{{ $tag->name }}</span>@endforeach
+                    </div>
+                @endif
+            </div>
+
+            {{-- Rights (M14) --}}
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="font-semibold text-slate-800 dark:text-slate-100">Rights</h3>
+                    <x-status-badge :status="$reviewAsset->rights_status" />
+                </div>
+                @forelse ($reviewAsset->rightsRecords as $record)
+                    <div class="border-t border-slate-100 px-5 py-3 text-sm first:border-0 dark:border-slate-800">
+                        <div class="flex items-center justify-between gap-2">
+                            <p class="font-medium text-slate-700 dark:text-slate-200">{{ $record->rightsHolder?->name ?? 'Unknown holder' }}</p>
+                            <x-status-badge :status="$record->status" />
+                        </div>
+                        <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                            {{ implode(', ', array_map('ucfirst', $record->rights_types ?? [])) }} · {{ $record->territory }}
+                        </p>
+                    </div>
+                @empty
+                    <p class="px-5 py-3 text-sm text-slate-500 dark:text-slate-400">No rights submission yet — it follows once the approval completes.</p>
+                @endforelse
+            </div>
+
+            {{-- Version family --}}
+            @if ($reviewAsset->versions->isNotEmpty())
+                <div class="card">
+                    <div class="card-header"><h3 class="font-semibold text-slate-800 dark:text-slate-100">Version Family</h3></div>
+                    <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+                        @foreach ($reviewAsset->versions as $version)
+                            <li class="flex items-center justify-between gap-3 px-5 py-2.5">
+                                <span class="min-w-0">
+                                    <span class="block truncate font-medium text-slate-700 dark:text-slate-200">{{ $version->label ?? ucfirst(str_replace('_', ' ', $version->version_type)) }}</span>
+                                    <span class="text-xs text-slate-500 dark:text-slate-400">{{ strtoupper($version->format ?? '—') }}{{ $version->duration_seconds ? ' · '.gmdate('i:s', (int) $version->duration_seconds) : '' }}</span>
+                                </span>
+                                @if ($version->is_default)<span class="badge-green">Streaming</span>@endif
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+        @endif
+
         <div class="card">
             <div class="card-header"><h3 class="font-semibold text-slate-800 dark:text-slate-100">Workflow Stages</h3></div>
             <div class="card-body">

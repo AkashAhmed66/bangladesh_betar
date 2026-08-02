@@ -75,9 +75,16 @@ class ApprovalController extends Controller
 
         $approval->load(['approvable', 'workflow.stages', 'currentStage', 'submitter', 'actions.user']);
 
-        // Reviewers can listen to the recording inline without leaving the page.
+        // The review page shows the FULL asset record inline (player, metadata,
+        // AI analysis, transcripts, rights, versions) so approvers have every
+        // detail on the page where they decide.
         if ($approval->approvable instanceof AudioAsset) {
-            $approval->approvable->load('versions');
+            $approval->approvable->load([
+                'versions' => fn ($q) => $q->orderByDesc('is_default')->orderBy('id'),
+                'station', 'department', 'programme', 'category', 'language', 'uploader',
+                'tags', 'artists', 'transcripts', 'rightsRecords.rightsHolder',
+                'latestAiAnalysisJob.reviewer',
+            ]);
         }
 
         return view('admin.approvals.show', compact('approval'));
