@@ -8,6 +8,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Approval;
 use App\Models\ApprovalAction;
 use App\Models\AudioAsset;
+use App\Models\AudioBook;
+use App\Models\RightsRecord;
 use App\Support\Notify;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -55,7 +57,37 @@ class ApprovalController extends Controller
             ->paginate(15)
             ->withQueryString();
 
-        return view('admin.approvals.index', compact('approvals', 'scope'));
+        // ---- AI moderation + rights submissions ride along in the feed -----
+        // Every review gate shows in one place: reviewers see what needs THEM
+        // (My Approvals), submitters see THEIR items (My Queue).
+        $aiBase = AudioAsset::query()->with(['latestAiAnalysisJob', 'uploader'])
+            ->whereHas('aiAnalysisJobs', fn ($q) => $q->where('review_status', 'pending'));
+        $aiItems = match (true) {
+            $scope === 'queue' => (clone $aiBase)->where('uploaded_by', $user->id)->latest('updated_at')->take(20)->get(),
+            $scope === 'approvals' && $user->can('ai-moderation.review') => (clone $aiBase)->latest('updated_at')->take(20)->get(),
+            $scope === 'all' => (clone $aiBase)->latest('updated_at')->take(20)->get(),
+            default => collect(),
+        };
+
+        $rightsBase = RightsRecord::query()->with(['audioAsset.uploader', 'rightsHolder', 'creator'])
+            ->where('status', 'pending');
+        $rightsItems = match (true) {
+            $scope === 'queue' => (clone $rightsBase)->where(fn ($q) => $q->where('created_by', $user->id)
+                ->orWhereHas('audioAsset', fn ($a) => $a->where('uploaded_by', $user->id)))->latest()->take(20)->get(),
+            $scope === 'approvals' && $user->can('rights.manage') => (clone $rightsBase)->latest()->take(20)->get(),
+            $scope === 'all' => (clone $rightsBase)->latest()->take(20)->get(),
+            default => collect(),
+        };
+
+        $bookBase = AudioBook::query()->with('user')->where('status', 'pending_approval');
+        $bookItems = match (true) {
+            $scope === 'queue' => (clone $bookBase)->where('user_id', $user->id)->latest('submitted_at')->take(20)->get(),
+            $scope === 'approvals' && $user->can('audiobooks.approve') => (clone $bookBase)->latest('submitted_at')->take(20)->get(),
+            $scope === 'all' => (clone $bookBase)->latest('submitted_at')->take(20)->get(),
+            default => collect(),
+        };
+
+        return view('admin.approvals.index', compact('approvals', 'scope', 'aiItems', 'rightsItems', 'bookItems'));
     }
 
     public function show(Approval $approval): View

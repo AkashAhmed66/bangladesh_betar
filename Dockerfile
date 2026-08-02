@@ -15,9 +15,12 @@ FROM php:8.3-fpm-alpine AS app
 # System deps + PHP extensions required by Laravel + MySQL.
 # ffmpeg/ffprobe power server-side audio ingestion: technical-metadata
 # extraction, loudness (EBU R128), proxy transcoding and waveform peaks.
+# espeak-ng + poppler + tesseract (ben/eng) power the offline PDF-to-Speech
+# tool: text extraction, OCR fallback for scans, and Bangla/English TTS.
 RUN apk add --no-cache \
         git curl libpng-dev libjpeg-turbo-dev freetype-dev libzip-dev \
         oniguruma-dev icu-dev bash mysql-client nginx supervisor ffmpeg \
+        espeak-ng poppler-utils tesseract-ocr tesseract-ocr-data-ben tesseract-ocr-data-eng \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j"$(nproc)" pdo_mysql mbstring bcmath gd zip exif pcntl intl \
     && rm -rf /var/cache/apk/*

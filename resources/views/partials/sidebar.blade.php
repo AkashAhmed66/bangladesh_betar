@@ -10,6 +10,7 @@
             ['digitization.view', 'admin.media-items.index', 'disc', 'Digitization', ['admin.media-items.']],
             ['stations.view', 'admin.stations.index', 'radio', 'Stations', ['admin.stations.']],
             ['editing.view', 'admin.edit-sessions.index', 'scissors', 'Edit Sessions', ['admin.edit-sessions.']],
+            ['audiobooks.use', 'admin.audiobooks.index', 'megaphone', 'Audio Books', ['admin.audiobooks.']],
         ],
         'Catalogue' => [
             ['songs.view', 'admin.songs.index', 'music', 'Songs', ['admin.songs.']],

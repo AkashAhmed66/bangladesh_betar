@@ -59,13 +59,26 @@ class AiModerationController extends Controller
 
     public function show(AudioAsset $asset): View
     {
+        // Visible to AI reviewers AND the related user (uploader/record
+        // visibility) so submitters can follow their review from Approvals.
+        abort_unless(
+            auth()->user()->can('ai-moderation.view') || $asset->isVisibleTo(auth()->user()),
+            403,
+        );
+
         abort_unless(
             $asset->aiAnalysisJobs()->whereIn('review_status', ['pending', 'approved', 'rejected'])->exists(),
             404,
             'This asset has no AI moderation record.',
         );
 
-        $asset->load(['uploader', 'transcripts', 'aiAnalysisJobs.reviewer']);
+        // Full asset context — same facts as the approval review page, so the
+        // reviewer decides with everything on one screen.
+        $asset->load([
+            'uploader', 'transcripts', 'aiAnalysisJobs.reviewer',
+            'versions' => fn ($q) => $q->orderByDesc('is_default')->orderBy('id'),
+            'station', 'department', 'programme', 'category', 'language', 'tags', 'artists',
+        ]);
         $job = $asset->aiAnalysisJobs->first(); // latest() ordering from the relation
 
         return view('admin.ai-moderation.show', compact('asset', 'job'));

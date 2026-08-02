@@ -16,7 +16,44 @@
     </div>
     <div class="flex flex-wrap gap-2">
         <a href="{{ route('admin.assets.show', $asset) }}" class="btn-secondary"><x-icon name="archive" class="size-4" /> Full Asset Record</a>
-        <a href="{{ route('admin.ai-moderation.index') }}" class="btn-secondary"><x-icon name="chevron-left" class="size-4" /> Back to Queue</a>
+        @can('ai-moderation.view')
+            <a href="{{ route('admin.ai-moderation.index') }}" class="btn-secondary"><x-icon name="chevron-left" class="size-4" /> Back to Queue</a>
+        @endcan
+    </div>
+</div>
+
+{{-- Listen inline — review what you decide on, without leaving the page --}}
+@php $playVersion = $asset->versions->firstWhere('is_default', true) ?? $asset->versions->first(); @endphp
+<div class="card mb-6 overflow-hidden">
+    <div class="bg-slate-900 p-5 dark:bg-slate-950"
+         x-data="{
+            playing: false, cur: 0, dur: {{ $asset->duration_seconds ?: 0 }},
+            fmt(s){ if(!isFinite(s)) return '0:00'; const m=Math.floor(s/60), sec=Math.floor(s%60); return m+':'+String(sec).padStart(2,'0'); },
+            toggle(){ const a=$refs.audio; a.paused ? a.play() : a.pause(); },
+            seek(e){ const a=$refs.audio; const r=$refs.wave.getBoundingClientRect(); const f=(e.clientX-r.left)/r.width; if(a.duration) a.currentTime=f*a.duration; }
+         }">
+    @if ($playVersion)
+        <audio x-ref="audio" preload="none" class="hidden"
+               src="{{ route('admin.assets.stream', ['asset' => $asset->id, 'version' => $playVersion->id], false) }}"
+               @play="playing=true" @pause="playing=false" @ended="playing=false"
+               @timeupdate="cur=$refs.audio.currentTime"
+               @loadedmetadata="if($refs.audio.duration) dur=$refs.audio.duration"></audio>
+    @endif
+        <div x-ref="wave" class="relative cursor-pointer" @click="seek($event)">
+            <x-waveform :peaks="$asset->waveform_peaks ?? []" :height="56" class="text-primary-400" />
+            <div class="pointer-events-none absolute inset-y-0 left-0 bg-white/10" :style="`width: ${dur ? (cur/dur*100) : 0}%`"></div>
+        </div>
+        <div class="mt-3 flex items-center gap-4">
+            <button @click="toggle()" @if (! $playVersion) disabled @endif
+                    class="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-600 text-white transition hover:bg-primary-500 disabled:opacity-40">
+                <span x-show="!playing"><x-icon name="play" class="size-5 translate-x-0.5" /></span>
+                <span x-show="playing" x-cloak><x-icon name="pause" class="size-5" /></span>
+            </button>
+            <div class="text-sm tabular-nums text-slate-300">
+                <span x-text="fmt(cur)">0:00</span> / <span x-text="fmt(dur)">{{ gmdate($asset->duration_seconds >= 3600 ? 'G:i:s' : 'i:s', (int) $asset->duration_seconds) }}</span>
+            </div>
+            <div class="ml-auto text-xs text-slate-400">{{ $asset->archive_no }} · {{ strtoupper($asset->format ?? '—') }}</div>
+        </div>
     </div>
 </div>
 
@@ -160,18 +197,50 @@
         @endcan
     </div>
 
-    {{-- Right rail --}}
+    {{-- Right rail — full catalogue context, like the approval review page --}}
     <div class="space-y-6">
         <div class="card">
-            <div class="card-header"><h3 class="font-semibold text-slate-800 dark:text-slate-100">Asset</h3></div>
+            <div class="card-header"><h3 class="font-semibold text-slate-800 dark:text-slate-100">Catalogue Details</h3></div>
             <dl class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
-                <div class="flex justify-between gap-3 px-5 py-2.5"><dt class="text-slate-500 dark:text-slate-400">Content type</dt><dd class="text-right font-medium text-slate-700 dark:text-slate-200">{{ ucfirst(str_replace('_', ' ', $asset->content_type)) }}</dd></div>
-                <div class="flex justify-between gap-3 px-5 py-2.5"><dt class="text-slate-500 dark:text-slate-400">Uploaded</dt><dd class="text-right font-medium text-slate-700 dark:text-slate-200">{{ $asset->created_at?->format('j M Y H:i') }}</dd></div>
-                @if ($job)
-                    <div class="flex justify-between gap-3 px-5 py-2.5"><dt class="text-slate-500 dark:text-slate-400">Analysis completed</dt><dd class="text-right font-medium text-slate-700 dark:text-slate-200">{{ $job->completed_at?->diffForHumans() ?? '—' }}</dd></div>
-                @endif
+                @foreach ([
+                    'Archive no' => $asset->archive_no,
+                    'Content type' => ucfirst(str_replace('_', ' ', $asset->content_type)),
+                    'Station' => $asset->station?->name,
+                    'Department' => $asset->department?->name,
+                    'Programme' => $asset->programme?->title,
+                    'Category' => $asset->category?->name,
+                    'Language' => $asset->language?->name,
+                    'Duration' => $asset->duration_seconds ? gmdate($asset->duration_seconds >= 3600 ? 'G:i:s' : 'i:s', (int) $asset->duration_seconds) : null,
+                    'Format' => $asset->format ? strtoupper($asset->format).($asset->sample_rate ? ' · '.($asset->sample_rate / 1000).' kHz' : '') : null,
+                    'Uploaded by' => $asset->uploader?->name,
+                    'Uploaded' => $asset->created_at?->format('j M Y H:i'),
+                    'Source' => $asset->source ? ucfirst(str_replace('_', ' ', $asset->source)) : null,
+                    'Analysis completed' => $job?->completed_at?->diffForHumans(),
+                ] as $label => $value)
+                    @if ($value)
+                        <div class="flex justify-between gap-3 px-5 py-2.5">
+                            <dt class="text-slate-500 dark:text-slate-400">{{ $label }}</dt>
+                            <dd class="text-right font-medium text-slate-700 dark:text-slate-200">{{ $value }}</dd>
+                        </div>
+                    @endif
+                @endforeach
             </dl>
+            @if ($asset->artists->isNotEmpty() || $asset->tags->isNotEmpty())
+                <div class="flex flex-wrap gap-1.5 border-t border-slate-100 px-5 py-3 dark:border-slate-800">
+                    @foreach ($asset->artists as $artist)
+                        <span class="badge-purple">{{ $artist->name }}{{ $artist->pivot->role ? ' · '.$artist->pivot->role : '' }}</span>
+                    @endforeach
+                    @foreach ($asset->tags as $tag)<span class="badge-slate">{{ $tag->name }}</span>@endforeach
+                </div>
+            @endif
         </div>
+
+        @if ($asset->description)
+            <div class="card">
+                <div class="card-header"><h3 class="font-semibold text-slate-800 dark:text-slate-100">Description</h3></div>
+                <div class="card-body"><p class="whitespace-pre-line text-sm text-slate-600 dark:text-slate-300">{{ $asset->description }}</p></div>
+            </div>
+        @endif
     </div>
 </div>
 @endsection

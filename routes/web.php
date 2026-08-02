@@ -125,6 +125,20 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
                 ->middleware('permission:editing.use')->name('assets.preview-audio');
         });
 
+        // ---- M31: Audio Books (PDF/text → dual-voice narration → approval → premium public) ----
+        Route::redirect('speech', 'audiobooks');   // old PDF-to-Speech links keep working
+        Route::middleware('permission:audiobooks.use')->group(function (): void {
+            Route::get('audiobooks', [Admin\AudioBookController::class, 'index'])->name('audiobooks.index');
+            Route::get('audiobooks/create', [Admin\AudioBookController::class, 'create'])->name('audiobooks.create');
+            Route::post('audiobooks', [Admin\AudioBookController::class, 'store'])->name('audiobooks.store');
+            Route::get('audiobooks/{audiobook}', [Admin\AudioBookController::class, 'show'])->name('audiobooks.show');
+            Route::post('audiobooks/{audiobook}/submit', [Admin\AudioBookController::class, 'submit'])->name('audiobooks.submit');
+            Route::post('audiobooks/{audiobook}/review', [Admin\AudioBookController::class, 'review'])
+                ->middleware('permission:audiobooks.approve')->name('audiobooks.review');
+            Route::get('audiobooks/{audiobook}/audio/{voice}', [Admin\AudioBookController::class, 'audio'])->name('audiobooks.audio');
+            Route::delete('audiobooks/{audiobook}', [Admin\AudioBookController::class, 'destroy'])->name('audiobooks.destroy');
+        });
+
         // ---- M03: Digitization ----
         Route::resource('media-items', Admin\MediaItemController::class)->except('show')
             ->middleware('permission:digitization.view');
@@ -197,12 +211,18 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
         // submitter of the asset (record visibility), so no rights.view middleware.
         Route::get('rights-records/{rightsRecord}/documents/{index}', [Admin\RightsRecordController::class, 'document'])
             ->whereNumber('index')->name('rights-records.document');
+        // Review page (full details + approve/reject) — visible to the rights
+        // team AND the submitter (gated in-controller); acting needs rights.manage.
+        Route::get('rights-records/{rightsRecord}', [Admin\RightsRecordController::class, 'show'])
+            ->name('rights-records.show');
+        Route::post('rights-records/{rightsRecord}/review', [Admin\RightsRecordController::class, 'review'])
+            ->middleware('permission:rights.manage')->name('rights-records.review');
 
         // ---- M16: AI content moderation (duplicate / violence / anti-government + transcription) ----
-        Route::middleware('permission:ai-moderation.view')->group(function (): void {
-            Route::get('ai-moderation', [Admin\AiModerationController::class, 'index'])->name('ai-moderation.index');
-            Route::get('ai-moderation/{asset}', [Admin\AiModerationController::class, 'show'])->name('ai-moderation.show');
-        });
+        Route::get('ai-moderation', [Admin\AiModerationController::class, 'index'])
+            ->middleware('permission:ai-moderation.view')->name('ai-moderation.index');
+        // Review page — visible to AI reviewers AND the uploader (gated in-controller).
+        Route::get('ai-moderation/{asset}', [Admin\AiModerationController::class, 'show'])->name('ai-moderation.show');
         Route::post('ai-moderation/{asset}/review', [Admin\AiModerationController::class, 'review'])
             ->middleware('permission:ai-moderation.review')->name('ai-moderation.review');
         // FR-AIF-06 — correct the AI transcript during moderation.

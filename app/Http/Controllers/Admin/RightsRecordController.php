@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AudioAsset;
+use App\Models\AuditLog;
 use App\Models\RightsHolder;
 use App\Models\RightsRecord;
 use App\Support\Notify;
@@ -60,6 +61,90 @@ class RightsRecordController extends Controller
         $this->syncAssetRightsStatus($record);
 
         return redirect()->route('admin.rights-records.index')->with('success', 'Rights record created.');
+    }
+
+    /**
+     * Review page — full asset details + documents + approve/reject on one
+     * screen (like the approval review page). Visible to the rights team AND
+     * the submitter, so they can follow their submission from Approvals.
+     */
+    public function show(Request $request, RightsRecord $rightsRecord): View
+    {
+        $user = $request->user();
+        abort_unless(
+            $user->can('rights.view')
+                || $rightsRecord->created_by === $user->id
+                || ($rightsRecord->audioAsset?->isVisibleTo($user) ?? false),
+            403,
+        );
+
+        $rightsRecord->load(['rightsHolder', 'creator']);
+        $asset = $rightsRecord->audioAsset;
+        $asset?->load([
+            'versions' => fn ($q) => $q->orderByDesc('is_default')->orderBy('id'),
+            'station', 'department', 'programme', 'category', 'language', 'uploader', 'tags', 'artists',
+            // Full review context: AI moderation outcome + workflow history.
+            'latestAiAnalysisJob.reviewer',
+            'approvals.workflow', 'approvals.currentStage', 'approvals.actions.user',
+        ]);
+
+        return view('admin.rights-records.show', ['record' => $rightsRecord, 'asset' => $asset]);
+    }
+
+    /**
+     * Approve or reject a pending rights submission from the review page.
+     * Approve → 'approved' (unlocks publishing); reject → 'restricted'.
+     */
+    public function review(Request $request, RightsRecord $rightsRecord): RedirectResponse
+    {
+        $this->authorize('rights.manage');
+
+        abort_unless($rightsRecord->status === 'pending', 404, 'This rights record is not awaiting review.');
+
+        $data = $request->validate([
+            'action' => ['required', Rule::in(['approve', 'reject'])],
+            'comments' => ['required', 'string', 'max:2000'],
+        ], [
+            'comments.required' => 'A remark is required to record this decision.',
+        ]);
+
+        $approved = $data['action'] === 'approve';
+        $oldStatus = $rightsRecord->status;
+
+        $rightsRecord->update([
+            'status' => $approved ? 'approved' : 'restricted',
+            'notes' => trim(($rightsRecord->notes ? $rightsRecord->notes."\n\n" : '')
+                .'['.now()->format('j M Y H:i').'] '.($approved ? 'Approved' : 'Rejected')
+                ." by {$request->user()->name}: {$data['comments']}"),
+        ]);
+
+        $this->syncAssetRightsStatus($rightsRecord);
+
+        $asset = $rightsRecord->audioAsset;
+
+        AuditLog::record(
+            $approved ? 'rights_approved' : 'rights_rejected',
+            $asset ?? $rightsRecord,
+            ['status' => $oldStatus],
+            ['status' => $rightsRecord->status, 'remarks' => $data['comments']],
+            'Rights submission '.($approved ? 'approved' : 'rejected')." for {$asset?->archive_no}.",
+        );
+
+        Notify::users(
+            collect([$rightsRecord->creator, $asset?->uploader])->filter(),
+            $approved ? 'publish_ready' : 'rights_status',
+            $approved ? 'Rights approved — ready to publish' : 'Rights submission rejected',
+            $approved
+                ? "Rights for “{$asset?->title}” are approved. You can now publish it to the public app."
+                : "Rights for “{$asset?->title}” were rejected: {$data['comments']}",
+            $asset ? route('admin.assets.show', $asset) : route('admin.rights-records.index'),
+            except: $request->user()->id,
+        );
+
+        return redirect()->route('admin.rights-records.show', $rightsRecord)->with(
+            'success',
+            $approved ? 'Rights approved — the submitter can now publish.' : 'Rights submission rejected.',
+        );
     }
 
     public function edit(RightsRecord $rightsRecord): View

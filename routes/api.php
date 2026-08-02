@@ -94,6 +94,11 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
         Route::get('recommendations/for-you', [V1\RecommendationController::class, 'forYou'])->name('recommendations.for-you');
         Route::get('assets/{asset}/similar', [V1\RecommendationController::class, 'similar'])->name('recommendations.similar');
 
+        // Audio Books (M31) — list is browsable; detail (text + streams) is
+        // premium-gated inside the controller.
+        Route::get('audiobooks', [V1\AudioBookController::class, 'index'])->name('audiobooks.index');
+        Route::get('audiobooks/{audioBook}', [V1\AudioBookController::class, 'show'])->name('audiobooks.show');
+
         // Subscriptions — plans are public (M18)
         Route::get('plans', [V1\SubscriptionController::class, 'plans'])->name('plans');
 
@@ -105,6 +110,10 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
     // Signed streaming endpoint (temporary URL issued by StreamingService)
     Route::get('stream/{asset}/play/{version}', [V1\PlaybackController::class, 'play'])
         ->name('stream.play')->middleware('signed');
+
+    // Audio Book streaming — signed URLs issued only to premium accounts (M31)
+    Route::get('audiobooks/{audioBook}/play/{voice}', [V1\AudioBookController::class, 'play'])
+        ->name('audiobooks.play')->middleware('signed');
 
     // Ad creative audio for pre-roll slots (public — referenced by audio_url
     // in the ad descriptor returned by GET /assets/{asset}/stream)

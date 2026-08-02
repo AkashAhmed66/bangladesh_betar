@@ -466,7 +466,7 @@ class AudioAssetController extends Controller
         Notify::permission('rights.manage', 'rights_submitted',
             'Rights submission needs review',
             "{$request->user()->name} filed copyright documents for “{$asset->title}” (".count($documents).' file'.(count($documents) === 1 ? '' : 's').').',
-            route('admin.rights-records.edit', $record),
+            route('admin.rights-records.show', $record),
             except: $request->user()->id);
 
         return back()->with('success', 'Copyright documents submitted. The rights team will review and approve them — publishing unlocks once approved.');

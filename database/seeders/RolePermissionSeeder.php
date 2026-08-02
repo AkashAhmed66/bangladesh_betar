@@ -55,6 +55,8 @@ class RolePermissionSeeder extends Seeder
         // modules; without it users see only records they created (approvals /
         // rights / AI moderation always show all — they have no assignment yet).
         'records' => ['view-all'],
+        // Audio Books (M31): use = create/manage own; approve = review + publish.
+        'audiobooks' => ['use', 'approve'],
     ];
 
     /** Role => permission spec ('*' = everything, 'group.*' = whole group). */
@@ -67,7 +69,7 @@ class RolePermissionSeeder extends Seeder
             'albums.view', 'songs.view', 'programmes.*', 'episodes.*',
             'workflows.view', 'approvals.*', 'rights.view',
             'ai-moderation.*', 'broadcasts.*', 'audit.view', 'backups.*',
-            'moderation.*', 'notifications.view',
+            'moderation.*', 'notifications.view', 'audiobooks.*',
         ],
 
         'AI Reviewer' => [ // Sign-off gate for AI-flagged duplicate / violence / anti-government content
@@ -131,6 +133,7 @@ class RolePermissionSeeder extends Seeder
         'Approver' => [ // Management
             'dashboard.view', 'approvals.*', 'workflows.view', 'assets.view', 'assets.publish',
             'subscriptions.view', 'payments.view', 'ads.reports', 'notifications.view',
+            'audiobooks.*',
         ],
 
         'Researcher' => [
@@ -164,6 +167,7 @@ class RolePermissionSeeder extends Seeder
         'approvals.view',
         'moderation.view',
         'notifications.view',
+        'audiobooks.use',
     ];
 
     public function run(): void

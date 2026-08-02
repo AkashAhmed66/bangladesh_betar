@@ -21,6 +21,7 @@
         'rights_submitted' => ['scale', $amber],
         'rights_status' => ['scale', $blue],
         'publish_ready' => ['globe', $green],
+        'speech_ready' => ['megaphone', $green],
     ];
 @endphp
 

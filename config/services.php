@@ -35,6 +35,13 @@ return [
         ],
     ],
 
+    // Neural TTS sidecar (M31) — Piper (English m/f) + Meta MMS (Bangla).
+    // Empty base_url disables it; PDF-to-Speech then uses espeak-ng.
+    'tts' => [
+        'base_url' => env('TTS_SERVICE_URL', 'http://tts:5002'),
+        'timeout' => (int) env('TTS_TIMEOUT_SECONDS', 1800),
+    ],
+
     // Audio Postmortem — duplicate / violence / anti-government detection +
     // transcription, run against every newly ingested audio asset (M16).
     'audio_postmortem' => [

@@ -16,6 +16,7 @@
         'trialing' => 'amber', 'scheduled' => 'amber', 'investigating' => 'amber', 'qc_pending' => 'amber',
         'partially_refunded' => 'amber', 'in_production' => 'amber', 'restricted' => 'amber',
         'analyzing' => 'amber', 'ai_flagged' => 'amber', 'ai_review' => 'amber',
+        'generating' => 'amber', 'ready' => 'blue',
         // info
         'draft' => 'slate', 'registered' => 'slate', 'inactive' => 'slate', 'cancelled' => 'slate',
         'unpublished' => 'slate', 'hidden' => 'slate', 'dismissed' => 'slate', 'received' => 'blue',

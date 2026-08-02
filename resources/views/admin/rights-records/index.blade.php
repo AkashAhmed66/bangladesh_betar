@@ -72,6 +72,9 @@
                         <td><x-status-badge :status="$record->status" /></td>
                         <td>
                             <div class="flex items-center justify-end gap-1">
+                                <a href="{{ route('admin.rights-records.show', $record) }}" class="btn-secondary btn-sm">
+                                    <x-icon name="eye" class="size-4" /> {{ $record->status === 'pending' ? 'Review' : 'View' }}
+                                </a>
                                 @can('rights.manage')
                                     <a href="{{ route('admin.rights-records.edit', $record) }}" class="btn-ghost btn-sm"><x-icon name="pencil" class="size-4" /></a>
                                     <x-confirm-delete :action="route('admin.rights-records.destroy', $record)" confirm="Delete this rights record?" />

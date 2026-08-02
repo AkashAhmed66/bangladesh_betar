@@ -76,6 +76,8 @@ class AppServiceProvider extends ServiceProvider
             'transcript' => \App\Models\Transcript::class,
             'workflow' => \App\Models\Workflow::class,
             'broadcast_channel' => \App\Models\BroadcastChannel::class,
+            'speech_conversion' => \App\Models\SpeechConversion::class,
+            'audio_book' => \App\Models\AudioBook::class,
         ]);
     }
 }
