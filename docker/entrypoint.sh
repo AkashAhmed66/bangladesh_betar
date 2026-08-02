@@ -78,4 +78,10 @@ if [ "${APP_ENV}" = "production" ]; then
     php artisan view:cache
 fi
 
+# Everything above ran as root, so any files/directories artisan created
+# (storage dirs, caches, demo audio, upload folders) are root-owned — which
+# would make PHP-FPM (www-data) fail with UnableToCreateDirectory on upload.
+# Normalize ownership as the last boot step so the web user can always write.
+chown -R www-data:www-data storage bootstrap/cache 2>/dev/null || true
+
 exec "$@"

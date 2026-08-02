@@ -7,7 +7,7 @@
                subtitle="Accounts are audited; roles control every permission in the portal." />
 
 <form method="POST" action="{{ $user ? route('admin.users.update', $user) : route('admin.users.store') }}" class="max-w-3xl"
-      x-data="{ userType: '{{ old('user_type', $user?->user_type ?? 'staff') }}' }">
+      x-data="{ userType: '{{ old('user_type', $user?->user_type ?? 'staff') }}', role: '{{ old('role', $user?->getRoleNames()->first()) }}' }">
     @csrf
     @if ($user) @method('PUT') @endif
 
@@ -19,19 +19,28 @@
             <x-form.input label="Password" name="password" type="password"
                           :help="$user ? 'Leave blank to keep the current password.' : 'Minimum 6 characters.'" :required="! $user" />
             <x-form.select label="Account type" name="user_type" x-model="userType" :value="$user?->user_type ?? 'staff'" required
-                           :options="['staff' => 'Staff (Admin Portal)', 'listener' => 'Listener (Public App)', 'artist' => 'Artist (Admin + Public App)']" />
+                           :options="['staff' => 'Staff (Admin Portal)', 'listener' => 'Listener (Public App)', 'both' => 'Both (Admin + Public App)']" />
             <x-form.select label="Status" name="status" :value="$user?->status ?? 'active'" required
                            :options="['active' => 'Active', 'inactive' => 'Inactive', 'banned' => 'Banned']" />
 
-            {{-- Staff choose a role; listeners and artists get a fixed role automatically. --}}
+            {{-- Staff choose an admin role; listeners get the fixed Listener role automatically. --}}
             <div x-show="userType === 'staff'" x-cloak class="sm:col-span-2">
-                <x-form.select label="Role" name="role" :value="$user?->getRoleNames()->first()" placeholder="Select role…"
+                <x-form.select label="Role" name="role" x-model="role" x-bind:disabled="userType !== 'staff'"
+                               :value="$user?->getRoleNames()->first()" placeholder="Select role…"
                                :options="$roles->reject(fn ($r) => in_array($r, ['Listener', 'Artist']))->mapWithKeys(fn ($r) => [$r => $r])->all()"
                                help="Determines every permission this staff member has." />
             </div>
 
-            {{-- Artist account: an Artist profile is created and kept in sync automatically. --}}
-            <div x-show="userType === 'artist'" x-cloak class="grid grid-cols-1 gap-5 sm:col-span-2 sm:grid-cols-2">
+            {{-- Dual-app account: choose the admin role. Picking "Artist" also creates a linked public artist profile. --}}
+            <div x-show="userType === 'both'" x-cloak class="sm:col-span-2">
+                <x-form.select label="Role" name="role" x-model="role" x-bind:disabled="userType !== 'both'"
+                               :value="$user?->getRoleNames()->first()" placeholder="Select role…"
+                               :options="$roles->reject(fn ($r) => $r === 'Listener')->mapWithKeys(fn ($r) => [$r => $r])->all()"
+                               help="Signs in to both the Admin Portal and the public app with the same credentials. Choose “Artist” to create a public artist profile." />
+            </div>
+
+            {{-- Artist role: an Artist profile is created and kept in sync automatically. --}}
+            <div x-show="userType === 'both' && role === 'Artist'" x-cloak class="grid grid-cols-1 gap-5 sm:col-span-2 sm:grid-cols-2">
                 <x-form.select label="Artist type" name="artist_type"
                                :value="$user?->artist?->artist_type ?? 'singer'"
                                :options="collect(\App\Models\Artist::TYPES)->mapWithKeys(fn ($t) => [$t => ucfirst(str_replace('_', ' ', $t))])->all()"

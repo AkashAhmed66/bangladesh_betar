@@ -17,6 +17,7 @@ class EditSessionController extends Controller
     public function index(Request $request): View
     {
         $sessions = EditSession::query()
+            ->visibleTo($request->user())
             ->with(['audioAsset', 'editor'])
             ->when($request->filled('q'), fn ($q) => $q->where('title', 'like', '%'.$request->string('q').'%'))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))

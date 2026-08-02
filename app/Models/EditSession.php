@@ -5,16 +5,23 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Models\Concerns\Auditable;
+use App\Models\Concerns\HasRecordVisibility;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class EditSession extends Model
 {
-    use Auditable;
+    use Auditable, HasRecordVisibility;
 
     protected $guarded = [];
 
     protected $casts = ['edl' => 'array'];
+
+    /** Record visibility keys on the editor who opened the session. */
+    public static function creatorColumn(): string
+    {
+        return 'editor_id';
+    }
 
     public function audioAsset(): BelongsTo
     {

@@ -29,16 +29,27 @@ class DashboardController extends Controller
     {
         $user = $request->user();
 
+        // Without records.view-all (e.g. artists) every content widget is
+        // scoped to the user's own recordings — a personal dashboard.
+        $viewAll = $user->can('records.view-all');
+        $visibleIds = fn () => AudioAsset::query()->visibleTo($user)->select('id');
+
         $stats = [
-            'total_assets' => AudioAsset::query()->count(),
-            'total_duration_hours' => (int) round(AudioAsset::query()->sum('duration_seconds') / 3600),
-            'published_assets' => AudioAsset::query()->where('status', 'published')->count(),
-            'storage_gb' => round(AudioAsset::query()->sum('size_bytes') / (1024 ** 3), 1),
-            'pending_approvals' => $user->can('approvals.view') ? Approval::query()->pending()->count() : null,
+            'total_assets' => AudioAsset::query()->visibleTo($user)->count(),
+            'total_duration_hours' => (int) round(AudioAsset::query()->visibleTo($user)->sum('duration_seconds') / 3600),
+            'published_assets' => AudioAsset::query()->visibleTo($user)->where('status', 'published')->count(),
+            'storage_gb' => round(AudioAsset::query()->visibleTo($user)->sum('size_bytes') / (1024 ** 3), 1),
+            'pending_approvals' => $user->can('approvals.view')
+                ? Approval::query()->pending()->when(! $viewAll, fn ($q) => $q->where('submitted_by', $user->id))->count()
+                : null,
             'my_approvals' => $user->can('approvals.act') ? Approval::actionableBy($user)->count() : null,
             'rights_expiring' => $user->can('rights.view') ? RightsRecord::expiringWithin(90)->count() : null,
-            'digitization_pending' => $user->can('digitization.view') ? MediaItem::query()->whereNotIn('status', ['archived', 'qc_passed'])->count() : null,
-            'moderation_queue' => $user->can('moderation.view') ? Comment::query()->where('status', 'pending')->count() : null,
+            'digitization_pending' => $user->can('digitization.view') ? MediaItem::query()->visibleTo($user)->whereNotIn('status', ['archived', 'qc_passed'])->count() : null,
+            'moderation_queue' => $user->can('moderation.view')
+                ? Comment::query()->where('status', 'pending')
+                    ->when(! $viewAll, fn ($q) => $q->where('commentable_type', 'audio_asset')->whereIn('commentable_id', $visibleIds()))
+                    ->count()
+                : null,
             'active_subscribers' => $user->can('subscriptions.view') ? Subscription::query()->whereIn('status', ['active', 'trialing'])->count() : null,
             'revenue_month' => $user->can('payments.view')
                 ? Payment::query()->where('status', 'completed')->where('paid_at', '>=', now()->startOfMonth())->sum('amount')
@@ -50,6 +61,7 @@ class DashboardController extends Controller
         $trend = AssetStatsDaily::query()
             ->selectRaw('stat_date, SUM(plays) as plays, SUM(unique_listeners) as listeners')
             ->where('stat_date', '>=', now()->subDays(13)->toDateString())
+            ->when(! $viewAll, fn ($q) => $q->whereIn('audio_asset_id', $visibleIds()))
             ->groupBy('stat_date')->orderBy('stat_date')->get();
 
         // ---- Business KPI headline band (period-over-period growth) --------
@@ -62,6 +74,7 @@ class DashboardController extends Controller
         $rawPlays = AssetStatsDaily::query()
             ->selectRaw('stat_date, SUM(plays) as plays')
             ->where('stat_date', '>=', $today->copy()->subDays(27)->toDateString())
+            ->when(! $viewAll, fn ($q) => $q->whereIn('audio_asset_id', $visibleIds()))
             ->groupBy('stat_date')->pluck('plays', 'stat_date');
 
         $playSeries = collect(range(27, 0, -1))
@@ -162,17 +175,17 @@ class DashboardController extends Controller
             ];
         }
 
-        $topPlayed = AudioAsset::query()->where('status', 'published')
+        $topPlayed = AudioAsset::query()->visibleTo($user)->where('status', 'published')
             ->orderByDesc('play_count')->take(6)->get();
 
-        $recentUploads = AudioAsset::query()->with('uploader')
+        $recentUploads = AudioAsset::query()->visibleTo($user)->with('uploader')
             ->latest()->take(6)->get();
 
         $myQueue = $user->can('approvals.act')
             ? Approval::actionableBy($user)->with(['approvable', 'currentStage'])->latest('submitted_at')->take(5)->get()
             : collect();
 
-        $contentByType = AudioAsset::query()
+        $contentByType = AudioAsset::query()->visibleTo($user)
             ->selectRaw('content_type, COUNT(*) as total')
             ->groupBy('content_type')->orderByDesc('total')->get();
 
@@ -187,6 +200,7 @@ class DashboardController extends Controller
             ->join('artists as a', 'ars.artist_id', '=', 'a.id')
             ->whereNull('a.deleted_at')->whereNull('s.deleted_at')
             ->where('pe.created_at', '>=', $weekAgo)
+            ->when(! $viewAll, fn ($q) => $q->whereIn('pe.audio_asset_id', $visibleIds()))
             ->groupBy('a.id', 'a.name')
             ->selectRaw('a.name, COUNT(*) as plays')
             ->orderByDesc('plays')->take(7)->get();
@@ -194,6 +208,7 @@ class DashboardController extends Controller
         // Listening by hour of day (0–23) → when the audience tunes in.
         $hourRaw = DB::table('play_events')
             ->where('created_at', '>=', $weekAgo)
+            ->when(! $viewAll, fn ($q) => $q->whereIn('audio_asset_id', $visibleIds()))
             ->selectRaw('HOUR(created_at) as hr, COUNT(*) as plays')
             ->groupBy('hr')->pluck('plays', 'hr');
         $hourlyPlays = collect(range(0, 23))->map(fn ($h) => (int) ($hourRaw[$h] ?? 0))->all();
@@ -203,6 +218,7 @@ class DashboardController extends Controller
         $playsByType = DB::table('play_events as pe')
             ->join('audio_assets as aa', 'pe.audio_asset_id', '=', 'aa.id')
             ->where('pe.created_at', '>=', $weekAgo)
+            ->when(! $viewAll, fn ($q) => $q->whereIn('pe.audio_asset_id', $visibleIds()))
             ->groupBy('aa.content_type')
             ->selectRaw('aa.content_type, COUNT(*) as plays')
             ->orderByDesc('plays')->get();
@@ -210,6 +226,7 @@ class DashboardController extends Controller
         // Engagement quality this week (percentages, from the daily rollups).
         $engagement = AssetStatsDaily::query()
             ->where('stat_date', '>=', $today->copy()->subDays(6)->toDateString())
+            ->when(! $viewAll, fn ($q) => $q->whereIn('audio_asset_id', $visibleIds()))
             ->selectRaw('AVG(completion_rate) as completion, AVG(skip_rate) as skip_rate, AVG(replay_rate) as replay_rate, AVG(avg_listen_seconds) as listen_seconds')
             ->first();
 

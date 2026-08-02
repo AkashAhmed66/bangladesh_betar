@@ -18,6 +18,7 @@ class AdvertiserController extends Controller
     public function index(): View
     {
         $advertisers = Advertiser::query()
+            ->visibleTo(auth()->user())
             ->withCount('campaigns')
             ->orderBy('name')
             ->paginate(15)
@@ -45,6 +46,7 @@ class AdvertiserController extends Controller
     public function edit(Advertiser $advertiser): View
     {
         $this->authorize('ads.manage');
+        $this->authorizeRecordVisibility($advertiser);
 
         return view('admin.advertisers.form', compact('advertiser'));
     }
@@ -52,6 +54,7 @@ class AdvertiserController extends Controller
     public function update(Request $request, Advertiser $advertiser): RedirectResponse
     {
         $this->authorize('ads.manage');
+        $this->authorizeRecordVisibility($advertiser);
 
         $advertiser->update($this->validated($request));
 
@@ -61,6 +64,7 @@ class AdvertiserController extends Controller
     public function destroy(Advertiser $advertiser): RedirectResponse
     {
         $this->authorize('ads.manage');
+        $this->authorizeRecordVisibility($advertiser);
 
         if ($advertiser->campaigns()->exists()) {
             return back()->with('error', 'This advertiser still has campaigns and cannot be deleted.');

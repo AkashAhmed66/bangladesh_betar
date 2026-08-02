@@ -62,4 +62,13 @@ class Approval extends Model
         return $query->where('status', 'pending')
             ->whereHas('currentStage', fn (Builder $s) => $s->whereIn('approver_role', $roleNames));
     }
+
+    /** Whether this user can act on it right now (status + stage role). */
+    public function isActionableBy(User $user): bool
+    {
+        return $user->can('approvals.act')
+            && in_array($this->status, ['pending', 'changes_requested'], true)
+            && $this->currentStage !== null
+            && $user->hasRole($this->currentStage->approver_role);
+    }
 }

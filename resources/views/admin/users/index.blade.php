@@ -19,7 +19,7 @@
             <select name="type" class="form-input w-36" onchange="this.form.submit()">
                 <option value="">All types</option>
                 <option value="staff" @selected(request('type') === 'staff')>Staff</option>
-                <option value="artist" @selected(request('type') === 'artist')>Artist</option>
+                <option value="both" @selected(request('type') === 'both')>Both</option>
                 <option value="listener" @selected(request('type') === 'listener')>Listener</option>
             </select>
             <select name="role" class="form-input w-48" onchange="this.form.submit()">
@@ -63,7 +63,7 @@
                                 </div>
                             </div>
                         </td>
-                        <td><span class="badge-{{ ['staff' => 'primary', 'artist' => 'purple', 'listener' => 'blue'][$user->user_type] ?? 'slate' }}">{{ ucfirst($user->user_type) }}</span></td>
+                        <td><span class="badge-{{ ['staff' => 'primary', 'both' => 'purple', 'listener' => 'blue'][$user->user_type] ?? 'slate' }}">{{ ucfirst($user->user_type) }}</span></td>
                         <td class="text-sm">{{ $user->getRoleNames()->implode(', ') ?: '—' }}</td>
                         <td><x-status-badge :status="$user->status" /></td>
                         <td class="text-sm text-slate-500">{{ $user->last_login_at?->diffForHumans() ?? 'Never' }}</td>

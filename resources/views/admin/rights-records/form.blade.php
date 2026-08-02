@@ -48,6 +48,22 @@
 
             <div class="sm:col-span-2"><x-form.textarea label="Royalty notes" name="royalty_notes" :value="$record?->royalty_notes" rows="2" /></div>
             <div class="sm:col-span-2"><x-form.textarea label="Notes" name="notes" :value="$record?->notes" rows="2" /></div>
+
+            {{-- Copyright documents filed by the submitter (FR-CPR-02) --}}
+            @if ($record && ! empty($record->documents))
+                <div class="sm:col-span-2">
+                    <label class="form-label">Submitted copyright documents</label>
+                    <div class="mt-1 flex flex-wrap gap-2">
+                        @foreach ($record->documents as $i => $doc)
+                            <a href="{{ route('admin.rights-records.document', [$record, $i]) }}"
+                               class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:border-primary-400 hover:text-primary-700 dark:border-slate-700 dark:text-slate-200 dark:hover:text-primary-400">
+                                <x-icon name="document-text" class="size-4" /> {{ $doc['name'] ?? 'Document '.($i + 1) }}
+                            </a>
+                        @endforeach
+                    </div>
+                    <p class="form-help">Review these before setting the status to Cleared.</p>
+                </div>
+            @endif
         </div>
         <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-4 dark:border-slate-800">
             <a href="{{ route('admin.rights-records.index') }}" class="btn-secondary">Cancel</a>

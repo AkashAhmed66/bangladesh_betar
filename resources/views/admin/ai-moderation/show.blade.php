@@ -26,6 +26,13 @@
         @if (! $job)
             <div class="card"><div class="card-body"><x-empty-state icon="shield" title="No analysis on record" message="This asset has no AI analysis job associated with it." /></div></div>
         @else
+            @if ($job->status === 'error')
+                <div class="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200">
+                    <x-icon name="exclamation" class="mt-0.5 size-4 shrink-0" />
+                    <p>AI analysis could not run{{ $job->error ? ' — '.$job->error : '' }}. Review the recording manually before deciding.</p>
+                </div>
+            @endif
+
             {{-- Duplicate detection --}}
             <div class="card">
                 <div class="card-header">
@@ -76,23 +83,53 @@
                 </div>
             </div>
 
-            {{-- Transcript --}}
-            @if ($job->transcript_readable || $job->transcript)
-                <div class="card">
+            {{-- Transcript (FR-AIF-06 — editable during moderation) --}}
+            @php
+                $transcriptModel = $asset->transcripts->firstWhere('transcript_type', 'transcript');
+                $transcriptText = $transcriptModel?->full_text ?: ($job->transcript_readable ?: $job->transcript);
+            @endphp
+            @if ($transcriptText)
+                <div class="card" x-data="{ editingTranscript: {{ $errors->has('full_text') ? 'true' : 'false' }} }">
                     <div class="card-header">
-                        <h3 class="font-semibold text-slate-800 dark:text-slate-100">Transcript</h3>
-                        <span class="text-xs text-slate-400">{{ $job->language ? ucfirst($job->language) : 'Language unknown' }}@if ($job->duration_sec) · {{ gmdate('i:s', (int) $job->duration_sec) }} @endif</span>
+                        <div class="flex items-center gap-2">
+                            <h3 class="font-semibold text-slate-800 dark:text-slate-100">Transcript</h3>
+                            @if ($transcriptModel?->is_verified)<span class="badge-green">Verified</span>@endif
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs text-slate-400">{{ $job->language ? ucfirst($job->language) : 'Language unknown' }}@if ($job->duration_sec) · {{ gmdate('i:s', (int) $job->duration_sec) }} @endif</span>
+                            @can('ai-moderation.review')
+                                <button type="button" @click="editingTranscript = ! editingTranscript" class="btn-secondary btn-sm">
+                                    <x-icon name="pencil" class="size-3.5" /> <span x-text="editingTranscript ? 'Cancel' : 'Edit'"></span>
+                                </button>
+                            @endcan
+                        </div>
                     </div>
-                    <div class="card-body">
-                        <p class="font-bangla whitespace-pre-wrap text-sm leading-relaxed text-slate-700 dark:text-slate-300">{{ $job->transcript_readable ?: $job->transcript }}</p>
+                    <div class="card-body" x-show="! editingTranscript">
+                        <p class="font-bangla whitespace-pre-wrap text-sm leading-relaxed text-slate-700 dark:text-slate-300">{{ $transcriptText }}</p>
                     </div>
+                    @can('ai-moderation.review')
+                        <form method="POST" action="{{ route('admin.ai-moderation.transcript', $asset) }}" x-show="editingTranscript" x-cloak>
+                            @csrf
+                            @method('PUT')
+                            <div class="card-body">
+                                <textarea name="full_text" rows="14" required
+                                          class="form-input font-bangla w-full text-sm leading-relaxed">{{ old('full_text', $transcriptText) }}</textarea>
+                                <p class="form-help">Corrections are saved as the asset's verified transcript — used by search and everywhere the transcript is shown.</p>
+                                @error('full_text')<p class="form-error">{{ $message }}</p>@enderror
+                            </div>
+                            <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-4 dark:border-slate-800">
+                                <button type="button" @click="editingTranscript = false" class="btn-secondary">Cancel</button>
+                                <button type="submit" class="btn-primary"><x-icon name="check-badge" class="size-4" /> Save Transcript</button>
+                            </div>
+                        </form>
+                    @endcan
                 </div>
             @endif
         @endif
 
         {{-- Decision --}}
         @can('ai-moderation.review')
-            @if ($asset->status === 'ai_flagged')
+            @if (in_array($asset->status, ['ai_flagged', 'ai_review'], true))
                 <div class="card">
                     <div class="card-header"><h3 class="font-semibold text-slate-800 dark:text-slate-100">AI Reviewer Decision</h3></div>
                     <form method="POST" action="{{ route('admin.ai-moderation.review', $asset) }}">

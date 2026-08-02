@@ -18,6 +18,7 @@ class ArtistController extends Controller
     public function index(Request $request): View
     {
         $artists = Artist::query()
+            ->visibleTo($request->user())
             ->withCount(['songs', 'followers'])
             ->when($request->filled('q'), fn ($q) => $q->where(fn ($w) => $w
                 ->where('name', 'like', '%'.$request->string('q').'%')
@@ -54,6 +55,7 @@ class ArtistController extends Controller
     public function edit(Artist $artist): View
     {
         $this->authorize('artists.manage');
+        $this->authorizeRecordVisibility($artist);
 
         return view('admin.artists.form', ['artist' => $artist->load('user'), 'types' => Artist::TYPES]);
     }
@@ -61,6 +63,7 @@ class ArtistController extends Controller
     public function update(Request $request, Artist $artist): RedirectResponse
     {
         $this->authorize('artists.manage');
+        $this->authorizeRecordVisibility($artist);
 
         $data = $this->validated($request);
         $data['photo_path'] = $this->storeImage($request, 'photo', 'artists/photos', $artist->photo_path);
@@ -79,6 +82,7 @@ class ArtistController extends Controller
     public function destroy(Artist $artist): RedirectResponse
     {
         $this->authorize('artists.manage');
+        $this->authorizeRecordVisibility($artist);
 
         $artist->delete();
 

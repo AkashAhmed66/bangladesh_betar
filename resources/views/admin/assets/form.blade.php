@@ -40,7 +40,8 @@
             <x-form.input label="Title (বাংলা)" name="title_bn" :value="$asset?->title_bn" />
             <div class="sm:col-span-2"><x-form.textarea label="Description" name="description" :value="$asset?->description" rows="3" /></div>
             <x-form.select label="Content type" name="content_type" :value="$asset?->content_type ?? 'programme'" required
-                           :options="collect($contentTypes)->mapWithKeys(fn ($t) => [$t => ucfirst(str_replace('_', ' ', $t))])->all()" />
+                           :options="$contentTypes"
+                           help="Song / Programme / Podcast reach the public app through their catalogue module after approval; the other types stay archive-only." />
             <x-form.select label="Category" name="category_id" :value="$asset?->category_id" placeholder="—" :options="$categories->all()" />
             <x-form.select label="Language" name="language_id" :value="$asset?->language_id" placeholder="—" :options="$languages->all()" />
             <x-form.select label="Source" name="source" :value="$asset?->source ?? 'upload'"

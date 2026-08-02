@@ -5,12 +5,13 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Models\Concerns\Auditable;
+use App\Models\Concerns\HasRecordVisibility;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 class Banner extends Model
 {
-    use Auditable;
+    use Auditable, HasRecordVisibility;
 
     protected $guarded = [];
 

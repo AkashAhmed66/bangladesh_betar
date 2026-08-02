@@ -24,6 +24,8 @@ class AssetAnalyticsController extends Controller
 
     public function show(Request $request, AudioAsset $asset): View|StreamedResponse
     {
+        $this->authorizeRecordVisibility($asset);
+
         $range = in_array($request->query('range'), self::RANGES, true)
             ? (string) $request->query('range')
             : '30d';

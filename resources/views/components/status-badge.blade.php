@@ -15,7 +15,7 @@
         'in_progress' => 'amber', 'changes_requested' => 'amber', 'warning' => 'amber', 'grace' => 'amber',
         'trialing' => 'amber', 'scheduled' => 'amber', 'investigating' => 'amber', 'qc_pending' => 'amber',
         'partially_refunded' => 'amber', 'in_production' => 'amber', 'restricted' => 'amber',
-        'analyzing' => 'amber', 'ai_flagged' => 'amber',
+        'analyzing' => 'amber', 'ai_flagged' => 'amber', 'ai_review' => 'amber',
         // info
         'draft' => 'slate', 'registered' => 'slate', 'inactive' => 'slate', 'cancelled' => 'slate',
         'unpublished' => 'slate', 'hidden' => 'slate', 'dismissed' => 'slate', 'received' => 'blue',

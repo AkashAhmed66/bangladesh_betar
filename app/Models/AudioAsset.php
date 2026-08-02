@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Models\Concerns\Auditable;
+use App\Models\Concerns\HasRecordVisibility;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,7 +17,31 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class AudioAsset extends Model
 {
-    use Auditable, SoftDeletes;
+    use Auditable, HasRecordVisibility, SoftDeletes;
+
+    /** Record visibility keys on the uploader, not a created_by column. */
+    public static function creatorColumn(): string
+    {
+        return 'uploaded_by';
+    }
+
+    /**
+     * Restricted users see their own uploads plus assets awaiting their
+     * action: pending approvals (for approvers) and AI-flagged items (for AI
+     * reviewers) — those queues have no per-user assignment yet.
+     */
+    protected function applyVisibility(Builder $query, User $user): void
+    {
+        $query->where($this->qualifyColumn('uploaded_by'), $user->id);
+
+        if ($user->can('approvals.act')) {
+            $query->orWhereHas('approvals', fn (Builder $q) => $q->whereIn('status', ['pending', 'changes_requested']));
+        }
+
+        if ($user->can('ai-moderation.review')) {
+            $query->orWhereHas('aiAnalysisJobs', fn (Builder $q) => $q->where('review_status', 'pending'));
+        }
+    }
 
     protected $guarded = [];
 
@@ -35,18 +60,10 @@ class AudioAsset extends Model
         'avg_rating' => 'float',
     ];
 
-    protected static function booted(): void
-    {
-        // When the approval workflow completes (status → 'approved'), auto-
-        // provision a pending rights record so it lands in the Rights Records
-        // table immediately. The rights team completes + clears it, which is
-        // what unlocks publishing (the publish gate still requires cleared).
-        static::updated(function (self $asset): void {
-            if ($asset->wasChanged('status') && $asset->status === 'approved') {
-                $asset->ensureRightsRecord();
-            }
-        });
-    }
+    // NOTE: rights records are no longer auto-provisioned on approval. After
+    // the approval workflow completes, the submitter files the copyright
+    // documents via "Submit for Rights" on the asset page, which creates the
+    // pending rights record for the rights team to review and clear.
 
     /* ---------------------------- relationships ----------------------- */
 
@@ -113,6 +130,29 @@ class AudioAsset extends Model
     public function song(): HasOne
     {
         return $this->hasOne(Song::class);
+    }
+
+    public function podcastEpisode(): HasOne
+    {
+        return $this->hasOne(PodcastEpisode::class);
+    }
+
+    public function episode(): HasOne
+    {
+        return $this->hasOne(Episode::class);
+    }
+
+    /**
+     * Recordings the PUBLIC app may surface: published in the catalogue as a
+     * song, podcast episode or programme episode. Raw archive assets without
+     * a public catalogue entry never appear in public listings.
+     */
+    public function scopeCatalogued(Builder $query): Builder
+    {
+        return $query->where(fn (Builder $q) => $q
+            ->whereHas('song')
+            ->orWhereHas('podcastEpisode', fn (Builder $e) => $e->where('status', 'published'))
+            ->orWhereHas('episode', fn (Builder $e) => $e->where('is_published', true)));
     }
 
     public function rightsRecords(): HasMany
@@ -204,25 +244,10 @@ class AudioAsset extends Model
             && $this->rights_status === 'cleared';
     }
 
-    /**
-     * Ensure the asset has at least one rights record. Auto-provisioned as
-     * 'pending' when the asset is published, so the rights team only has to
-     * fill in the details and clear it (rather than create it from scratch).
-     */
-    public function ensureRightsRecord(): void
+    /** The rights submission currently under review (or already cleared). */
+    public function activeRightsRecord(): ?RightsRecord
     {
-        if ($this->rightsRecords()->exists()) {
-            return;
-        }
-
-        $this->rightsRecords()->create([
-            'rights_types' => [],
-            'territory' => 'Bangladesh',
-            'royalty_required' => false,
-            'status' => 'pending',
-            'created_by' => auth()->id(),
-            'notes' => 'Auto-created on approval — add the rights holder and details, then set the status to Cleared to allow publishing.',
-        ]);
+        return $this->rightsRecords->whereIn('status', ['pending', 'cleared'])->first();
     }
 
     public static function nextArchiveNo(): string

@@ -195,6 +195,15 @@ class PollAiAnalysisJob implements ShouldQueue
             $job->update(['review_status' => 'pending']);
             $asset->update(['status' => 'ai_flagged']);
 
+            \App\Support\Notify::permission('ai-moderation.review', 'ai_pending',
+                'Upload flagged — needs AI review',
+                "“{$asset->title}” was flagged (".implode(', ', array_filter([
+                    $job->is_duplicate ? 'duplicate' : null,
+                    $job->violence_detected ? 'violence' : null,
+                    $job->anti_government_detected ? 'anti-government' : null,
+                ])).') and awaits your decision.',
+                route('admin.ai-moderation.show', $asset));
+
             AiSuggestion::query()->create([
                 'audio_asset_id' => $asset->id,
                 'suggestion_type' => 'content_moderation',
@@ -215,12 +224,21 @@ class PollAiAnalysisJob implements ShouldQueue
                 'anti_government' => $job->anti_government_detected,
             ], "AI analysis flagged {$asset->archive_no} — awaiting AI Reviewer sign-off.");
         } else {
-            $job->update(['review_status' => 'not_required']);
-            $asset->update(['status' => 'draft']);
+            // M16 — EVERY upload requires AI-moderation sign-off, clean or not.
+            // A clean result goes to `ai_review` (instead of straight to draft)
+            // and waits for the AI Reviewer's approval before entering the
+            // ordinary pipeline (cataloguing → approval → rights → publish).
+            $job->update(['review_status' => 'pending']);
+            $asset->update(['status' => 'ai_review']);
 
             AuditLog::record('ai_analysis_cleared', $asset, null, [
                 'ai_analysis_job' => $job->id,
-            ], "AI analysis cleared {$asset->archive_no} — no duplicate/violence/anti-government content detected.");
+            ], "AI analysis found no issues in {$asset->archive_no} — awaiting AI Reviewer approval.");
+
+            \App\Support\Notify::permission('ai-moderation.review', 'ai_pending',
+                'Upload awaiting AI-moderation approval',
+                "“{$asset->title}” came back clean from analysis and awaits your sign-off.",
+                route('admin.ai-moderation.show', $asset));
         }
     }
 
@@ -233,12 +251,13 @@ class PollAiAnalysisJob implements ShouldQueue
             'error' => $message,
         ]);
 
-        $job->update(['status' => 'error', 'error' => $message, 'completed_at' => now()]);
+        $job->update(['status' => 'error', 'error' => $message, 'completed_at' => now(), 'review_status' => 'pending']);
 
-        // Don't leave the asset stuck in "analyzing" forever — unblock it so
-        // staff can still proceed through the ordinary manual pipeline.
+        // Don't leave the asset stuck in "analyzing" — but the AI-moderation
+        // gate still applies: a human reviewer signs it off manually (with no
+        // AI data) before it can continue through the pipeline.
         if ($asset->status === 'analyzing') {
-            $asset->update(['status' => 'draft']);
+            $asset->update(['status' => 'ai_review']);
         }
 
         AuditLog::record('ai_analysis_error', $asset, null, [

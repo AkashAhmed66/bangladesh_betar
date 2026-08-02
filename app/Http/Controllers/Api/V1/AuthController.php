@@ -56,9 +56,9 @@ class AuthController extends Controller
             'device_name' => ['nullable', 'string', 'max:120'],
         ]);
 
-        // Listeners and artists use the public apps; staff accounts do not.
+        // Listeners and dual-app ("both") accounts use the public apps; admin-only staff do not.
         $user = User::query()->where('email', $data['email'])
-            ->whereIn('user_type', ['listener', 'artist'])->first();
+            ->whereIn('user_type', ['listener', 'both'])->first();
 
         if ($user === null || ! Hash::check($data['password'], $user->password)) {
             throw ValidationException::withMessages(['email' => ['Invalid credentials.']]);

@@ -21,6 +21,7 @@ class EpisodeController extends Controller
     public function index(Request $request): View
     {
         $episodes = Episode::query()
+            ->visibleTo($request->user())
             ->with(['programme', 'audioAsset'])
             ->when($request->filled('q'), fn ($q) => $q->where('title', 'like', '%'.$request->string('q').'%'))
             ->when($request->filled('programme'), fn ($q) => $q->where('programme_id', $request->integer('programme')))
@@ -54,6 +55,7 @@ class EpisodeController extends Controller
     public function edit(Episode $episode): View
     {
         $this->authorize('episodes.manage');
+        $this->authorizeRecordVisibility($episode);
 
         return view('admin.episodes.form', ['episode' => $episode] + $this->options());
     }
@@ -61,6 +63,7 @@ class EpisodeController extends Controller
     public function update(Request $request, Episode $episode): RedirectResponse
     {
         $this->authorize('episodes.manage');
+        $this->authorizeRecordVisibility($episode);
 
         $episode->update($this->validated($request));
 
@@ -70,6 +73,7 @@ class EpisodeController extends Controller
     public function destroy(Episode $episode): RedirectResponse
     {
         $this->authorize('episodes.manage');
+        $this->authorizeRecordVisibility($episode);
 
         $episode->delete();
 
@@ -96,7 +100,8 @@ class EpisodeController extends Controller
     {
         return [
             'programmes' => Programme::query()->orderBy('title')->pluck('title', 'id'),
-            'assets' => AudioAsset::query()->orderByDesc('id')->take(200)->pluck('title', 'id'),
+            // Asset picker honours record visibility for restricted users.
+            'assets' => AudioAsset::query()->visibleTo(auth()->user())->orderByDesc('id')->take(200)->pluck('title', 'id'),
         ];
     }
 }

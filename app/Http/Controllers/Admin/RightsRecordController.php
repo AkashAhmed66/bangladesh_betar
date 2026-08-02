@@ -8,10 +8,13 @@ use App\Http\Controllers\Controller;
 use App\Models\AudioAsset;
 use App\Models\RightsHolder;
 use App\Models\RightsRecord;
+use App\Support\Notify;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * M14 — per-asset rights records. Publication is gated on the parent
@@ -70,9 +73,26 @@ class RightsRecordController extends Controller
     {
         $this->authorize('rights.manage');
 
+        $oldStatus = $rightsRecord->status;
         $rightsRecord->update($this->validated($request));
 
         $this->syncAssetRightsStatus($rightsRecord);
+
+        // Tell the submitter/uploader when the clearance decision lands.
+        if ($rightsRecord->status !== $oldStatus) {
+            $asset = $rightsRecord->audioAsset;
+            $recipients = collect([$rightsRecord->creator, $asset?->uploader])->filter();
+            $cleared = $rightsRecord->status === 'cleared';
+
+            Notify::users($recipients,
+                $cleared ? 'publish_ready' : 'rights_status',
+                $cleared ? 'Rights cleared — ready to publish' : 'Rights status updated',
+                $cleared
+                    ? "Rights for “{$asset?->title}” are cleared. You can now publish it to the public app."
+                    : "Rights for “{$asset?->title}” were set to “{$rightsRecord->status}”.",
+                $asset ? route('admin.assets.show', $asset) : route('admin.rights-records.index'),
+                except: $request->user()->id);
+        }
 
         return redirect()->route('admin.rights-records.index')->with('success', 'Rights record updated.');
     }
@@ -84,6 +104,25 @@ class RightsRecordController extends Controller
         $rightsRecord->delete();
 
         return redirect()->route('admin.rights-records.index')->with('success', 'Rights record deleted.');
+    }
+
+    /**
+     * Download a submitted copyright document (FR-CPR-02). Available to the
+     * rights team and to the asset's submitter (record visibility) — the files
+     * live on the private disk and are only served through this route.
+     */
+    public function document(RightsRecord $rightsRecord, int $index): StreamedResponse
+    {
+        $user = auth()->user();
+        abort_unless(
+            $user->can('rights.view') || ($rightsRecord->audioAsset?->isVisibleTo($user) ?? false),
+            403,
+        );
+
+        $doc = $rightsRecord->documents[$index] ?? null;
+        abort_unless($doc && Storage::disk('local')->exists($doc['path']), 404, 'Document not found.');
+
+        return Storage::disk('local')->download($doc['path'], $doc['name'] ?? basename($doc['path']));
     }
 
     /**

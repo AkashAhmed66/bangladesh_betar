@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Models\Concerns\Auditable;
+use App\Models\Concerns\HasRecordVisibility;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,7 +16,7 @@ use Laravel\Scout\Searchable;
 
 class Artist extends Model
 {
-    use Auditable, Searchable, SoftDeletes;
+    use Auditable, HasRecordVisibility, Searchable, SoftDeletes;
 
     /** Valid artist_type values (single source of truth for admin + user forms). */
     public const TYPES = ['singer', 'composer', 'lyricist', 'presenter', 'producer', 'voice_artist', 'narrator', 'speaker', 'band'];

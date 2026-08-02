@@ -34,16 +34,51 @@
         </div>
     </div>
 
-    {{-- Notifications --}}
-    @php $pendingApprovals = auth()->user()->can('approvals.view') ? \App\Models\Approval::actionableBy(auth()->user())->count() : 0; @endphp
-    <a href="{{ auth()->user()->can('approvals.view') ? route('admin.approvals.index') : '#' }}" class="btn-ghost relative p-2" title="Pending approvals">
-        <x-icon name="bell" class="size-5" />
-        @if ($pendingApprovals > 0)
-            <span class="absolute -top-0.5 -right-0.5 flex size-4.5 items-center justify-center rounded-full bg-accent-600 text-[10px] font-bold text-white">
-                {{ min($pendingApprovals, 9) }}
-            </span>
-        @endif
-    </a>
+    {{-- Notifications (M30) — approval stages, AI moderation and rights events --}}
+    @php
+        $unreadCount = auth()->user()->unreadNotifications()->count();
+        $recentNotifications = auth()->user()->notifications()->take(8)->get();
+    @endphp
+    <div x-data="{ open: false }" class="relative">
+        <button @click="open = !open" class="btn-ghost relative p-2" title="Notifications">
+            <x-icon name="bell" class="size-5" />
+            @if ($unreadCount > 0)
+                <span class="absolute -top-0.5 -right-0.5 flex size-4.5 items-center justify-center rounded-full bg-accent-600 text-[10px] font-bold text-white">
+                    {{ min($unreadCount, 9) }}{{ $unreadCount > 9 ? '+' : '' }}
+                </span>
+            @endif
+        </button>
+        <div x-show="open" @click.outside="open = false" x-transition.origin.top.right class="dropdown-panel w-96 max-w-[calc(100vw-2rem)] p-0" x-cloak>
+            <div class="flex items-center justify-between border-b border-slate-100 px-4 py-2.5 dark:border-slate-700">
+                <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">Notifications</p>
+                @if ($unreadCount > 0)
+                    <form method="POST" action="{{ route('admin.notifications.read-all') }}">@csrf
+                        <button type="submit" class="text-xs font-medium text-primary-700 hover:underline dark:text-primary-300">Mark all read</button>
+                    </form>
+                @endif
+            </div>
+            <div class="max-h-96 overflow-y-auto">
+                @forelse ($recentNotifications as $n)
+                    <a href="{{ route('admin.notifications.open', $n->id) }}"
+                       class="block border-b border-slate-50 px-4 py-2.5 transition hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/60 {{ $n->read_at ? 'opacity-60' : '' }}">
+                        <p class="flex items-start gap-2 text-sm">
+                            @unless ($n->read_at)<span class="mt-1.5 size-2 shrink-0 rounded-full bg-accent-600"></span>@endunless
+                            <span class="font-medium text-slate-800 dark:text-slate-100">{{ $n->data['title'] ?? 'Notification' }}</span>
+                        </p>
+                        <p class="clamp-2 mt-0.5 text-xs text-slate-500 dark:text-slate-400">{{ $n->data['message'] ?? '' }}</p>
+                        <p class="mt-0.5 text-[11px] text-slate-400">{{ $n->created_at->diffForHumans() }}</p>
+                    </a>
+                @empty
+                    <p class="px-4 py-6 text-center text-sm text-slate-400">No notifications yet.</p>
+                @endforelse
+            </div>
+            @can('notifications.view')
+                <a href="{{ route('admin.notifications.index') }}" class="block border-t border-slate-100 px-4 py-2.5 text-center text-sm font-medium text-primary-700 hover:bg-slate-50 dark:border-slate-700 dark:text-primary-300 dark:hover:bg-slate-800/60">
+                    View all notifications
+                </a>
+            @endcan
+        </div>
+    </div>
 
     {{-- User menu --}}
     @php $me = auth()->user(); $avatar = $me->avatarUrl(); @endphp

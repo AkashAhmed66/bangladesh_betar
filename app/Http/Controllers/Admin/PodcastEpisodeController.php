@@ -22,6 +22,7 @@ class PodcastEpisodeController extends Controller
     public function index(Request $request): View
     {
         $episodes = PodcastEpisode::query()
+            ->visibleTo($request->user())
             ->with(['channel', 'audioAsset'])
             ->when($request->filled('q'), fn ($q) => $q->where('title', 'like', '%'.$request->string('q').'%'))
             ->when($request->filled('channel'), fn ($q) => $q->where('podcast_channel_id', $request->integer('channel')))
@@ -55,6 +56,7 @@ class PodcastEpisodeController extends Controller
     public function edit(PodcastEpisode $podcastEpisode): View
     {
         $this->authorize('podcasts.manage');
+        $this->authorizeRecordVisibility($podcastEpisode);
 
         return view('admin.podcast-episodes.form', ['episode' => $podcastEpisode] + $this->options());
     }
@@ -62,6 +64,7 @@ class PodcastEpisodeController extends Controller
     public function update(Request $request, PodcastEpisode $podcastEpisode): RedirectResponse
     {
         $this->authorize('podcasts.manage');
+        $this->authorizeRecordVisibility($podcastEpisode);
 
         $podcastEpisode->update($this->validated($request));
 
@@ -71,6 +74,7 @@ class PodcastEpisodeController extends Controller
     public function destroy(PodcastEpisode $podcastEpisode): RedirectResponse
     {
         $this->authorize('podcasts.manage');
+        $this->authorizeRecordVisibility($podcastEpisode);
 
         $podcastEpisode->delete();
 
@@ -97,8 +101,9 @@ class PodcastEpisodeController extends Controller
     private function options(): array
     {
         return [
-            'channels' => PodcastChannel::query()->orderBy('title')->pluck('title', 'id'),
-            'assets' => AudioAsset::query()->where('content_type', 'podcast')->orderByDesc('id')->take(200)->pluck('title', 'id'),
+            'channels' => PodcastChannel::query()->visibleTo(auth()->user())->orderBy('title')->pluck('title', 'id'),
+            // Asset picker honours record visibility for restricted users.
+            'assets' => AudioAsset::query()->visibleTo(auth()->user())->where('content_type', 'podcast')->orderByDesc('id')->take(200)->pluck('title', 'id'),
         ];
     }
 }

@@ -18,6 +18,7 @@ class AlbumController extends Controller
     public function index(Request $request): View
     {
         $albums = Album::query()
+            ->visibleTo($request->user())
             ->with('artists')
             ->withCount('songs')
             ->when($request->filled('q'), fn ($q) => $q->where('title', 'like', '%'.$request->string('q').'%'))
@@ -50,6 +51,7 @@ class AlbumController extends Controller
     public function edit(Album $album): View
     {
         $this->authorize('albums.manage');
+        $this->authorizeRecordVisibility($album);
 
         return view('admin.albums.form', compact('album'));
     }
@@ -57,6 +59,7 @@ class AlbumController extends Controller
     public function update(Request $request, Album $album): RedirectResponse
     {
         $this->authorize('albums.manage');
+        $this->authorizeRecordVisibility($album);
 
         $album->update($this->validated($request));
 
@@ -66,6 +69,7 @@ class AlbumController extends Controller
     public function destroy(Album $album): RedirectResponse
     {
         $this->authorize('albums.manage');
+        $this->authorizeRecordVisibility($album);
 
         $album->delete();
 

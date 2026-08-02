@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Http\Controllers\Api\V1\Concerns\PresentsCataloguedAssets;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AlbumResource;
 use App\Http\Resources\ArtistResource;
 use App\Http\Resources\AudioAssetResource;
 use App\Http\Resources\PodcastChannelResource;
+use App\Http\Resources\PodcastEpisodeResource;
 use App\Http\Resources\ProgrammeResource;
 use App\Http\Resources\SongResource;
 use App\Models\Album;
@@ -19,6 +21,7 @@ use App\Models\Category;
 use App\Models\Genre;
 use App\Models\Playlist;
 use App\Models\PodcastChannel;
+use App\Models\PodcastEpisode;
 use App\Models\Programme;
 use App\Models\Song;
 use Illuminate\Http\JsonResponse;
@@ -30,6 +33,8 @@ use Illuminate\Http\Request;
  */
 class BrowseController extends Controller
 {
+    use PresentsCataloguedAssets;
+
     /**
      * Home screen: curated + dynamic rows assembled from live sections (FR-PUB-01).
      */
@@ -40,7 +45,7 @@ class BrowseController extends Controller
         // is fixed here in code.
         $rows = [
             ['trending', 'Trending Now', 'এখন ট্রেন্ডিং'],
-            ['new_releases', 'New to the Archive', 'নতুন প্রকাশ'],
+            ['new_releases', 'New Releases', 'নতুন প্রকাশ'],
             ['on_this_day', 'On This Day', 'ইতিহাসের এই দিনে'],
             ['top_played', 'Top Played', 'সর্বাধিক শোনা'],
         ];
@@ -89,42 +94,42 @@ class BrowseController extends Controller
         ]);
     }
 
-    /** FR-ANL-06 — trending over a configurable window. */
+    /** FR-ANL-06 — trending over a configurable window (catalogued content only). */
     public function trending(Request $request): JsonResponse
     {
-        $assets = AudioAsset::query()->published()
+        $assets = AudioAsset::query()->published()->catalogued()->with($this->cataloguedWith())
             ->where('published_at', '>=', now()->subDays(30))
             ->orderByDesc('play_count')
             ->take(20)->get();
 
-        return AudioAssetResource::collection($assets)->response();
+        return response()->json(['data' => $this->presentCatalogued($assets)]);
     }
 
     public function topPlayed(): JsonResponse
     {
-        return AudioAssetResource::collection(
-            AudioAsset::query()->published()->orderByDesc('play_count')->take(20)->get(),
-        )->response();
+        $assets = AudioAsset::query()->published()->catalogued()->with($this->cataloguedWith())
+            ->orderByDesc('play_count')->take(20)->get();
+
+        return response()->json(['data' => $this->presentCatalogued($assets)]);
     }
 
+    /** New Releases — the latest published songs, podcast episodes and programmes. */
     public function newReleases(): JsonResponse
     {
-        return AudioAssetResource::collection(
-            AudioAsset::query()->published()->latest('published_at')->take(20)->get(),
-        )->response();
+        return response()->json(['data' => $this->newReleaseItems(20)]);
     }
 
-    /** FR-CUR-04 — On This Day: content first broadcast on today's date. */
+    /** FR-CUR-04 — On This Day: content first broadcast on today's date (catalogued only). */
     public function onThisDay(): JsonResponse
     {
-        $assets = AudioAsset::query()->published()
+        $assets = AudioAsset::query()->published()->catalogued()->with($this->cataloguedWith())
             ->whereMonth('first_broadcast_on', now()->month)
             ->whereDay('first_broadcast_on', now()->day)
             ->orderByDesc('play_count')->take(20)->get();
 
         return response()->json([
             'date' => now()->toDateString(),
-            'data' => AudioAssetResource::collection($assets),
+            'data' => $this->presentCatalogued($assets),
         ]);
     }
 
@@ -145,7 +150,7 @@ class BrowseController extends Controller
     {
         $exclude = array_filter(array_map('intval', explode(',', (string) $request->query('exclude', ''))));
 
-        $assets = AudioAsset::query()->published()
+        $assets = AudioAsset::query()->published()->catalogued()
             ->where('is_premium', false)
             ->when($exclude, fn ($q) => $q->whereNotIn('id', $exclude))
             ->inRandomOrder()
@@ -159,15 +164,16 @@ class BrowseController extends Controller
     private function resolveSectionItems(string $type, int $max): array
     {
         $items = match ($type) {
-            'trending' => AudioAsset::query()->published()->orderByDesc('play_count')->take($max)->get()
-                ->map(fn ($a) => (new AudioAssetResource($a))->resolve()),
-            'new_releases' => AudioAsset::query()->published()->latest('published_at')->take($max)->get()
-                ->map(fn ($a) => (new AudioAssetResource($a))->resolve()),
-            'top_played' => AudioAsset::query()->published()->orderByDesc('play_count')->take($max)->get()
-                ->map(fn ($a) => (new AudioAssetResource($a))->resolve()),
-            'on_this_day' => AudioAsset::query()->published()
-                ->whereMonth('first_broadcast_on', now()->month)->whereDay('first_broadcast_on', now()->day)
-                ->take($max)->get()->map(fn ($a) => (new AudioAssetResource($a))->resolve()),
+            'trending', 'top_played' => $this->presentCatalogued(
+                AudioAsset::query()->published()->catalogued()->with($this->cataloguedWith())
+                    ->orderByDesc('play_count')->take($max)->get(),
+            ),
+            'new_releases' => collect($this->newReleaseItems($max)),
+            'on_this_day' => $this->presentCatalogued(
+                AudioAsset::query()->published()->catalogued()->with($this->cataloguedWith())
+                    ->whereMonth('first_broadcast_on', now()->month)->whereDay('first_broadcast_on', now()->day)
+                    ->take($max)->get(),
+            ),
             'featured_artists' => Artist::query()->published()->where('is_featured', true)->take($max)->get()
                 ->map(fn ($a) => (new ArtistResource($a))->resolve()),
             'featured_albums' => Album::query()->published()->withCount('songs')->take($max)->get()
@@ -176,5 +182,44 @@ class BrowseController extends Controller
         };
 
         return $items->values()->all();
+    }
+
+    /**
+     * "New Releases": the newest published songs, podcast episodes and
+     * programmes, interleaved by publish date.
+     */
+    private function newReleaseItems(int $max): array
+    {
+        $songs = Song::query()->published()->with(['audioAsset', 'artists', 'genre'])
+            ->join('audio_assets', 'audio_assets.id', '=', 'songs.audio_asset_id')
+            ->orderByDesc('audio_assets.published_at')
+            ->select('songs.*')
+            ->take($max)->get();
+
+        $episodes = PodcastEpisode::query()->published()->with(['channel', 'audioAsset'])
+            ->orderByRaw('COALESCE(published_at, created_at) DESC')
+            ->take($max)->get();
+
+        $programmes = Programme::query()->published()->withCount('episodes')
+            ->latest()->take($max)->get();
+
+        return collect()
+            ->concat($songs->map(fn (Song $s) => [
+                'at' => $s->audioAsset?->published_at ?? $s->created_at,
+                'item' => (new SongResource($s))->resolve(),
+            ]))
+            ->concat($episodes->map(fn (PodcastEpisode $e) => [
+                'at' => $e->published_at ?? $e->created_at,
+                'item' => (new PodcastEpisodeResource($e))->resolve(),
+            ]))
+            ->concat($programmes->map(fn (Programme $p) => [
+                'at' => $p->created_at,
+                'item' => (new ProgrammeResource($p))->resolve(),
+            ]))
+            ->sortByDesc('at')
+            ->take($max)
+            ->pluck('item')
+            ->values()
+            ->all();
     }
 }

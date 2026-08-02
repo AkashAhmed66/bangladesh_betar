@@ -19,6 +19,7 @@ class ProgrammeController extends Controller
     public function index(Request $request): View
     {
         $programmes = Programme::query()
+            ->visibleTo($request->user())
             ->with(['station', 'category'])
             ->withCount(['episodes', 'audioAssets'])
             ->when($request->filled('q'), fn ($q) => $q->where('title', 'like', '%'.$request->string('q').'%'))
@@ -51,6 +52,7 @@ class ProgrammeController extends Controller
     public function edit(Programme $programme): View
     {
         $this->authorize('programmes.manage');
+        $this->authorizeRecordVisibility($programme);
 
         return view('admin.programmes.form', ['programme' => $programme] + $this->options());
     }
@@ -58,6 +60,7 @@ class ProgrammeController extends Controller
     public function update(Request $request, Programme $programme): RedirectResponse
     {
         $this->authorize('programmes.manage');
+        $this->authorizeRecordVisibility($programme);
 
         $programme->update($this->validated($request));
 
@@ -67,6 +70,7 @@ class ProgrammeController extends Controller
     public function destroy(Programme $programme): RedirectResponse
     {
         $this->authorize('programmes.manage');
+        $this->authorizeRecordVisibility($programme);
 
         $programme->delete();
 

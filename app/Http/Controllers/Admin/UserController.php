@@ -54,7 +54,7 @@ class UserController extends Controller
         $role = $this->resolveRole($data);
         $user->syncRoles([$role]);
 
-        if ($user->isArtist()) {
+        if ($role === 'Artist') {
             $this->syncArtistProfile($user, $data);
         }
 
@@ -81,9 +81,10 @@ class UserController extends Controller
         }
 
         $user->update($data);
-        $user->syncRoles([$this->resolveRole($data)]);
+        $role = $this->resolveRole($data);
+        $user->syncRoles([$role]);
 
-        if ($user->isArtist()) {
+        if ($role === 'Artist') {
             $this->syncArtistProfile($user, $data);
         }
 
@@ -91,8 +92,10 @@ class UserController extends Controller
     }
 
     /**
-     * Shared validation for create/update. On create the password is required;
-     * `role` is required only for staff (listeners/artists get a fixed role).
+     * Shared validation for create/update. On create the password is required.
+     * A `role` is required for staff and dual-app ("both") accounts; listeners
+     * get the fixed Listener role. `artist_type` is required only when the
+     * chosen role is Artist.
      */
     private function validateUser(Request $request, ?User $user = null): array
     {
@@ -101,21 +104,20 @@ class UserController extends Controller
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user?->id)],
             'phone' => ['nullable', 'string', 'max:30'],
             'password' => [$user ? 'nullable' : 'required', 'string', 'min:6'],
-            'user_type' => ['required', Rule::in(['staff', 'listener', 'artist'])],
+            'user_type' => ['required', Rule::in(['staff', 'listener', 'both'])],
             'status' => ['required', Rule::in(['active', 'inactive', 'banned'])],
-            'role' => ['required_if:user_type,staff', 'nullable', 'exists:roles,name'],
-            // Artist-only fields (ignored for other account types).
-            'artist_type' => ['nullable', Rule::in(Artist::TYPES)],
+            'role' => ['required_unless:user_type,listener', 'nullable', 'exists:roles,name'],
+            // Artist fields — required (and used) only when the role is Artist.
+            'artist_type' => ['nullable', Rule::requiredIf(fn () => $request->input('role') === 'Artist'), Rule::in(Artist::TYPES)],
             'is_verified' => ['boolean'],
         ]);
     }
 
-    /** Staff pick a role; listeners and artists get their fixed role. */
+    /** Listeners get the fixed Listener role; staff and dual-app accounts use the chosen role. */
     private function resolveRole(array $data): string
     {
         return match ($data['user_type']) {
             'listener' => Role::findOrCreate('Listener', 'web')->name,
-            'artist' => Role::findOrCreate('Artist', 'web')->name,
             default => $data['role'],
         };
     }

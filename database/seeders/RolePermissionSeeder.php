@@ -51,6 +51,10 @@ class RolePermissionSeeder extends Seeder
         'backups' => ['view', 'manage'],
         'settings' => ['view', 'manage'],
         'notifications' => ['view', 'send'],
+        // Record-level visibility: holders see every record in their permitted
+        // modules; without it users see only records they created (approvals /
+        // rights / AI moderation always show all — they have no assignment yet).
+        'records' => ['view-all'],
     ];
 
     /** Role => permission spec ('*' = everything, 'group.*' = whole group). */
@@ -135,6 +139,33 @@ class RolePermissionSeeder extends Seeder
         ],
     ];
 
+    /**
+     * Creator permission set for the Artist role (and a template for similar
+     * roles): upload/ingest recordings, manage their own catalogue records,
+     * follow their approval status, watch comments on their recordings, go on
+     * air, and see their own dashboard + analytics.
+     *
+     * Deliberately WITHOUT `records.view-all` — creators see only records they
+     * created (HasRecordVisibility). They CAN publish/unpublish, but record
+     * visibility limits that to their own assets, and the publish gates
+     * (staff approval workflow + cleared rights) still apply first.
+     * Approve/delete stay with staff.
+     */
+    private const ARTIST_PERMISSIONS = [
+        'dashboard.view',
+        'assets.view', 'assets.upload', 'assets.edit', 'assets.publish',
+        'editing.view', 'editing.use',
+        'songs.view', 'songs.manage',
+        'albums.view', 'albums.manage',
+        'podcasts.view', 'podcasts.manage',
+        'programmes.view', 'programmes.manage',
+        'episodes.view', 'episodes.manage',
+        'broadcasts.view', 'broadcasts.broadcast',
+        'approvals.view',
+        'moderation.view',
+        'notifications.view',
+    ];
+
     public function run(): void
     {
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
@@ -154,16 +185,20 @@ class RolePermissionSeeder extends Seeder
 
         foreach (self::ROLES as $roleName => $spec) {
             $role = Role::findOrCreate($roleName, 'web');
-            $role->syncPermissions($this->expand($spec, $all));
+            // Built-in staff roles default to full record visibility; restrict
+            // a role by revoking records.view-all in the Roles UI.
+            $role->syncPermissions(array_values(array_unique(
+                [...$this->expand($spec, $all), 'records.view-all'],
+            )));
         }
 
         // Public listener role — no admin permissions, used by the API guard.
         Role::findOrCreate('Listener', 'web');
 
-        // Artist role — no admin permissions. Artist accounts enter the portal
-        // only to manage their own profile (profile routes are not permission-
-        // gated); everything else stays 403 for them.
-        Role::findOrCreate('Artist', 'web');
+        // Artist role — creator permissions (see ARTIST_PERMISSIONS), scoped to
+        // their own records because it does NOT hold records.view-all. Their
+        // profile stays editable via the ungated profile routes.
+        Role::findOrCreate('Artist', 'web')->syncPermissions(self::ARTIST_PERMISSIONS);
 
         $this->command?->info('Roles: '.count(self::ROLES).' + Listener + Artist, permissions: '.count($all));
     }

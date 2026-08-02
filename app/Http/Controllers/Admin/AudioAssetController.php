@@ -14,9 +14,12 @@ use App\Models\AudioVersion;
 use App\Models\Category;
 use App\Models\Language;
 use App\Models\Programme;
+use App\Models\RightsHolder;
+use App\Models\RightsRecord;
 use App\Models\Station;
 use App\Models\Workflow;
 use App\Services\AudioProcessor;
+use App\Support\Notify;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -31,9 +34,31 @@ class AudioAssetController extends Controller
         'speech', 'jingle', 'psa', 'advert', 'voice_over', 'historical',
     ];
 
+    /**
+     * Dropdown labels explaining where each content type leads: song /
+     * programme / podcast flow into the public catalogue via their module;
+     * the rest are archive classifications (attachable to programme episodes).
+     */
+    private const CONTENT_TYPE_OPTIONS = [
+        'song' => 'Song — publishes via Songs (music library)',
+        'programme' => 'Programme — publishes via Programme Episodes',
+        'podcast' => 'Podcast — publishes via Podcast Episodes',
+        'story' => 'Story — archive classification',
+        'news' => 'News — archive classification',
+        'interview' => 'Interview — archive classification',
+        'drama' => 'Drama — archive classification',
+        'speech' => 'Speech — archive classification',
+        'jingle' => 'Jingle — archive classification',
+        'psa' => 'PSA — archive classification',
+        'advert' => 'Advert — ad campaign audio',
+        'voice_over' => 'Voice over — archive classification',
+        'historical' => 'Historical — archive classification',
+    ];
+
     public function index(Request $request): View
     {
         $assets = AudioAsset::query()
+            ->visibleTo($request->user())
             ->with(['station', 'category', 'uploader'])
             ->when($request->filled('q'), fn ($q) => $q->where(fn ($w) => $w
                 ->where('title', 'like', '%'.$request->string('q').'%')
@@ -51,7 +76,7 @@ class AudioAssetController extends Controller
             'stations' => Station::query()->orderBy('name')->pluck('name', 'id'),
             'contentTypes' => self::CONTENT_TYPES,
             'statuses' => [
-                'analyzing', 'ai_flagged', 'ai_rejected', 'draft',
+                'analyzing', 'ai_review', 'ai_flagged', 'ai_rejected', 'draft',
                 'in_review', 'pending_approval', 'approved', 'published', 'rejected', 'unpublished', 'archived',
             ],
         ]);
@@ -95,6 +120,7 @@ class AudioAssetController extends Controller
     public function uploadMaster(Request $request, AudioAsset $asset, AudioProcessor $processor): RedirectResponse
     {
         $this->authorize('assets.upload');
+        $this->authorizeRecordVisibility($asset);
 
         if ($error = $this->uploadError($request)) {
             return back()->with('error', $error);
@@ -245,6 +271,7 @@ class AudioAssetController extends Controller
     public function storePeaks(Request $request, AudioAsset $asset): \Illuminate\Http\JsonResponse
     {
         $this->authorize('assets.edit');
+        $this->authorizeRecordVisibility($asset);
         $data = $request->validate([
             'peaks' => ['required', 'array', 'min:8', 'max:2000'],
             'peaks.*' => ['numeric', 'between:0,1'],
@@ -256,6 +283,8 @@ class AudioAssetController extends Controller
 
     public function show(AudioAsset $asset): View
     {
+        $this->authorizeRecordVisibility($asset);
+
         $asset->load([
             'station', 'department', 'programme', 'category', 'language', 'uploader',
             'versions.creator', 'tags', 'artists', 'rightsRecords.rightsHolder',
@@ -271,11 +300,14 @@ class AudioAssetController extends Controller
 
     public function edit(AudioAsset $asset): View
     {
+        $this->authorizeRecordVisibility($asset);
+
         return view('admin.assets.form', ['asset' => $asset] + $this->formOptions());
     }
 
     public function update(Request $request, AudioAsset $asset): RedirectResponse
     {
+        $this->authorizeRecordVisibility($asset);
         $asset->update($this->validated($request));
 
         return redirect()->route('admin.assets.show', $asset)->with('success', 'Asset metadata updated.');
@@ -283,6 +315,8 @@ class AudioAssetController extends Controller
 
     public function destroy(Request $request, AudioAsset $asset): RedirectResponse
     {
+        $this->authorizeRecordVisibility($asset);
+
         // FR-REP-03 — masters are protected: only Super Administrators delete assets.
         if (! $request->user()->hasRole('Super Administrator')) {
             return back()->with('error', 'Only a Super Administrator may delete archive assets (FR-REP-03).');
@@ -297,8 +331,10 @@ class AudioAssetController extends Controller
     /** Submit into the configured approval workflow (M13). */
     public function submitForApproval(Request $request, AudioAsset $asset): RedirectResponse
     {
-        if (in_array($asset->status, ['analyzing', 'ai_flagged'], true)) {
-            return back()->with('error', 'This asset is still being checked by the AI safety analysis.');
+        $this->authorizeRecordVisibility($asset);
+
+        if (in_array($asset->status, ['analyzing', 'ai_review', 'ai_flagged'], true)) {
+            return back()->with('error', 'This asset is awaiting AI moderation approval — every upload must be cleared there first.');
         }
 
         if ($asset->status === 'ai_rejected') {
@@ -336,12 +372,111 @@ class AudioAssetController extends Controller
 
         $asset->update(['status' => 'in_review']);
 
+        // Notify the approvers whose role owns the first stage.
+        if ($stage) {
+            Notify::role($stage->approver_role, 'needs_approval',
+                'Needs your approval',
+                "{$request->user()->name} submitted “{$asset->title}” — stage: {$stage->name}.",
+                route('admin.approvals.show', $approval),
+                except: $request->user()->id);
+        }
+
         return back()->with('success', "Submitted into workflow: {$workflow->name}.");
+    }
+
+    /**
+     * FR-CPR-01/02 — after the approval workflow completes, the submitter
+     * files the copyright documents + rights details ("Submit for Rights").
+     * Creates the pending rights record the rights team reviews and clears —
+     * which is what unlocks the Publish button.
+     */
+    public function submitForRights(Request $request, AudioAsset $asset): RedirectResponse
+    {
+        $this->authorizeRecordVisibility($asset);
+
+        if ($asset->status !== 'approved') {
+            return back()->with('error', 'Complete the approval workflow first — rights are submitted once the asset is approved.');
+        }
+
+        if ($asset->rights_status === 'cleared') {
+            return back()->with('error', 'Rights are already cleared for this asset.');
+        }
+
+        if ($asset->rightsRecords()->whereIn('status', ['pending', 'cleared'])->exists()) {
+            return back()->with('error', 'A rights submission is already under review for this asset.');
+        }
+
+        $data = $request->validate([
+            'rights_holder_id' => ['nullable', 'exists:rights_holders,id'],
+            'holder_name' => ['nullable', 'required_without:rights_holder_id', 'string', 'max:255'],
+            'holder_email' => ['nullable', 'email', 'max:255'],
+            'rights_types' => ['required', 'array', 'min:1'],
+            'rights_types.*' => [Rule::in(['broadcast', 'streaming', 'download', 'commercial'])],
+            'territory' => ['required', 'string', 'max:255'],
+            'valid_from' => ['nullable', 'date'],
+            'valid_until' => ['nullable', 'date', 'after_or_equal:valid_from'],
+            'royalty_required' => ['boolean'],
+            'royalty_notes' => ['nullable', 'string'],
+            'notes' => ['nullable', 'string'],
+            'documents' => ['required', 'array', 'min:1', 'max:10'],
+            'documents.*' => ['file', 'mimes:pdf,jpg,jpeg,png,webp,doc,docx', 'max:10240'],
+        ]);
+
+        // Resolve the rights holder: an existing one, or register the named one.
+        $holderId = $data['rights_holder_id'] ?? null;
+        if (! $holderId) {
+            $holderId = RightsHolder::query()->firstOrCreate(
+                ['name' => $data['holder_name']],
+                ['holder_type' => 'person', 'email' => $data['holder_email'] ?? null],
+            )->id;
+        }
+
+        // Copyright documents live on the private disk — served only through
+        // the gated download route.
+        $documents = [];
+        foreach ($request->file('documents', []) as $file) {
+            $documents[] = [
+                'path' => $file->store("rights-docs/{$asset->id}", 'local'),
+                'name' => $file->getClientOriginalName(),
+            ];
+        }
+
+        $record = RightsRecord::query()->create([
+            'audio_asset_id' => $asset->id,
+            'rights_holder_id' => $holderId,
+            'rights_types' => $data['rights_types'],
+            'territory' => $data['territory'],
+            'valid_from' => $data['valid_from'] ?? null,
+            'valid_until' => $data['valid_until'] ?? null,
+            'royalty_required' => (bool) ($data['royalty_required'] ?? false),
+            'royalty_notes' => $data['royalty_notes'] ?? null,
+            'notes' => $data['notes'] ?? null,
+            'documents' => $documents,
+            'status' => 'pending',
+            'created_by' => $request->user()->id,
+        ]);
+
+        $asset->update(['rights_status' => 'pending']);
+
+        AuditLog::record('rights_submitted', $asset, null, [
+            'rights_record_id' => $record->id, 'documents' => count($documents),
+        ], "Rights submission for {$asset->archive_no} ({$record->id})");
+
+        // Tell the rights team there is a submission to review.
+        Notify::permission('rights.manage', 'rights_submitted',
+            'Rights submission needs review',
+            "{$request->user()->name} filed copyright documents for “{$asset->title}” (".count($documents).' file'.(count($documents) === 1 ? '' : 's').').',
+            route('admin.rights-records.edit', $record),
+            except: $request->user()->id);
+
+        return back()->with('success', 'Copyright documents submitted. The rights team will review and clear them — publishing unlocks once cleared.');
     }
 
     /** FR-CPR-04/05 — publication requires cleared rights + approval. */
     public function publish(AudioAsset $asset): RedirectResponse
     {
+        $this->authorizeRecordVisibility($asset);
+
         if ($asset->rights_status !== 'cleared') {
             return back()->with('error', 'Publication blocked: rights are not cleared. Complete the rights record in Rights Records and set it to Cleared first (FR-CPR-05).');
         }
@@ -367,6 +502,7 @@ class AudioAssetController extends Controller
 
     public function unpublish(AudioAsset $asset): RedirectResponse
     {
+        $this->authorizeRecordVisibility($asset);
         $asset->update(['status' => 'unpublished', 'access_level' => 'internal']);
         AuditLog::record('asset_unpublished', $asset, null, null, "Asset {$asset->archive_no} unpublished");
 
@@ -382,6 +518,7 @@ class AudioAssetController extends Controller
     public function setStreamingVersion(AudioAsset $asset, AudioVersion $version): RedirectResponse
     {
         $this->authorize('assets.publish');
+        $this->authorizeRecordVisibility($asset);
 
         abort_unless($version->audio_asset_id === $asset->id, 404);
 
@@ -440,7 +577,7 @@ class AudioAssetController extends Controller
             'programmes' => Programme::query()->orderBy('title')->pluck('title', 'id'),
             'categories' => Category::query()->where('type', 'content')->orderBy('name')->pluck('name', 'id'),
             'languages' => Language::query()->orderBy('name')->pluck('name', 'id'),
-            'contentTypes' => self::CONTENT_TYPES,
+            'contentTypes' => self::CONTENT_TYPE_OPTIONS,
         ];
     }
 

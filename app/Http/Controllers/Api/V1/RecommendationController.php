@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Http\Controllers\Api\V1\Concerns\PresentsCataloguedAssets;
 use App\Http\Controllers\Controller;
-use App\Http\Resources\AudioAssetResource;
 use App\Models\AudioAsset;
 use App\Models\PlayHistory;
 use App\Models\Song;
@@ -19,7 +19,9 @@ use Illuminate\Http\Request;
  */
 class RecommendationController extends Controller
 {
-    /** "Recommended for you" (FR-REC-01). */
+    use PresentsCataloguedAssets;
+
+    /** "Recommended for you" (FR-REC-01) — catalogued content only. */
     public function forYou(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -28,8 +30,9 @@ class RecommendationController extends Controller
             return response()->json([
                 'personalized' => false,
                 'reason' => $user ? 'Personalization is turned off.' : 'Sign in for personalized recommendations.',
-                'data' => AudioAssetResource::collection(
-                    AudioAsset::query()->published()->orderByDesc('play_count')->take(20)->get(),
+                'data' => $this->presentCatalogued(
+                    AudioAsset::query()->published()->catalogued()->with($this->cataloguedWith())
+                        ->orderByDesc('play_count')->take(20)->get(),
                 ),
             ]);
         }
@@ -40,33 +43,35 @@ class RecommendationController extends Controller
 
         $genreIds = Song::query()->whereIn('audio_asset_id', $recentAssetIds)->pluck('genre_id')->filter()->unique();
 
-        $recommended = AudioAsset::query()->published()
+        $recommended = AudioAsset::query()->published()->catalogued()->with($this->cataloguedWith())
             ->whereNotIn('id', $recentAssetIds)
             ->when($genreIds->isNotEmpty(), fn ($q) => $q->whereHas('song', fn ($s) => $s->whereIn('genre_id', $genreIds)))
             ->orderByDesc('play_count')->take(20)->get();
 
         if ($recommended->isEmpty()) {
-            $recommended = AudioAsset::query()->published()->orderByDesc('play_count')->take(20)->get();
+            $recommended = AudioAsset::query()->published()->catalogued()->with($this->cataloguedWith())
+                ->orderByDesc('play_count')->take(20)->get();
         }
 
         return response()->json([
             'personalized' => true,
-            'data' => AudioAssetResource::collection($recommended),
+            'data' => $this->presentCatalogued($recommended),
         ]);
     }
 
-    /** "Similar to this" / autoplay continuation (FR-REC-02). */
+    /** "Similar to this" / autoplay continuation (FR-REC-02) — catalogued content only. */
     public function similar(AudioAsset $asset): JsonResponse
     {
         abort_unless($asset->isPublished(), 404);
 
         $song = $asset->song;
-        $similar = AudioAsset::query()->published()->where('id', '!=', $asset->id)
+        $similar = AudioAsset::query()->published()->catalogued()->with($this->cataloguedWith())
+            ->where('id', '!=', $asset->id)
             ->when($song?->genre_id, fn ($q) => $q->whereHas('song', fn ($s) => $s->where('genre_id', $song->genre_id)))
             ->when($song === null, fn ($q) => $q->where('content_type', $asset->content_type))
             ->orderByDesc('play_count')->take(15)->get();
 
-        return AudioAssetResource::collection($similar)->response();
+        return response()->json(['data' => $this->presentCatalogued($similar)]);
     }
 
     /** Opt out and clear the recommendation profile (FR-REC-07). */

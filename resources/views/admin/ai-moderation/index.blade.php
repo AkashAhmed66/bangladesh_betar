@@ -3,11 +3,11 @@
 @section('title', 'AI Moderation')
 
 @section('content')
-<x-page-header title="AI Moderation" subtitle="Assets the audio-postmortem service flagged as a possible duplicate, or containing violent / anti-government content (M16)" />
+<x-page-header title="AI Moderation" subtitle="Every upload is screened and must be approved here before it continues to cataloguing, approval and rights (M16)" />
 
 <div class="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
     <x-icon name="shield" class="mt-0.5 size-4 shrink-0" />
-    <p>Every upload is screened automatically before it can proceed. A reject here is final — the asset can never be submitted for approval or published. Decisions stay on record below.</p>
+    <p>Every upload — clean or flagged — waits here for AI Reviewer approval before it can proceed. A reject is final: the asset can never be submitted for approval or published. Decisions stay on record below.</p>
 </div>
 
 <div x-data="{ open: false, action: '', url: '', title: '' }" @keydown.escape.window="open = false">
@@ -69,7 +69,7 @@
                                 'rejected' => ['Rejected', 'badge-red'],
                             ];
                             [$stLabel, $stClass] = $statusMap[$rs] ?? ['Pending', 'badge-amber'];
-                            $isPending = $rs === 'pending' && $asset->status === 'ai_flagged';
+                            $isPending = $rs === 'pending' && in_array($asset->status, ['ai_flagged', 'ai_review'], true);
                         @endphp
                         <tr>
                             <td>
@@ -81,6 +81,8 @@
                                     @if ($job?->is_duplicate)<span class="badge-amber">Duplicate</span>@endif
                                     @if ($job?->violence_detected)<span class="badge-red">Violence</span>@endif
                                     @if ($job?->anti_government_detected)<span class="badge-red">Anti-government</span>@endif
+                                    @if ($job && $job->status === 'error')<span class="badge-slate">Analysis failed</span>@endif
+                                    @if ($job && $job->status === 'done' && ! $job->isFlagged())<span class="badge-green">Clean</span>@endif
                                 </div>
                             </td>
                             <td class="text-sm">{{ $asset->uploader?->name ?? '—' }}</td>
@@ -115,7 +117,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="7"><x-empty-state icon="shield" title="Nothing to moderate" message="Flagged uploads and past decisions will appear here." /></td></tr>
+                        <tr><td colspan="7"><x-empty-state icon="shield" title="Nothing to moderate" message="New uploads and past decisions will appear here." /></td></tr>
                     @endforelse
                 </tbody>
             </table>

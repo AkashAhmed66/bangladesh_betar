@@ -79,6 +79,9 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
                 ->middleware('permission:assets.publish')->name('assets.versions.streaming');
             Route::post('assets/{asset}/submit', [Admin\AudioAssetController::class, 'submitForApproval'])
                 ->middleware('permission:assets.edit')->name('assets.submit');
+            // FR-CPR-01/02 — submitter files the copyright documents after approval.
+            Route::post('assets/{asset}/submit-rights', [Admin\AudioAssetController::class, 'submitForRights'])
+                ->middleware('permission:assets.edit')->name('assets.submit-rights');
 
             // M02 — (re)ingest audio for an existing asset (one file at a time)
             Route::post('assets/{asset}/upload', [Admin\AudioAssetController::class, 'uploadMaster'])
@@ -178,11 +181,21 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
         Route::post('approvals/{approval}/act', [Admin\ApprovalController::class, 'act'])
             ->middleware('permission:approvals.act')->name('approvals.act');
 
+        // ---- M30: Notifications (approval / moderation / rights events) ----
+        Route::get('notifications', [Admin\NotificationController::class, 'index'])
+            ->middleware('permission:notifications.view')->name('notifications.index');
+        Route::get('notifications/{id}/open', [Admin\NotificationController::class, 'open'])->name('notifications.open');
+        Route::post('notifications/read-all', [Admin\NotificationController::class, 'readAll'])->name('notifications.read-all');
+
         // ---- M14: Rights ----
         Route::resource('rights-holders', Admin\RightsHolderController::class)->except('show')
             ->middleware('permission:rights.view');
         Route::resource('rights-records', Admin\RightsRecordController::class)->except('show')
             ->middleware('permission:rights.view');
+        // Copyright document download — gated in-controller: rights team OR the
+        // submitter of the asset (record visibility), so no rights.view middleware.
+        Route::get('rights-records/{rightsRecord}/documents/{index}', [Admin\RightsRecordController::class, 'document'])
+            ->whereNumber('index')->name('rights-records.document');
 
         // ---- M16: AI content moderation (duplicate / violence / anti-government + transcription) ----
         Route::middleware('permission:ai-moderation.view')->group(function (): void {
@@ -191,6 +204,9 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
         });
         Route::post('ai-moderation/{asset}/review', [Admin\AiModerationController::class, 'review'])
             ->middleware('permission:ai-moderation.review')->name('ai-moderation.review');
+        // FR-AIF-06 — correct the AI transcript during moderation.
+        Route::put('ai-moderation/{asset}/transcript', [Admin\AiModerationController::class, 'updateTranscript'])
+            ->middleware('permission:ai-moderation.review')->name('ai-moderation.transcript');
 
         // ---- M24: Curation ----
         Route::resource('banners', Admin\BannerController::class)->except('show')

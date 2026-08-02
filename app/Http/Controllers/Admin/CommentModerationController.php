@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AudioAsset;
 use App\Models\Comment;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -35,6 +36,13 @@ class CommentModerationController extends Controller
         $comments = Comment::query()
             ->withTrashed() // keep every record visible; nothing silently disappears
             ->with(['user', 'commentable', 'moderator'])
+            // Without records.view-all (e.g. artists) only comments left on
+            // recordings the user can see — i.e. feedback on their own work.
+            ->when(! $request->user()->can('records.view-all'), fn ($q) => $q->whereHasMorph(
+                'commentable',
+                [AudioAsset::class],
+                fn ($m) => $m->visibleTo($request->user()),
+            ))
             ->when($status === 'deleted', fn ($q) => $q->onlyTrashed())
             ->when($status !== '' && $status !== 'deleted',
                 fn ($q) => $q->whereNull('deleted_at')->where('status', $status))

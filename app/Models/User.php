@@ -47,18 +47,20 @@ class User extends Authenticatable
         return $this->user_type === 'listener';
     }
 
+    /** An account owns a public artist profile when it holds the Artist role. */
     public function isArtist(): bool
     {
-        return $this->user_type === 'artist';
+        return $this->hasRole('Artist');
     }
 
     /**
-     * Who may enter the Admin Portal: Bangladesh Betar staff and linked artist
-     * accounts (artists get a minimal, profile-only view). Listeners never do.
+     * Who may enter the Admin Portal: Bangladesh Betar staff and dual-app
+     * ("both") accounts, e.g. artists, who get a profile-focused view.
+     * Listeners never do.
      */
     public function canAccessAdmin(): bool
     {
-        return in_array($this->user_type, ['staff', 'artist'], true);
+        return in_array($this->user_type, ['staff', 'both'], true);
     }
 
     /** The artist profile this account owns, if it is an artist account. */

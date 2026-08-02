@@ -21,6 +21,7 @@ class SongController extends Controller
     public function index(Request $request): View
     {
         $songs = Song::query()
+            ->visibleTo($request->user())
             ->with(['audioAsset', 'album', 'genre', 'mood', 'artists'])
             ->when($request->filled('q'), fn ($q) => $q->whereHas('audioAsset', fn ($a) => $a
                 ->where('title', 'like', '%'.$request->string('q').'%')
@@ -61,6 +62,7 @@ class SongController extends Controller
     public function edit(Song $song): View
     {
         $this->authorize('songs.manage');
+        $this->authorizeRecordVisibility($song);
 
         $song->load('artists');
 
@@ -70,6 +72,7 @@ class SongController extends Controller
     public function update(Request $request, Song $song): RedirectResponse
     {
         $this->authorize('songs.manage');
+        $this->authorizeRecordVisibility($song);
 
         $data = $this->validated($request);
         $artists = $this->pullArtists($data);
@@ -83,6 +86,7 @@ class SongController extends Controller
     public function destroy(Song $song): RedirectResponse
     {
         $this->authorize('songs.manage');
+        $this->authorizeRecordVisibility($song);
 
         $song->delete();
 
@@ -137,7 +141,9 @@ class SongController extends Controller
     private function options(): array
     {
         return [
-            'assets' => AudioAsset::query()->where('content_type', 'song')->orderBy('title')->pluck('title', 'id'),
+            // The asset picker honours record visibility: restricted users may
+            // only attach assets they can see.
+            'assets' => AudioAsset::query()->visibleTo(auth()->user())->where('content_type', 'song')->orderBy('title')->pluck('title', 'id'),
             'albums' => Album::query()->orderBy('title')->pluck('title', 'id'),
             'genres' => Genre::query()->orderBy('name')->pluck('name', 'id'),
             'moods' => Mood::query()->orderBy('name')->pluck('name', 'id'),

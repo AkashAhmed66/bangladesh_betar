@@ -24,6 +24,7 @@ class BannerController extends Controller
     public function index(): View
     {
         $banners = Banner::query()
+            ->visibleTo(auth()->user())
             ->orderBy('position')
             ->orderBy('id')
             ->paginate(12)
@@ -51,6 +52,7 @@ class BannerController extends Controller
     public function edit(Banner $banner): View
     {
         $this->authorize('curation.manage');
+        $this->authorizeRecordVisibility($banner);
 
         return view('admin.banners.form', ['banner' => $banner] + $this->options());
     }
@@ -58,6 +60,7 @@ class BannerController extends Controller
     public function update(Request $request, Banner $banner): RedirectResponse
     {
         $this->authorize('curation.manage');
+        $this->authorizeRecordVisibility($banner);
 
         $banner->update($this->validated($request));
 
@@ -67,6 +70,7 @@ class BannerController extends Controller
     public function destroy(Banner $banner): RedirectResponse
     {
         $this->authorize('curation.manage');
+        $this->authorizeRecordVisibility($banner);
 
         $banner->delete();
 

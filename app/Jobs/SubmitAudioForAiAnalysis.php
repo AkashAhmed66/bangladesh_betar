@@ -55,7 +55,7 @@ class SubmitAudioForAiAnalysis implements ShouldQueue
             : null;
 
         if ($absolutePath === null) {
-            $this->skip($asset, 'No audio file available to analyze.');
+            $this->holdForReview($asset, 'No audio file available to analyze.');
 
             return;
         }
@@ -69,8 +69,8 @@ class SubmitAudioForAiAnalysis implements ShouldQueue
         try {
             $externalJobId = $ai->submit($absolutePath);
         } catch (\Throwable $e) {
-            $job->update(['status' => 'error', 'error' => $e->getMessage(), 'completed_at' => now()]);
-            $this->skip($asset, 'AI analysis could not be started: '.$e->getMessage());
+            $job->update(['status' => 'error', 'error' => $e->getMessage(), 'completed_at' => now(), 'review_status' => 'pending']);
+            $this->holdForReview($asset, 'AI analysis could not be started: '.$e->getMessage(), createJob: false);
 
             return;
         }
@@ -85,16 +85,37 @@ class SubmitAudioForAiAnalysis implements ShouldQueue
     {
         $asset = AudioAsset::query()->find($this->audioAssetId);
         if ($asset) {
-            $this->skip($asset, $e->getMessage());
+            $this->holdForReview($asset, $e->getMessage());
         }
     }
 
-    /** Don't leave the asset stuck in "analyzing" if we can't even start — unblock to draft. */
-    private function skip(AudioAsset $asset, string $reason): void
+    /**
+     * Analysis could not run — the AI-moderation gate still applies. Hold the
+     * asset in `ai_review` (with an error job so it appears in the queue) for
+     * a human reviewer to sign off manually.
+     */
+    private function holdForReview(AudioAsset $asset, string $reason, bool $createJob = true): void
     {
-        if ($asset->status === 'analyzing') {
-            $asset->update(['status' => 'draft']);
+        if ($createJob) {
+            AiAnalysisJob::query()->create([
+                'audio_asset_id' => $asset->id,
+                'source_api' => 'analyze',
+                'status' => 'error',
+                'error' => $reason,
+                'completed_at' => now(),
+                'review_status' => 'pending',
+            ]);
         }
-        AuditLog::record('ai_analysis_error', $asset, null, ['reason' => $reason], "AI analysis skipped for {$asset->archive_no}: {$reason}");
+
+        if ($asset->status === 'analyzing') {
+            $asset->update(['status' => 'ai_review']);
+        }
+
+        AuditLog::record('ai_analysis_error', $asset, null, ['reason' => $reason], "AI analysis unavailable for {$asset->archive_no}: {$reason} — held for manual AI-moderation review.");
+
+        \App\Support\Notify::permission('ai-moderation.review', 'ai_pending',
+            'Upload needs manual AI review',
+            "Analysis could not run for “{$asset->title}” — review it manually before it can proceed.",
+            route('admin.ai-moderation.show', $asset));
     }
 }

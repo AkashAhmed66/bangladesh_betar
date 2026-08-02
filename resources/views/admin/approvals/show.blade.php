@@ -15,6 +15,7 @@
 @endphp
 
 @section('content')
+@php $reviewAsset = $approval->approvable instanceof \App\Models\AudioAsset ? $approval->approvable : null; @endphp
 <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
     <div class="min-w-0">
         <div class="flex flex-wrap items-center gap-2">
@@ -25,8 +26,60 @@
             {{ ucfirst(str_replace('_', ' ', $approval->approvable_type)) }} · {{ $approval->workflow?->name ?? 'No workflow' }}
         </p>
     </div>
-    <a href="{{ route('admin.approvals.index') }}" class="btn-secondary"><x-icon name="chevron-left" class="size-4" /> Back to Queue</a>
+    <div class="flex flex-wrap gap-2">
+        @if ($reviewAsset)
+            @can('assets.view')
+                <a href="{{ route('admin.assets.show', $reviewAsset) }}" class="btn-accent"><x-icon name="archive" class="size-4" /> Open Asset Record</a>
+            @endcan
+        @endif
+        <a href="{{ route('admin.approvals.index') }}" class="btn-secondary"><x-icon name="chevron-left" class="size-4" /> Back to Queue</a>
+    </div>
 </div>
+
+{{-- Listen inline — same stream the asset page uses (FR-WRK-03: review what you approve) --}}
+@if ($reviewAsset)
+    @php $playVersion = $reviewAsset->versions->firstWhere('is_default', true) ?? $reviewAsset->versions->first(); @endphp
+    <div class="card mb-6 overflow-hidden">
+        <div class="bg-slate-900 p-5 dark:bg-slate-950"
+             x-data="{
+                playing: false, cur: 0, dur: {{ $reviewAsset->duration_seconds ?: 0 }},
+                fmt(s){ if(!isFinite(s)) return '0:00'; const m=Math.floor(s/60), sec=Math.floor(s%60); return m+':'+String(sec).padStart(2,'0'); },
+                toggle(){ const a=$refs.audio; a.paused ? a.play() : a.pause(); },
+                seek(e){ const a=$refs.audio; const r=$refs.wave.getBoundingClientRect(); const f=(e.clientX-r.left)/r.width; if(a.duration) a.currentTime=f*a.duration; }
+             }">
+        @if ($playVersion)
+            <audio x-ref="audio" preload="none" class="hidden"
+                   src="{{ route('admin.assets.stream', ['asset' => $reviewAsset->id, 'version' => $playVersion->id], false) }}"
+                   @play="playing=true" @pause="playing=false" @ended="playing=false"
+                   @timeupdate="cur=$refs.audio.currentTime"
+                   @loadedmetadata="if($refs.audio.duration) dur=$refs.audio.duration"></audio>
+        @endif
+
+            <div x-ref="wave" class="relative cursor-pointer" @click="seek($event)">
+                <x-waveform :peaks="$reviewAsset->waveform_peaks ?? []" :height="56" class="text-primary-400" />
+                <div class="pointer-events-none absolute inset-y-0 left-0 bg-white/10"
+                     :style="`width: ${dur ? (cur/dur*100) : 0}%`"></div>
+            </div>
+
+            <div class="mt-3 flex items-center gap-4">
+                <button @click="toggle()" @if (! $playVersion) disabled @endif
+                        class="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-600 text-white transition hover:bg-primary-500 disabled:opacity-40">
+                    <span x-show="!playing"><x-icon name="play" class="size-5 translate-x-0.5" /></span>
+                    <span x-show="playing" x-cloak><x-icon name="pause" class="size-5" /></span>
+                </button>
+                <div class="text-sm tabular-nums text-slate-300">
+                    <span x-text="fmt(cur)">0:00</span> / <span x-text="fmt(dur)">{{ gmdate($reviewAsset->duration_seconds >= 3600 ? 'G:i:s' : 'i:s', (int) $reviewAsset->duration_seconds) }}</span>
+                </div>
+                <div class="ml-auto text-xs text-slate-400">
+                    {{ $reviewAsset->archive_no }} · {{ strtoupper($reviewAsset->format ?? '—') }}
+                </div>
+            </div>
+            @unless ($playVersion)
+                <p class="mt-2 text-xs text-amber-400">No playable version yet.</p>
+            @endunless
+        </div>
+    </div>
+@endif
 
 <div class="grid grid-cols-1 gap-6 xl:grid-cols-3">
     <div class="space-y-6 xl:col-span-2">

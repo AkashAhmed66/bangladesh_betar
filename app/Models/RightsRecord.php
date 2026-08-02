@@ -20,6 +20,7 @@ class RightsRecord extends Model
         'valid_from' => 'date',
         'valid_until' => 'date',
         'royalty_required' => 'boolean',
+        'documents' => 'array', // [{path, name}] on the private disk (FR-CPR-02)
     ];
 
     public function audioAsset(): BelongsTo

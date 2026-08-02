@@ -21,6 +21,7 @@ class MediaItemController extends Controller
     public function index(Request $request): View
     {
         $items = MediaItem::query()
+            ->visibleTo($request->user())
             ->with(['station', 'audioAsset', 'digitizedBy'])
             ->when($request->filled('q'), fn ($q) => $q->where(fn ($w) => $w
                 ->where('title', 'like', '%'.$request->string('q').'%')
@@ -33,6 +34,7 @@ class MediaItemController extends Controller
             ->withQueryString();
 
         $progress = MediaItem::query()
+            ->visibleTo($request->user())
             ->selectRaw('status, COUNT(*) as total')
             ->groupBy('status')->pluck('total', 'status');
 
@@ -58,6 +60,7 @@ class MediaItemController extends Controller
     public function edit(MediaItem $mediaItem): View
     {
         $this->authorize('digitization.manage');
+        $this->authorizeRecordVisibility($mediaItem);
 
         return view('admin.media-items.form', ['item' => $mediaItem] + $this->options());
     }
@@ -65,6 +68,7 @@ class MediaItemController extends Controller
     public function update(Request $request, MediaItem $mediaItem): RedirectResponse
     {
         $this->authorize('digitization.manage');
+        $this->authorizeRecordVisibility($mediaItem);
 
         $data = $this->validated($request, $mediaItem->id);
 
@@ -81,6 +85,7 @@ class MediaItemController extends Controller
     public function destroy(MediaItem $mediaItem): RedirectResponse
     {
         $this->authorize('digitization.manage');
+        $this->authorizeRecordVisibility($mediaItem);
 
         $mediaItem->delete();
 
@@ -108,7 +113,8 @@ class MediaItemController extends Controller
     {
         return [
             'stations' => Station::query()->orderBy('name')->pluck('name', 'id'),
-            'assets' => AudioAsset::query()->orderByDesc('id')->take(200)->pluck('title', 'id'),
+            // Asset picker honours record visibility for restricted users.
+            'assets' => AudioAsset::query()->visibleTo(auth()->user())->orderByDesc('id')->take(200)->pluck('title', 'id'),
         ];
     }
 }

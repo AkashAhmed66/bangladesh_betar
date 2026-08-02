@@ -22,6 +22,7 @@ class PodcastChannelController extends Controller
     public function index(Request $request): View
     {
         $channels = PodcastChannel::query()
+            ->visibleTo($request->user())
             ->with(['category', 'language', 'owner'])
             ->withCount('episodes')
             ->when($request->filled('q'), fn ($q) => $q->where(fn ($w) => $w
@@ -56,6 +57,7 @@ class PodcastChannelController extends Controller
     public function edit(PodcastChannel $podcastChannel): View
     {
         $this->authorize('podcasts.manage');
+        $this->authorizeRecordVisibility($podcastChannel);
 
         return view('admin.podcast-channels.form', ['channel' => $podcastChannel] + $this->options());
     }
@@ -63,6 +65,7 @@ class PodcastChannelController extends Controller
     public function update(Request $request, PodcastChannel $podcastChannel): RedirectResponse
     {
         $this->authorize('podcasts.manage');
+        $this->authorizeRecordVisibility($podcastChannel);
 
         $podcastChannel->update($this->validated($request));
 
@@ -72,6 +75,7 @@ class PodcastChannelController extends Controller
     public function destroy(PodcastChannel $podcastChannel): RedirectResponse
     {
         $this->authorize('podcasts.manage');
+        $this->authorizeRecordVisibility($podcastChannel);
 
         $podcastChannel->delete();
 
@@ -99,7 +103,8 @@ class PodcastChannelController extends Controller
         return [
             'categories' => Category::query()->where('type', 'content')->orderBy('name')->pluck('name', 'id'),
             'languages' => Language::query()->orderBy('name')->pluck('name', 'id'),
-            'owners' => User::query()->where('user_type', 'staff')->orderBy('name')->pluck('name', 'id'),
+            // Staff and dual-app accounts (e.g. artists) can own a channel.
+            'owners' => User::query()->whereIn('user_type', ['staff', 'both'])->orderBy('name')->pluck('name', 'id'),
         ];
     }
 }

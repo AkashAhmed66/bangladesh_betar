@@ -16,7 +16,13 @@
             @if ($asset->title_bn) · {{ $asset->title_bn }} @endif
         </p>
     </div>
-    <div class="flex flex-wrap gap-2">
+    @php
+        $activeRights = $asset->rightsRecords->whereIn('status', ['pending', 'cleared'])->first();
+        $needsRightsSubmission = $asset->status === 'approved' && $asset->rights_status !== 'cleared' && ! $activeRights;
+        $rightsUnderReview = $asset->status === 'approved' && $asset->rights_status !== 'cleared' && $activeRights;
+    @endphp
+    <div class="flex flex-wrap gap-2"
+         x-data="{ rightsModal: {{ $errors->hasAny(['rights_holder_id', 'holder_name', 'holder_email', 'rights_types', 'rights_types.*', 'territory', 'valid_from', 'valid_until', 'royalty_notes', 'notes', 'documents', 'documents.*']) ? 'true' : 'false' }} }">
         @can('assets.view')
             <a href="{{ route('admin.assets.studio', $asset) }}" class="btn-accent"><x-icon name="wave" class="size-4" /> Open Studio</a>
             <a href="{{ route('admin.assets.analytics', $asset) }}" class="btn-secondary"><x-icon name="chart-bar" class="size-4" /> Analytics</a>
@@ -28,9 +34,19 @@
                     <button class="btn-accent"><x-icon name="clipboard-check" class="size-4" /> Submit for Approval</button>
                 </form>
             @endif
+            {{-- FR-CPR-01/02 — after approval, the submitter files the copyright documents. --}}
+            @if ($needsRightsSubmission)
+                <button type="button" @click="rightsModal = true" class="btn-primary">
+                    <x-icon name="shield-check" class="size-4" /> Submit for Rights
+                </button>
+            @elseif ($rightsUnderReview)
+                <span class="inline-flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+                    <x-icon name="clock" class="size-4" /> Rights review pending
+                </span>
+            @endif
         @endcan
         @can('assets.publish')
-            @if (in_array($asset->status, ['approved', 'unpublished'], true))
+            @if (in_array($asset->status, ['approved', 'unpublished'], true) && $asset->rights_status === 'cleared')
                 <form method="POST" action="{{ route('admin.assets.publish', $asset) }}">@csrf
                     <button class="btn-primary"><x-icon name="globe" class="size-4" /> Publish</button>
                 </form>
@@ -39,6 +55,80 @@
                     <button class="btn-danger"><x-icon name="x" class="size-4" /> Unpublish</button>
                 </form>
             @endif
+        @endcan
+
+        {{-- Submit-for-Rights modal: copyright documents + rights details --}}
+        @can('assets.edit')
+        @if ($needsRightsSubmission)
+        <div x-cloak x-show="rightsModal" class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/60 p-4 sm:p-8"
+             @keydown.escape.window="rightsModal = false">
+            <div class="w-full max-w-2xl rounded-(--radius-app) bg-white shadow-xl dark:bg-slate-900" @click.outside="rightsModal = false">
+                <form method="POST" action="{{ route('admin.assets.submit-rights', $asset) }}" enctype="multipart/form-data">
+                    @csrf
+                    <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-slate-800">
+                        <div>
+                            <h3 class="font-semibold text-slate-800 dark:text-slate-100">Submit for Rights Clearance</h3>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">Provide the copyright documents and details — the rights team reviews and clears them before publishing.</p>
+                        </div>
+                        <button type="button" @click="rightsModal = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><x-icon name="x" class="size-5" /></button>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-4 px-6 py-5 sm:grid-cols-2">
+                        <x-form.select label="Rights holder" name="rights_holder_id" :value="old('rights_holder_id')"
+                                       placeholder="— new holder (name below) —"
+                                       :options="\App\Models\RightsHolder::query()->orderBy('name')->pluck('name', 'id')->all()" />
+                        <x-form.input label="New holder name" name="holder_name" :value="old('holder_name')"
+                                      help="Used when no existing holder is selected." />
+                        <x-form.input label="Holder e-mail" name="holder_email" type="email" :value="old('holder_email')" />
+                        <x-form.input label="Territory" name="territory" :value="old('territory', 'Bangladesh')" required />
+
+                        <div class="sm:col-span-2">
+                            <label class="form-label">Rights granted <span class="text-rose-500">*</span></label>
+                            <div class="mt-1 flex flex-wrap gap-4">
+                                @foreach (['broadcast', 'streaming', 'download', 'commercial'] as $type)
+                                    <label class="inline-flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+                                        <input type="checkbox" name="rights_types[]" value="{{ $type }}" class="rounded border-slate-300"
+                                               @checked(in_array($type, old('rights_types', ['broadcast', 'streaming']), true))>
+                                        {{ ucfirst($type) }}
+                                    </label>
+                                @endforeach
+                            </div>
+                            @error('rights_types')<p class="form-error">{{ $message }}</p>@enderror
+                        </div>
+
+                        <x-form.input label="Valid from" name="valid_from" type="date" :value="old('valid_from')" />
+                        <x-form.input label="Valid until" name="valid_until" type="date" :value="old('valid_until')" help="Leave empty for perpetual rights." />
+
+                        <div class="sm:col-span-2">
+                            <x-form.toggle label="Royalty required" name="royalty_required" :checked="(bool) old('royalty_required')" />
+                        </div>
+                        <div class="sm:col-span-2">
+                            <x-form.textarea label="Royalty notes" name="royalty_notes" :value="old('royalty_notes')" rows="2" />
+                        </div>
+                        <div class="sm:col-span-2">
+                            <x-form.textarea label="Related information" name="notes" :value="old('notes')" rows="2"
+                                             help="Licensing background, agreements, or anything the rights team should know." />
+                        </div>
+
+                        <div class="sm:col-span-2">
+                            <label class="form-label">Copyright documents <span class="text-rose-500">*</span></label>
+                            <input type="file" name="documents[]" multiple required
+                                   accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
+                                   class="form-input mt-1 file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-sm file:font-medium dark:file:bg-slate-800">
+                            <p class="form-help">Contracts, permissions, licences — PDF, images or Word. Up to 10 files, 10 MB each.</p>
+                            @error('documents')<p class="form-error">{{ $message }}</p>@enderror
+                            @error('documents.*')<p class="form-error">{{ $message }}</p>@enderror
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-6 py-4 dark:border-slate-800">
+                        <button type="button" @click="rightsModal = false" class="btn-secondary">Cancel</button>
+                        <button type="submit" class="btn-primary"><x-icon name="shield-check" class="size-4" /> Submit Documents</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        @endif
         @endcan
     </div>
 </div>
@@ -347,14 +437,27 @@
             </div>
             @forelse ($asset->rightsRecords as $record)
                 <div class="border-t border-slate-100 px-5 py-3 text-sm first:border-0 dark:border-slate-800">
-                    <p class="font-medium text-slate-700 dark:text-slate-200">{{ $record->rightsHolder?->name ?? 'Unknown holder' }}</p>
+                    <div class="flex items-center justify-between gap-2">
+                        <p class="font-medium text-slate-700 dark:text-slate-200">{{ $record->rightsHolder?->name ?? 'Unknown holder' }}</p>
+                        <x-status-badge :status="$record->status" />
+                    </div>
                     <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                         {{ implode(', ', array_map('ucfirst', $record->rights_types ?? [])) }} · {{ $record->territory }}
                         @if ($record->valid_until) · until {{ $record->valid_until->format('j M Y') }} @endif
                     </p>
+                    @if (! empty($record->documents))
+                        <div class="mt-1.5 flex flex-wrap gap-1.5">
+                            @foreach ($record->documents as $i => $doc)
+                                <a href="{{ route('admin.rights-records.document', [$record, $i]) }}"
+                                   class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 hover:text-slate-900 dark:bg-slate-800 dark:text-slate-300 dark:hover:text-white">
+                                    <x-icon name="document-text" class="size-3" /> {{ $doc['name'] ?? 'Document '.($i + 1) }}
+                                </a>
+                            @endforeach
+                        </div>
+                    @endif
                 </div>
             @empty
-                <p class="px-5 py-4 text-sm text-slate-500">No rights records yet. One is created automatically when the approval workflow completes — complete it in Rights Records and mark it cleared to allow publishing.</p>
+                <p class="px-5 py-4 text-sm text-slate-500">No rights submission yet. After the approval workflow completes, use “Submit for Rights” above to file the copyright documents — the rights team clears them to allow publishing.</p>
             @endforelse
         </div>
 

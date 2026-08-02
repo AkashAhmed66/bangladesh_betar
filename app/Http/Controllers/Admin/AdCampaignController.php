@@ -21,6 +21,7 @@ class AdCampaignController extends Controller
     public function index(): View
     {
         $campaigns = AdCampaign::query()
+            ->visibleTo(auth()->user())
             ->with(['advertiser', 'audioAsset'])
             ->withCount('impressions')
             ->orderByDesc('created_at')
@@ -49,6 +50,7 @@ class AdCampaignController extends Controller
     public function edit(AdCampaign $adCampaign): View
     {
         $this->authorize('ads.manage');
+        $this->authorizeRecordVisibility($adCampaign);
 
         return view('admin.ad-campaigns.form', ['campaign' => $adCampaign] + $this->options());
     }
@@ -56,6 +58,7 @@ class AdCampaignController extends Controller
     public function update(Request $request, AdCampaign $adCampaign): RedirectResponse
     {
         $this->authorize('ads.manage');
+        $this->authorizeRecordVisibility($adCampaign);
 
         $adCampaign->update($this->validated($request));
 
@@ -65,6 +68,7 @@ class AdCampaignController extends Controller
     public function destroy(AdCampaign $adCampaign): RedirectResponse
     {
         $this->authorize('ads.manage');
+        $this->authorizeRecordVisibility($adCampaign);
 
         $adCampaign->delete();
 

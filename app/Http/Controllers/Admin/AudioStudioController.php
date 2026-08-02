@@ -32,6 +32,8 @@ class AudioStudioController extends Controller
 {
     public function show(Request $request, AudioAsset $asset): View
     {
+        $this->authorizeRecordVisibility($asset);
+
         $asset->load(['versions' => fn ($q) => $q->orderByDesc('is_default')->orderBy('id'), 'song', 'programme']);
 
         // The version to load into the Studio — ?version=<id> lets the operator
@@ -88,6 +90,7 @@ class AudioStudioController extends Controller
      */
     public function streamVersion(Request $request, AudioAsset $asset, AudioVersion $version): BinaryFileResponse
     {
+        $this->authorizeRecordVisibility($asset);
         abort_unless($version->audio_asset_id === $asset->id, 404);
 
         $disk = Storage::disk('local');
