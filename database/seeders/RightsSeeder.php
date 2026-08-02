@@ -57,7 +57,7 @@ class RightsSeeder extends Seeder
                     'valid_until' => $validUntil?->toDateString(),
                     'royalty_required' => $index % 4 === 1,
                     'status' => $asset->rights_status === 'restricted' ? 'restricted'
-                        : ($asset->rights_status === 'pending' ? 'pending' : 'cleared'),
+                        : ($asset->rights_status === 'pending' ? 'pending' : 'approved'),
                     'contract_path' => 'contracts/agreement-'.$asset->archive_no.'.pdf',
                     'created_by' => $officer?->id,
                 ],

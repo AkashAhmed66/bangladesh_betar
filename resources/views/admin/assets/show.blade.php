@@ -17,9 +17,9 @@
         </p>
     </div>
     @php
-        $activeRights = $asset->rightsRecords->whereIn('status', ['pending', 'cleared'])->first();
-        $needsRightsSubmission = $asset->status === 'approved' && $asset->rights_status !== 'cleared' && ! $activeRights;
-        $rightsUnderReview = $asset->status === 'approved' && $asset->rights_status !== 'cleared' && $activeRights;
+        $activeRights = $asset->rightsRecords->whereIn('status', ['pending', 'approved'])->first();
+        $needsRightsSubmission = $asset->status === 'approved' && $asset->rights_status !== 'approved' && ! $activeRights;
+        $rightsUnderReview = $asset->status === 'approved' && $asset->rights_status !== 'approved' && $activeRights;
     @endphp
     <div class="flex flex-wrap gap-2"
          x-data="{ rightsModal: {{ $errors->hasAny(['rights_holder_id', 'holder_name', 'holder_email', 'rights_types', 'rights_types.*', 'territory', 'valid_from', 'valid_until', 'royalty_notes', 'notes', 'documents', 'documents.*']) ? 'true' : 'false' }} }">
@@ -46,7 +46,7 @@
             @endif
         @endcan
         @can('assets.publish')
-            @if (in_array($asset->status, ['approved', 'unpublished'], true) && $asset->rights_status === 'cleared')
+            @if (in_array($asset->status, ['approved', 'unpublished'], true) && $asset->rights_status === 'approved')
                 <form method="POST" action="{{ route('admin.assets.publish', $asset) }}">@csrf
                     <button class="btn-primary"><x-icon name="globe" class="size-4" /> Publish</button>
                 </form>
@@ -457,7 +457,7 @@
                     @endif
                 </div>
             @empty
-                <p class="px-5 py-4 text-sm text-slate-500">No rights submission yet. After the approval workflow completes, use “Submit for Rights” above to file the copyright documents — the rights team clears them to allow publishing.</p>
+                <p class="px-5 py-4 text-sm text-slate-500">No rights submission yet. After the approval workflow completes, use “Submit for Rights” above to file the copyright documents — the rights team approves them to allow publishing.</p>
             @endforelse
         </div>
 

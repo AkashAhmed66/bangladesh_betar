@@ -40,7 +40,7 @@
 
             <x-form.select label="Status" name="status" :value="$record?->status ?? 'pending'" required
                            :options="collect($statuses)->mapWithKeys(fn ($s) => [$s => ucfirst($s)])->all()"
-                           help="Only 'cleared' assets can be published (FR-CPR-05)." />
+                           help="Only assets with approved rights can be published (FR-CPR-05)." />
 
             <div class="flex items-end">
                 <x-form.toggle label="Royalty required" name="royalty_required" :checked="(bool) ($record?->royalty_required)" help="Ongoing royalty payments apply." />
@@ -61,7 +61,7 @@
                             </a>
                         @endforeach
                     </div>
-                    <p class="form-help">Review these before setting the status to Cleared.</p>
+                    <p class="form-help">Review these before setting the status to Approved.</p>
                 </div>
             @endif
         </div>

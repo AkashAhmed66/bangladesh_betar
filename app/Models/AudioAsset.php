@@ -227,7 +227,7 @@ class AudioAsset extends Model
     {
         return $query->where('status', 'published')
             ->where('access_level', 'public')
-            ->whereIn('rights_status', ['cleared']);
+            ->whereIn('rights_status', ['approved']);
     }
 
     public function scopeStreamable(Builder $query): Builder
@@ -241,13 +241,13 @@ class AudioAsset extends Model
     {
         return $this->status === 'published'
             && $this->access_level === 'public'
-            && $this->rights_status === 'cleared';
+            && $this->rights_status === 'approved';
     }
 
-    /** The rights submission currently under review (or already cleared). */
+    /** The rights submission currently under review (or already approved). */
     public function activeRightsRecord(): ?RightsRecord
     {
-        return $this->rightsRecords->whereIn('status', ['pending', 'cleared'])->first();
+        return $this->rightsRecords->whereIn('status', ['pending', 'approved'])->first();
     }
 
     public static function nextArchiveNo(): string

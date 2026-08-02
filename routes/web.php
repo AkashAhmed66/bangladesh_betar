@@ -184,6 +184,7 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
         // ---- M30: Notifications (approval / moderation / rights events) ----
         Route::get('notifications', [Admin\NotificationController::class, 'index'])
             ->middleware('permission:notifications.view')->name('notifications.index');
+        Route::get('notifications/poll', [Admin\NotificationController::class, 'poll'])->name('notifications.poll');
         Route::get('notifications/{id}/open', [Admin\NotificationController::class, 'open'])->name('notifications.open');
         Route::post('notifications/read-all', [Admin\NotificationController::class, 'readAll'])->name('notifications.read-all');
 

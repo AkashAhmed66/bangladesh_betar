@@ -40,7 +40,7 @@ class RightsRecord extends Model
 
     public function scopeExpiringWithin(Builder $query, int $days): Builder
     {
-        return $query->where('status', 'cleared')
+        return $query->where('status', 'approved')
             ->whereNotNull('valid_until')
             ->whereBetween('valid_until', [now()->toDateString(), now()->addDays($days)->toDateString()]);
     }

@@ -91,6 +91,13 @@ class AiModerationController extends Controller
 
         $approved = $data['action'] === 'approve';
 
+        // Capture the before-state so the audit trail shows exactly what the
+        // reviewer changed (FR-AUD-02).
+        $before = [
+            'asset_status' => $asset->status,
+            'review_status' => $job?->review_status,
+        ];
+
         $job?->update([
             'review_status' => $approved ? 'approved' : 'rejected',
             'reviewed_by' => $request->user()->id,
@@ -105,8 +112,13 @@ class AiModerationController extends Controller
         AuditLog::record(
             $approved ? 'ai_review_approved' : 'ai_review_rejected',
             $asset,
-            null,
-            ['ai_analysis_job' => $job?->id, 'comments' => $data['comments'] ?? null],
+            $before,
+            [
+                'asset_status' => $asset->status,
+                'review_status' => $approved ? 'approved' : 'rejected',
+                'remarks' => $data['comments'],
+                'ai_analysis_job' => $job?->id,
+            ],
             "AI Reviewer ".($approved ? 'cleared' : 'rejected')." {$asset->archive_no}.",
         );
 
@@ -147,6 +159,18 @@ class AiModerationController extends Controller
             'full_text' => ['required', 'string', 'max:200000'],
         ]);
 
+        // Before-state: the current transcript text (or the raw AI output when
+        // no Transcript row exists yet) — kept verbatim in the audit trail so
+        // every moderator correction is fully reconstructable (FR-AUD-02).
+        $existing = Transcript::query()
+            ->where('audio_asset_id', $asset->id)->where('transcript_type', 'transcript')->first();
+        $latestJob = $asset->latestAiAnalysisJob;
+        $oldText = $existing?->full_text ?? ($latestJob?->transcript_readable ?: $latestJob?->transcript);
+
+        if ($oldText === $data['full_text']) {
+            return back()->with('success', 'Transcript unchanged.');
+        }
+
         Transcript::query()->updateOrCreate(
             ['audio_asset_id' => $asset->id, 'transcript_type' => 'transcript'],
             [
@@ -158,8 +182,11 @@ class AiModerationController extends Controller
             ],
         );
 
-        AuditLog::record('ai_transcript_edited', $asset, null, null,
-            "Transcript for {$asset->archive_no} corrected during AI moderation.");
+        AuditLog::record('ai_transcript_edited', $asset,
+            ['full_text' => $oldText, 'is_verified' => (bool) $existing?->is_verified],
+            ['full_text' => $data['full_text'], 'is_verified' => true],
+            sprintf('Transcript for %s corrected during AI moderation (%s → %s characters).',
+                $asset->archive_no, number_format(mb_strlen((string) $oldText)), number_format(mb_strlen($data['full_text']))));
 
         return back()->with('success', 'Transcript updated and marked verified.');
     }

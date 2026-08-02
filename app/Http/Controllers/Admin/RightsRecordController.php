@@ -24,7 +24,7 @@ class RightsRecordController extends Controller
 {
     private const RIGHTS_TYPES = ['broadcast', 'streaming', 'download', 'commercial'];
 
-    private const STATUSES = ['cleared', 'restricted', 'pending', 'disputed', 'expired'];
+    private const STATUSES = ['approved', 'restricted', 'pending', 'disputed', 'expired'];
 
     public function index(Request $request): View
     {
@@ -82,13 +82,13 @@ class RightsRecordController extends Controller
         if ($rightsRecord->status !== $oldStatus) {
             $asset = $rightsRecord->audioAsset;
             $recipients = collect([$rightsRecord->creator, $asset?->uploader])->filter();
-            $cleared = $rightsRecord->status === 'cleared';
+            $approved = $rightsRecord->status === 'approved';
 
             Notify::users($recipients,
-                $cleared ? 'publish_ready' : 'rights_status',
-                $cleared ? 'Rights cleared — ready to publish' : 'Rights status updated',
-                $cleared
-                    ? "Rights for “{$asset?->title}” are cleared. You can now publish it to the public app."
+                $approved ? 'publish_ready' : 'rights_status',
+                $approved ? 'Rights approved — ready to publish' : 'Rights status updated',
+                $approved
+                    ? "Rights for “{$asset?->title}” are approved. You can now publish it to the public app."
                     : "Rights for “{$asset?->title}” were set to “{$rightsRecord->status}”.",
                 $asset ? route('admin.assets.show', $asset) : route('admin.rights-records.index'),
                 except: $request->user()->id);

@@ -95,8 +95,8 @@
                                 @endphp
                                 @if ($a->status === 'published')
                                     <p class="mt-1 text-[11px] font-semibold text-green-600 dark:text-green-400">Published</p>
-                                @elseif ($a->rights_status === 'cleared')
-                                    <p class="mt-1 text-[11px] font-semibold text-sky-600 dark:text-sky-400">Rights cleared — ready to publish</p>
+                                @elseif ($a->rights_status === 'approved')
+                                    <p class="mt-1 text-[11px] font-semibold text-sky-600 dark:text-sky-400">Rights approved — ready to publish</p>
                                 @elseif ($rightsPending)
                                     <p class="mt-1 text-[11px] font-semibold text-amber-600 dark:text-amber-400">Rights review pending</p>
                                 @else

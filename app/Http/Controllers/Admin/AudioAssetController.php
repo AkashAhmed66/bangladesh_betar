@@ -398,11 +398,11 @@ class AudioAssetController extends Controller
             return back()->with('error', 'Complete the approval workflow first — rights are submitted once the asset is approved.');
         }
 
-        if ($asset->rights_status === 'cleared') {
-            return back()->with('error', 'Rights are already cleared for this asset.');
+        if ($asset->rights_status === 'approved') {
+            return back()->with('error', 'Rights are already approved for this asset.');
         }
 
-        if ($asset->rightsRecords()->whereIn('status', ['pending', 'cleared'])->exists()) {
+        if ($asset->rightsRecords()->whereIn('status', ['pending', 'approved'])->exists()) {
             return back()->with('error', 'A rights submission is already under review for this asset.');
         }
 
@@ -469,16 +469,16 @@ class AudioAssetController extends Controller
             route('admin.rights-records.edit', $record),
             except: $request->user()->id);
 
-        return back()->with('success', 'Copyright documents submitted. The rights team will review and clear them — publishing unlocks once cleared.');
+        return back()->with('success', 'Copyright documents submitted. The rights team will review and approve them — publishing unlocks once approved.');
     }
 
-    /** FR-CPR-04/05 — publication requires cleared rights + approval. */
+    /** FR-CPR-04/05 — publication requires approved rights + a completed workflow. */
     public function publish(AudioAsset $asset): RedirectResponse
     {
         $this->authorizeRecordVisibility($asset);
 
-        if ($asset->rights_status !== 'cleared') {
-            return back()->with('error', 'Publication blocked: rights are not cleared. Complete the rights record in Rights Records and set it to Cleared first (FR-CPR-05).');
+        if ($asset->rights_status !== 'approved') {
+            return back()->with('error', 'Publication blocked: rights are not approved. Complete the rights record in Rights Records and set it to Approved first (FR-CPR-05).');
         }
 
         if (! in_array($asset->status, ['approved', 'unpublished'], true)) {

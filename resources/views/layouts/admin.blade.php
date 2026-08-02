@@ -91,5 +91,7 @@
         </footer>
     </div>
 </div>
+
+@include('partials.notification-toaster')
 </body>
 </html>

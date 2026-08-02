@@ -3,7 +3,7 @@
 @section('title', 'Rights Records')
 
 @section('content')
-<x-page-header title="Rights Records" subtitle="Per-asset rights clearances — publication is gated on cleared rights (FR-CPR-04/05)">
+<x-page-header title="Rights Records" subtitle="Per-asset rights approvals — publication is gated on approved rights (FR-CPR-04/05)">
     @can('rights.manage')
         <a href="{{ route('admin.rights-records.create') }}" class="btn-primary"><x-icon name="plus" class="size-4" /> New Record</a>
     @endcan
@@ -35,7 +35,7 @@
             <tbody>
                 @forelse ($records as $record)
                     @php
-                        $expiringSoon = $record->status === 'cleared'
+                        $expiringSoon = $record->status === 'approved'
                             && $record->valid_until
                             && $record->valid_until->betweenIncluded(now(), now()->addDays(90));
                     @endphp
@@ -80,7 +80,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="7"><x-empty-state icon="scale" title="No rights records" message="Create rights records so cleared assets can be published." /></td></tr>
+                    <tr><td colspan="7"><x-empty-state icon="scale" title="No rights records" message="Create rights records so approved assets can be published." /></td></tr>
                 @endforelse
             </tbody>
         </table>

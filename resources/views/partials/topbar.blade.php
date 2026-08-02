@@ -42,11 +42,10 @@
     <div x-data="{ open: false }" class="relative">
         <button @click="open = !open" class="btn-ghost relative p-2" title="Notifications">
             <x-icon name="bell" class="size-5" />
-            @if ($unreadCount > 0)
-                <span class="absolute -top-0.5 -right-0.5 flex size-4.5 items-center justify-center rounded-full bg-accent-600 text-[10px] font-bold text-white">
-                    {{ min($unreadCount, 9) }}{{ $unreadCount > 9 ? '+' : '' }}
-                </span>
-            @endif
+            <span id="notif-badge"
+                  class="absolute -top-0.5 -right-0.5 flex size-4.5 items-center justify-center rounded-full bg-accent-600 text-[10px] font-bold text-white {{ $unreadCount > 0 ? '' : 'hidden' }}">
+                {{ min($unreadCount, 9) }}{{ $unreadCount > 9 ? '+' : '' }}
+            </span>
         </button>
         <div x-show="open" @click.outside="open = false" x-transition.origin.top.right class="dropdown-panel w-96 max-w-[calc(100vw-2rem)] p-0" x-cloak>
             <div class="flex items-center justify-between border-b border-slate-100 px-4 py-2.5 dark:border-slate-700">

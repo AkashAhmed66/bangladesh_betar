@@ -47,7 +47,7 @@ trait CreatesAudioAssets
             'waveform_peaks' => self::waveformPeaks(),
             'status' => 'published',
             'access_level' => 'public',
-            'rights_status' => 'cleared',
+            'rights_status' => 'approved',
             'recorded_on' => now()->subDays(random_int(60, 4000))->toDateString(),
             'first_broadcast_on' => now()->subDays(random_int(30, 3650))->toDateString(),
             'published_at' => now()->subDays(random_int(1, 900)),
