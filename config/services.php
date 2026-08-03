@@ -40,6 +40,11 @@ return [
     'tts' => [
         'base_url' => env('TTS_SERVICE_URL', 'http://tts:5002'),
         'timeout' => (int) env('TTS_TIMEOUT_SECONDS', 1800),
+        // Bangla narration tuning (no rebuilds needed):
+        //   bn_pace — >1.0 slower & clearer articulation (0.8–1.4)
+        //   bn_expressiveness — higher = livelier, lower = cleaner (0.4–1.0)
+        'bn_pace' => (float) env('TTS_BN_PACE', 1.06),
+        'bn_expressiveness' => (float) env('TTS_BN_EXPRESSIVENESS', 0.70),
     ],
 
     // Audio Postmortem — duplicate / violence / anti-government detection +

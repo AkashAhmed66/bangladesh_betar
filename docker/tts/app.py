@@ -57,7 +57,7 @@ class BanglaVoice:
             ids = [self.bos_id, *ids, self.eos_id]
         return ids
 
-    def tts(self, text: str) -> np.ndarray | None:
+    def tts(self, text: str, scales: tuple[float, float, float] = (0.667, 1.0, 0.8)) -> np.ndarray | None:
         ids = self._ids(text)
         if not ids:
             return None
@@ -69,7 +69,7 @@ class BanglaVoice:
             elif name == "input_lengths":
                 feeds[name] = np.array([x.shape[1]], dtype=np.int64)
             elif name == "scales":
-                feeds[name] = np.array([0.667, 1.0, 0.8], dtype=np.float32)
+                feeds[name] = np.array(list(scales), dtype=np.float32)
         return self.session.run(None, feeds)[0].squeeze().astype(np.float32)
 
 
@@ -83,6 +83,82 @@ class SynthesizeRequest(BaseModel):
     text: str
     language: str  # en | bn
     voice: str = "female"  # male | female
+    pace: float | None = None            # Bangla length_scale: >1 slower/clearer (0.8–1.4)
+    expressiveness: float | None = None  # Bangla noise_scale: higher livelier (0.4–1.0)
+
+
+# ---- Bangla prosody -------------------------------------------------------
+# Explicit breath structure: a full pause after দাঁড়ি (।) / ? / !, a shorter
+# one after commas, and per-sentence expressiveness — questions and
+# exclamations get a livelier delivery (higher noise_scale), and the pace
+# varies slightly between sentences so long passages don't sound mechanical.
+BN_PAUSES = {"।": 0.55, "?": 0.60, "!": 0.55, "": 0.40}
+BN_COMMA_PAUSE = 0.22
+BN_BASE_NOISE = 0.70          # expressiveness: higher = livelier but slurrier
+BN_BASE_PACE = 1.06           # length_scale: >1 = slower, clearer articulation
+BN_DURATION_NOISE = 0.66      # noise_w: lower = steadier phoneme durations
+BN_MIN_CLAUSE = 18            # don't split at a comma if a side is this short
+
+
+def bn_sentences(text: str):
+    """Sentences with their terminator kept (danda included)."""
+    parts = re.split(r"(?<=[।?!\n])\s*", text)
+    return [p.strip() for p in parts if p.strip()]
+
+
+def bn_clauses(sentence: str):
+    """Split at commas/semicolons, merging fragments too short to stand alone."""
+    raw = [c.strip() for c in re.split(r"(?<=[,;])\s*", sentence) if c.strip()]
+    clauses: list[str] = []
+    for part in raw:
+        if clauses and (len(part) < BN_MIN_CLAUSE or len(clauses[-1]) < BN_MIN_CLAUSE):
+            clauses[-1] = f"{clauses[-1]} {part}"
+        else:
+            clauses.append(part)
+    return clauses
+
+
+def bn_narrate(voice, text: str, pace: float | None = None, expressiveness: float | None = None) -> list:
+    pieces: list = []
+    silence = lambda seconds: np.zeros(int(voice.rate * seconds), dtype=np.float32)  # noqa: E731
+
+    base_noise = min(1.0, max(0.4, expressiveness)) if expressiveness else BN_BASE_NOISE
+    base_pace = min(1.4, max(0.8, pace)) if pace else BN_BASE_PACE
+
+    sentences = []
+    for chunk in sentence_chunks(text):          # safety cap for wall-of-text input
+        sentences.extend(bn_sentences(chunk))
+
+    for index, sentence in enumerate(sentences):
+        terminator = sentence[-1] if sentence and sentence[-1] in "।?!" else ""
+
+        # Expressiveness per sentence type + gentle pace variation.
+        noise = base_noise
+        length = base_pace + ((index % 3) - 1) * 0.02
+        if terminator == "?":
+            noise = min(1.0, base_noise + 0.10)
+        elif terminator == "!":
+            noise, length = min(1.0, base_noise + 0.08), length * 0.97
+
+        clauses = bn_clauses(sentence)
+        for clause_index, clause in enumerate(clauses):
+            # A fragment without terminal punctuation makes the model rush and
+            # swallow the final word — close it with a danda so every piece is
+            # articulated as a complete utterance (our own pause follows).
+            if clause and clause[-1] not in "।?!,;":
+                clause = clause + "।"
+            waveform = voice.tts(clause, scales=(noise, length, BN_DURATION_NOISE))
+            if waveform is not None and waveform.size:
+                pieces.append(waveform)
+                if clause_index < len(clauses) - 1:
+                    pieces.append(silence(BN_COMMA_PAUSE))
+
+        if pieces:
+            pieces.append(silence(BN_PAUSES.get(terminator, BN_PAUSES[""])))
+
+    if pieces and pieces[-1].size and float(np.max(np.abs(pieces[-1]))) == 0.0:
+        pieces.pop()                              # no trailing silence at the very end
+    return pieces
 
 
 def sentence_chunks(text: str, limit: int = 400):
@@ -130,12 +206,7 @@ def synthesize(req: SynthesizeRequest):
 
     if req.language == "bn":
         voice = BN_VOICES[voice_key]
-        pieces = []
-        gap = np.zeros(int(voice.rate * 0.25), dtype=np.float32)
-        for chunk in sentence_chunks(text):
-            waveform = voice.tts(chunk)
-            if waveform is not None and waveform.size:
-                pieces.extend((waveform, gap))
+        pieces = bn_narrate(voice, text, pace=req.pace, expressiveness=req.expressiveness)
         if not pieces:
             raise HTTPException(422, "Nothing to synthesize.")
         return Response(content=to_wav_bytes(np.concatenate(pieces), voice.rate), media_type="audio/wav")

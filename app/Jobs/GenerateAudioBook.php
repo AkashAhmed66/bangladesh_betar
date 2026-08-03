@@ -115,8 +115,12 @@ class GenerateAudioBook implements ShouldQueue
                     }
                 }
 
-                exec(sprintf('ffmpeg -y -v error -i %s -codec:a libmp3lame -q:a 4 %s 2>&1',
-                    escapeshellarg($disk->path($wavRel)), escapeshellarg($disk->path($mp3Rel))), $o, $e);
+                // Loudness-normalised MP3 (EBU R128 speech target) — consistent,
+                // clearer perceived volume across the whole narration.
+                exec(sprintf('ffmpeg -y -v error -i %s -af %s -codec:a libmp3lame -q:a 4 %s 2>&1',
+                    escapeshellarg($disk->path($wavRel)),
+                    escapeshellarg('loudnorm=I=-17:TP=-1.5:LRA=9'),
+                    escapeshellarg($disk->path($mp3Rel))), $o, $e);
                 if ($e === 0 && $disk->exists($mp3Rel)) {
                     $disk->delete($wavRel);
                     $paths[$voice] = $mp3Rel;
@@ -130,10 +134,10 @@ class GenerateAudioBook implements ShouldQueue
                 unset($o, $e, $d);
             }
 
-            // Generation complete → straight into the approval queue.
+            // Generation complete → READY for the creator to review; submitting
+            // for publication is a separate, explicit step.
             $book->update([
-                'status' => 'pending_approval',
-                'submitted_at' => now(),
+                'status' => 'ready',
                 'engine' => $engine,
                 'audio_male_path' => $paths['male'],
                 'audio_female_path' => $paths['female'],
@@ -146,18 +150,12 @@ class GenerateAudioBook implements ShouldQueue
                 'language' => $language, 'engine' => $engine,
                 'characters' => $book->characters, 'ocr' => $usedOcr,
                 'duration_male' => $durations['male'], 'duration_female' => $durations['female'],
-            ], "Audio book “{$book->title}” narrated in both voices ({$language}, {$engine}) and submitted for approval.");
+            ], "Audio book “{$book->title}” narrated in both voices ({$language}, {$engine}) — ready for review.");
 
             Notify::user($book->user, 'speech_ready',
-                'Audio book generated & sent for approval',
-                "“{$book->title}” was narrated in both male and female ".($language === 'bn' ? 'Bangla' : 'English').' voices and submitted for approval automatically.'.($usedOcr ? ' Text was recovered by OCR — spot-check for errors.' : ''),
+                'Audio book is ready',
+                "“{$book->title}” was narrated in both male and female ".($language === 'bn' ? 'Bangla' : 'English').' voices. Listen to it, then press Submit to send it for publication.'.($usedOcr ? ' Text was recovered by OCR — spot-check for errors.' : ''),
                 route('admin.audiobooks.show', $book));
-
-            Notify::permission('audiobooks.approve', 'needs_approval',
-                'Audio book needs your approval',
-                ($book->user?->name ?? 'A creator')." submitted the audio book “{$book->title}” (".($language === 'bn' ? 'Bangla' : 'English').', male + female narrations).',
-                route('admin.audiobooks.show', $book),
-                except: $book->user_id);
         } catch (\Throwable $e) {
             Log::error('[audiobook] failed', ['book' => $book->id, 'error' => $e->getMessage()]);
             $this->fail_($book, $e->getMessage());
@@ -185,7 +183,13 @@ class GenerateAudioBook implements ShouldQueue
             }
 
             $response = Http::timeout((int) config('services.tts.timeout', 1800))
-                ->post("{$base}/synthesize", ['text' => $text, 'language' => $language, 'voice' => $voice]);
+                ->post("{$base}/synthesize", [
+                    'text' => $text,
+                    'language' => $language,
+                    'voice' => $voice,
+                    'pace' => (float) config('services.tts.bn_pace', 1.06),
+                    'expressiveness' => (float) config('services.tts.bn_expressiveness', 0.70),
+                ]);
 
             if (! $response->ok() || strlen($response->body()) < 1000) {
                 return false;

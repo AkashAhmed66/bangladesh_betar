@@ -46,6 +46,6 @@ class AudioBook extends Model
 
     public function isReadyForSubmission(): bool
     {
-        return in_array($this->status, ['ready', 'rejected'], true);
+        return in_array($this->status, ['ready', 'rejected', 'unpublished'], true);
     }
 }

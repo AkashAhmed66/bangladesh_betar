@@ -4,7 +4,7 @@
 
 @section('content')
 <x-page-header title="New Audio Book"
-               subtitle="Upload a PDF or paste text — both a male and a female narration are generated, then the book is submitted for approval automatically." />
+               subtitle="Upload a PDF or paste text — both a male and a female narration are generated. Review them, then submit the book for publication." />
 
 <form method="POST" action="{{ route('admin.audiobooks.store') }}" enctype="multipart/form-data" class="max-w-3xl"
       x-data="{ mode: '{{ old('text') ? 'text' : 'pdf' }}' }">
@@ -48,7 +48,7 @@
         </div>
         <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-4 dark:border-slate-800">
             <a href="{{ route('admin.audiobooks.index') }}" class="btn-secondary">Cancel</a>
-            <button type="submit" class="btn-primary"><x-icon name="megaphone" class="size-4" /> Create &amp; Submit for Approval</button>
+            <button type="submit" class="btn-primary"><x-icon name="megaphone" class="size-4" /> Create Audio Book</button>
         </div>
     </div>
 </form>

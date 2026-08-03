@@ -19,9 +19,20 @@
     </div>
     <div class="flex flex-wrap gap-2">
         @if ($book->isReadyForSubmission() && ($book->user_id === auth()->id() || auth()->user()->can('records.view-all')))
-            <form method="POST" action="{{ route('admin.audiobooks.submit', $book) }}">@csrf
-                <button type="submit" class="btn-primary"><x-icon name="clipboard-check" class="size-4" /> Submit for Approval</button>
+            <form method="POST" action="{{ route('admin.audiobooks.submit', $book) }}"
+                  onsubmit="return confirm('Submit this audio book for publication? Approvers will review it.');">
+                @csrf
+                <button type="submit" class="btn-primary"><x-icon name="clipboard-check" class="size-4" /> Submit for Publication</button>
             </form>
+        @endif
+        @if ($book->status === 'published')
+            @can('audiobooks.approve')
+                <form method="POST" action="{{ route('admin.audiobooks.unpublish', $book) }}"
+                      onsubmit="return confirm('Remove this audio book from the public app?');">
+                    @csrf
+                    <button type="submit" class="btn-danger"><x-icon name="x" class="size-4" /> Unpublish</button>
+                </form>
+            @endcan
         @endif
         <a href="{{ route('admin.audiobooks.index') }}" class="btn-secondary"><x-icon name="chevron-left" class="size-4" /> Back to Audio Books</a>
     </div>

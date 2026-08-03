@@ -42,16 +42,34 @@
                                     <x-icon name="eye" class="size-4" />
                                     {{ $book->status === 'pending_approval' && auth()->user()->can('audiobooks.approve') ? 'Review' : 'View' }}
                                 </a>
-                                @if ($book->status === 'rejected' && ($book->user_id === auth()->id() || auth()->user()->can('records.view-all')))
-                                    <form method="POST" action="{{ route('admin.audiobooks.submit', $book) }}">@csrf
-                                        <button type="submit" class="btn-primary btn-sm"><x-icon name="arrow-path" class="size-4" /> Resubmit</button>
+                                @if ($book->isReadyForSubmission() && ($book->user_id === auth()->id() || auth()->user()->can('records.view-all')))
+                                    <form method="POST" action="{{ route('admin.audiobooks.submit', $book) }}"
+                                          onsubmit="return confirm('Submit “{{ $book->title }}” for publication? Approvers will review it.');">
+                                        @csrf
+                                        <button type="submit" class="btn-primary btn-sm">
+                                            <x-icon name="{{ $book->status === 'ready' ? 'clipboard-check' : 'arrow-path' }}" class="size-4" />
+                                            {{ $book->status === 'ready' ? 'Submit' : 'Resubmit' }}
+                                        </button>
                                     </form>
+                                @endif
+                                @if ($book->status === 'published')
+                                    @can('audiobooks.approve')
+                                        <form method="POST" action="{{ route('admin.audiobooks.unpublish', $book) }}"
+                                              onsubmit="return confirm('Remove “{{ $book->title }}” from the public app?');">
+                                            @csrf
+                                            <button type="submit" class="btn-danger btn-sm"><x-icon name="x" class="size-4" /> Unpublish</button>
+                                        </form>
+                                    @endcan
+                                @endif
+                                @if ($book->user_id === auth()->id() || auth()->user()->can('records.view-all'))
+                                    <x-confirm-delete :action="route('admin.audiobooks.destroy', $book)"
+                                                      confirm="Delete this audio book and both narrations permanently?" />
                                 @endif
                             </div>
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="7"><x-empty-state icon="megaphone" title="No audio books yet" message="Click “Add New Audio Book” to create one — both narrations are generated and it is submitted for approval automatically." /></td></tr>
+                    <tr><td colspan="7"><x-empty-state icon="megaphone" title="No audio books yet" message="Click “Add New Audio Book” — both narrations are generated; review them, then submit for publication." /></td></tr>
                 @endforelse
             </tbody>
         </table>

@@ -135,6 +135,8 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
             Route::post('audiobooks/{audiobook}/submit', [Admin\AudioBookController::class, 'submit'])->name('audiobooks.submit');
             Route::post('audiobooks/{audiobook}/review', [Admin\AudioBookController::class, 'review'])
                 ->middleware('permission:audiobooks.approve')->name('audiobooks.review');
+            Route::post('audiobooks/{audiobook}/unpublish', [Admin\AudioBookController::class, 'unpublish'])
+                ->middleware('permission:audiobooks.approve')->name('audiobooks.unpublish');
             Route::get('audiobooks/{audiobook}/audio/{voice}', [Admin\AudioBookController::class, 'audio'])->name('audiobooks.audio');
             Route::delete('audiobooks/{audiobook}', [Admin\AudioBookController::class, 'destroy'])->name('audiobooks.destroy');
         });

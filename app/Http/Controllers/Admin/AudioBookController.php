@@ -73,7 +73,7 @@ class AudioBookController extends Controller
         GenerateAudioBook::dispatch($book->id);
 
         return redirect()->route('admin.audiobooks.index')
-            ->with('success', 'Audio book queued — both narrations are being generated and it will be submitted for approval automatically.');
+            ->with('success', 'Audio book queued — both narrations are being generated. You will get a notification when it is ready to review and submit.');
     }
 
     /** Review page: full details, both players, the text, and the decision. */
@@ -152,6 +152,30 @@ class AudioBookController extends Controller
         return back()->with('success', $approved
             ? 'Approved — the audio book is now live for premium listeners.'
             : 'Rejected — the creator has been notified.');
+    }
+
+    /** Take a live audio book off the public app. It can be resubmitted later. */
+    public function unpublish(Request $request, AudioBook $audiobook): RedirectResponse
+    {
+        $this->authorize('audiobooks.approve');
+
+        abort_unless($audiobook->status === 'published', 404, 'This audio book is not published.');
+
+        $audiobook->update(['status' => 'unpublished']);
+
+        AuditLog::record('audiobook_unpublished', $audiobook,
+            ['status' => 'published'], ['status' => 'unpublished'],
+            "Audio book “{$audiobook->title}” removed from the public app.");
+
+        Notify::user(
+            $audiobook->user_id === $request->user()->id ? null : $audiobook->user,
+            'rights_status',
+            'Audio book unpublished',
+            "“{$audiobook->title}” was removed from the public app. It can be revised and resubmitted.",
+            route('admin.audiobooks.show', $audiobook),
+        );
+
+        return back()->with('success', 'Audio book removed from the public app.');
     }
 
     /** Admin preview stream (male|female). */
