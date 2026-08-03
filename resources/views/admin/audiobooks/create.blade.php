@@ -31,7 +31,7 @@
                 <label class="form-label">PDF document</label>
                 <input type="file" name="pdf" accept=".pdf"
                        class="form-input mt-1 file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-sm file:font-medium dark:file:bg-slate-800">
-                <p class="form-help">Digital PDFs are read directly; scanned PDFs go through Bangla+English OCR automatically. Up to 50&nbsp;MB.</p>
+                <p class="form-help">Digital PDFs are read directly; scanned PDFs — and Bangla PDFs whose text layer extracts garbled (a common font issue) — go through Bangla+English OCR automatically. Up to 50&nbsp;MB.</p>
                 @error('pdf')<p class="form-error">{{ $message }}</p>@enderror
             </div>
 

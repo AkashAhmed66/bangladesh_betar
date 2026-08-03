@@ -4,30 +4,30 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "bd8b0d1fe42d0a0a1629cd4d3c8a546e",
+    "content-hash": "5aefa53ce116706a822324fca78a67a9",
     "packages": [
         {
             "name": "babenkoivan/elastic-adapter",
-            "version": "v5.1.0",
+            "version": "v4.1.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/babenkoivan/elastic-adapter.git",
-                "reference": "106d938c4ec0f99eb7d136925f68bc6e26ccdf03"
+                "reference": "8663de00ca00d4403ce61728fd86f3a77965b0c2"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/babenkoivan/elastic-adapter/zipball/106d938c4ec0f99eb7d136925f68bc6e26ccdf03",
-                "reference": "106d938c4ec0f99eb7d136925f68bc6e26ccdf03",
+                "url": "https://api.github.com/repos/babenkoivan/elastic-adapter/zipball/8663de00ca00d4403ce61728fd86f3a77965b0c2",
+                "reference": "8663de00ca00d4403ce61728fd86f3a77965b0c2",
                 "shasum": ""
             },
             "require": {
-                "babenkoivan/elastic-client": "^4.0",
+                "babenkoivan/elastic-client": "^3.0",
                 "php": "^8.2"
             },
             "require-dev": {
                 "dg/bypass-finals": "^1.7",
                 "friendsofphp/php-cs-fixer": "^3.14",
-                "orchestra/testbench": "^10.0",
+                "orchestra/testbench": "^9.0",
                 "phpstan/phpstan": "^1.10",
                 "phpunit/phpunit": "^11.0"
             },
@@ -57,7 +57,7 @@
             ],
             "support": {
                 "issues": "https://github.com/babenkoivan/elastic-adapter/issues",
-                "source": "https://github.com/babenkoivan/elastic-adapter/tree/v5.1.0"
+                "source": "https://github.com/babenkoivan/elastic-adapter/tree/v4.1.1"
             },
             "funding": [
                 {
@@ -69,29 +69,29 @@
                     "type": "paypal"
                 }
             ],
-            "time": "2026-02-16T17:46:08+00:00"
+            "time": "2025-04-07T07:00:35+00:00"
         },
         {
             "name": "babenkoivan/elastic-client",
-            "version": "v4.0.1",
+            "version": "v3.1.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/babenkoivan/elastic-client.git",
-                "reference": "362649a61082ad973d37fa729e5273fa3e32ef12"
+                "reference": "65f4a4c9dc3b5f6ba4e68e59ad26a68393aae995"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/babenkoivan/elastic-client/zipball/362649a61082ad973d37fa729e5273fa3e32ef12",
-                "reference": "362649a61082ad973d37fa729e5273fa3e32ef12",
+                "url": "https://api.github.com/repos/babenkoivan/elastic-client/zipball/65f4a4c9dc3b5f6ba4e68e59ad26a68393aae995",
+                "reference": "65f4a4c9dc3b5f6ba4e68e59ad26a68393aae995",
                 "shasum": ""
             },
             "require": {
-                "elasticsearch/elasticsearch": "^9.0",
+                "elasticsearch/elasticsearch": "^8.0",
                 "php": "^8.2"
             },
             "require-dev": {
                 "friendsofphp/php-cs-fixer": "^3.14",
-                "orchestra/testbench": "^10.0",
+                "orchestra/testbench": "^9.0",
                 "phpstan/phpstan": "^1.10",
                 "phpunit/phpunit": "^11.0"
             },
@@ -128,7 +128,7 @@
             ],
             "support": {
                 "issues": "https://github.com/babenkoivan/elastic-client/issues",
-                "source": "https://github.com/babenkoivan/elastic-client/tree/v4.0.1"
+                "source": "https://github.com/babenkoivan/elastic-client/tree/v3.1.1"
             },
             "funding": [
                 {
@@ -140,30 +140,30 @@
                     "type": "paypal"
                 }
             ],
-            "time": "2025-11-16T12:13:35+00:00"
+            "time": "2024-06-18T06:53:01+00:00"
         },
         {
             "name": "babenkoivan/elastic-migrations",
-            "version": "v5.0.0",
+            "version": "v4.0.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/babenkoivan/elastic-migrations.git",
-                "reference": "e352a6e905cc1969afdee76d4fadb05837c23406"
+                "reference": "d25c46104376e339ec2b4b9079d6fe30cf92dc63"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/babenkoivan/elastic-migrations/zipball/e352a6e905cc1969afdee76d4fadb05837c23406",
-                "reference": "e352a6e905cc1969afdee76d4fadb05837c23406",
+                "url": "https://api.github.com/repos/babenkoivan/elastic-migrations/zipball/d25c46104376e339ec2b4b9079d6fe30cf92dc63",
+                "reference": "d25c46104376e339ec2b4b9079d6fe30cf92dc63",
                 "shasum": ""
             },
             "require": {
-                "babenkoivan/elastic-adapter": "^5.0",
+                "babenkoivan/elastic-adapter": "^4.0",
                 "php": "^8.2"
             },
             "require-dev": {
                 "dg/bypass-finals": "^1.7",
                 "friendsofphp/php-cs-fixer": "^3.14",
-                "orchestra/testbench": "^10.0",
+                "orchestra/testbench": "^9.0",
                 "phpstan/phpstan": "^1.10",
                 "phpunit/phpunit": "^11.0"
             },
@@ -203,7 +203,7 @@
             ],
             "support": {
                 "issues": "https://github.com/babenkoivan/elastic-migrations/issues",
-                "source": "https://github.com/babenkoivan/elastic-migrations/tree/v5.0.0"
+                "source": "https://github.com/babenkoivan/elastic-migrations/tree/v4.0.1"
             },
             "funding": [
                 {
@@ -215,32 +215,32 @@
                     "type": "paypal"
                 }
             ],
-            "time": "2025-11-16T12:22:07+00:00"
+            "time": "2025-04-07T07:07:48+00:00"
         },
         {
             "name": "babenkoivan/elastic-scout-driver",
-            "version": "v6.0.0",
+            "version": "v4.0.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/babenkoivan/elastic-scout-driver.git",
-                "reference": "de23e6af3962f6df1402acb5043e0c2de1e6f169"
+                "reference": "f3791521fb3216850335f491a1461a16738125cd"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/babenkoivan/elastic-scout-driver/zipball/de23e6af3962f6df1402acb5043e0c2de1e6f169",
-                "reference": "de23e6af3962f6df1402acb5043e0c2de1e6f169",
+                "url": "https://api.github.com/repos/babenkoivan/elastic-scout-driver/zipball/f3791521fb3216850335f491a1461a16738125cd",
+                "reference": "f3791521fb3216850335f491a1461a16738125cd",
                 "shasum": ""
             },
             "require": {
-                "babenkoivan/elastic-adapter": "^5.0",
-                "php": "^8.3"
+                "babenkoivan/elastic-adapter": "^4.0",
+                "php": "^8.2"
             },
             "require-dev": {
-                "babenkoivan/elastic-migrations": "^5.0",
+                "babenkoivan/elastic-migrations": "^4.0",
                 "friendsofphp/php-cs-fixer": "^3.14",
                 "laravel/legacy-factories": "^1.3",
-                "laravel/scout": "^11.0",
-                "orchestra/testbench": "^11.0",
+                "laravel/scout": "^10.0",
+                "orchestra/testbench": "^9.0",
                 "phpstan/phpstan": "^1.10",
                 "phpunit/phpunit": "^11.0"
             },
@@ -278,7 +278,7 @@
             ],
             "support": {
                 "issues": "https://github.com/babenkoivan/elastic-scout-driver/issues",
-                "source": "https://github.com/babenkoivan/elastic-scout-driver/tree/v6.0.0"
+                "source": "https://github.com/babenkoivan/elastic-scout-driver/tree/v4.0.0"
             },
             "funding": [
                 {
@@ -290,7 +290,7 @@
                     "type": "paypal"
                 }
             ],
-            "time": "2026-03-23T19:26:58+00:00"
+            "time": "2024-06-18T07:06:48+00:00"
         },
         {
             "name": "brick/math",
@@ -796,36 +796,36 @@
         },
         {
             "name": "elastic/transport",
-            "version": "v9.0.1",
+            "version": "v8.11.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/elastic/elastic-transport-php.git",
-                "reference": "3488b9d070e220f2a1ebdb500e6c588069f1897f"
+                "reference": "1d476af5dc0b74530d59b67d5dd96ee39768d5a4"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/elastic/elastic-transport-php/zipball/3488b9d070e220f2a1ebdb500e6c588069f1897f",
-                "reference": "3488b9d070e220f2a1ebdb500e6c588069f1897f",
+                "url": "https://api.github.com/repos/elastic/elastic-transport-php/zipball/1d476af5dc0b74530d59b67d5dd96ee39768d5a4",
+                "reference": "1d476af5dc0b74530d59b67d5dd96ee39768d5a4",
                 "shasum": ""
             },
             "require": {
                 "composer-runtime-api": "^2.0",
-                "nyholm/psr7": "^1.8",
                 "open-telemetry/api": "^1.0",
-                "php": "^8.1",
+                "php": "^7.4 || ^8.0",
                 "php-http/discovery": "^1.14",
-                "php-http/httplug": "^2.4",
+                "php-http/httplug": "^2.3",
                 "psr/http-client": "^1.0",
                 "psr/http-factory": "^1.0",
-                "psr/http-message": "^2.0",
-                "psr/log": "^2.0 || ^3.0"
+                "psr/http-message": "^1.0 || ^2.0",
+                "psr/log": "^1 || ^2 || ^3"
             },
             "require-dev": {
+                "nyholm/psr7": "^1.5",
                 "open-telemetry/sdk": "^1.0",
                 "php-http/mock-client": "^1.5",
                 "phpstan/phpstan": "^2.1",
-                "phpunit/phpunit": "^10",
-                "symfony/http-client": "^6.0"
+                "phpunit/phpunit": "^9.5",
+                "symfony/http-client": "^5.4"
             },
             "type": "library",
             "autoload": {
@@ -848,44 +848,43 @@
             ],
             "support": {
                 "issues": "https://github.com/elastic/elastic-transport-php/issues",
-                "source": "https://github.com/elastic/elastic-transport-php/tree/v9.0.1"
+                "source": "https://github.com/elastic/elastic-transport-php/tree/v8.11.0"
             },
-            "time": "2025-05-08T12:31:50+00:00"
+            "time": "2025-04-02T08:20:33+00:00"
         },
         {
             "name": "elasticsearch/elasticsearch",
-            "version": "v9.4.0",
+            "version": "v8.19.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/elastic/elasticsearch-php.git",
-                "reference": "47f3edae4f6f2ecf507fe574d359839668f69525"
+                "reference": "1771284cb43a7b653634d418b6f5f0ec84ff8a6d"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/elastic/elasticsearch-php/zipball/47f3edae4f6f2ecf507fe574d359839668f69525",
-                "reference": "47f3edae4f6f2ecf507fe574d359839668f69525",
+                "url": "https://api.github.com/repos/elastic/elasticsearch-php/zipball/1771284cb43a7b653634d418b6f5f0ec84ff8a6d",
+                "reference": "1771284cb43a7b653634d418b6f5f0ec84ff8a6d",
                 "shasum": ""
             },
             "require": {
-                "elastic/transport": "^9.0",
-                "php": "^8.1",
+                "elastic/transport": "^8.11",
+                "guzzlehttp/guzzle": "^7.0",
+                "php": "^7.4 || ^8.0",
                 "psr/http-client": "^1.0",
-                "psr/http-message": "^2.0",
-                "psr/log": "^2.0|^3.0"
+                "psr/http-message": "^1.1 || ^2.0",
+                "psr/log": "^1|^2|^3"
             },
             "require-dev": {
                 "ext-yaml": "*",
                 "ext-zip": "*",
-                "guzzlehttp/guzzle": "^7.0",
-                "mockery/mockery": "^1.6",
-                "nette/php-generator": "^4.0",
-                "nyholm/psr7": "^1.8",
-                "php-http/mock-client": "^1.6",
+                "mockery/mockery": "^1.5",
+                "nyholm/psr7": "^1.5",
+                "php-http/mock-client": "^1.5",
                 "phpstan/phpstan": "^2.1",
-                "phpunit/phpunit": "^10.0",
+                "phpunit/phpunit": "^9.5",
                 "psr/http-factory": "^1.0",
-                "symfony/finder": "^6.0",
-                "symfony/http-client": "^6.0|^7.0"
+                "symfony/finder": "~4.0",
+                "symfony/http-client": "^5.0|^6.0|^7.0"
             },
             "type": "library",
             "autoload": {
@@ -906,9 +905,9 @@
             ],
             "support": {
                 "issues": "https://github.com/elastic/elasticsearch-php/issues",
-                "source": "https://github.com/elastic/elasticsearch-php/tree/v9.4.0"
+                "source": "https://github.com/elastic/elasticsearch-php/tree/v8.19.0"
             },
-            "time": "2026-05-06T10:28:51+00:00"
+            "time": "2025-08-06T16:58:06+00:00"
         },
         {
             "name": "fruitcake/php-cors",
@@ -3079,84 +3078,6 @@
                 }
             ],
             "time": "2026-02-16T23:10:27+00:00"
-        },
-        {
-            "name": "nyholm/psr7",
-            "version": "1.8.2",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/Nyholm/psr7.git",
-                "reference": "a71f2b11690f4b24d099d6b16690a90ae14fc6f3"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/Nyholm/psr7/zipball/a71f2b11690f4b24d099d6b16690a90ae14fc6f3",
-                "reference": "a71f2b11690f4b24d099d6b16690a90ae14fc6f3",
-                "shasum": ""
-            },
-            "require": {
-                "php": ">=7.2",
-                "psr/http-factory": "^1.0",
-                "psr/http-message": "^1.1 || ^2.0"
-            },
-            "provide": {
-                "php-http/message-factory-implementation": "1.0",
-                "psr/http-factory-implementation": "1.0",
-                "psr/http-message-implementation": "1.0"
-            },
-            "require-dev": {
-                "http-interop/http-factory-tests": "^0.9",
-                "php-http/message-factory": "^1.0",
-                "php-http/psr7-integration-tests": "^1.0",
-                "phpunit/phpunit": "^7.5 || ^8.5 || ^9.4",
-                "symfony/error-handler": "^4.4"
-            },
-            "type": "library",
-            "extra": {
-                "branch-alias": {
-                    "dev-master": "1.8-dev"
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Nyholm\\Psr7\\": "src/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Tobias Nyholm",
-                    "email": "tobias.nyholm@gmail.com"
-                },
-                {
-                    "name": "Martijn van der Ven",
-                    "email": "martijn@vanderven.se"
-                }
-            ],
-            "description": "A fast PHP7 implementation of PSR-7",
-            "homepage": "https://tnyholm.se",
-            "keywords": [
-                "psr-17",
-                "psr-7"
-            ],
-            "support": {
-                "issues": "https://github.com/Nyholm/psr7/issues",
-                "source": "https://github.com/Nyholm/psr7/tree/1.8.2"
-            },
-            "funding": [
-                {
-                    "url": "https://github.com/Zegnat",
-                    "type": "github"
-                },
-                {
-                    "url": "https://github.com/nyholm",
-                    "type": "github"
-                }
-            ],
-            "time": "2024-09-09T07:06:30+00:00"
         },
         {
             "name": "open-telemetry/api",

@@ -21,8 +21,8 @@ use Illuminate\Support\Facades\Storage;
  *  1. Extract text — pdftotext, with Tesseract OCR (ben+eng) fallback.
  *  2. Resolve language (Bengali script detection when "auto").
  *  3. Narrate in BOTH male and female voices — neural sidecar first
- *     (Piper English / MMS Bangla), espeak-ng as offline fallback — then
- *     encode each to MP3.
+ *     (Piper English / BanglaTTS-ONNX Bangla, real speakers for both
+ *     genders), espeak-ng as offline fallback — then encode each to MP3.
  */
 class GenerateAudioBook implements ShouldQueue
 {
@@ -59,9 +59,16 @@ class GenerateAudioBook implements ShouldQueue
                 $pdfAbs = $disk->path($book->source_path);
                 $text = $this->extractPdfText($pdfAbs);
 
-                if (mb_strlen($text) < 40) {
-                    $text = $this->ocrPdf($pdfAbs);
-                    $usedOcr = true;
+                // OCR the rendered pages when the text layer is missing OR
+                // mangled — Bangla PDFs (even Word exports) often store glyphs
+                // in visual order with broken ToUnicode maps, producing
+                // garbage like "খরগ োশ"; the rendered page is still correct.
+                if (mb_strlen($text) < 40 || $this->looksMangledBangla($text)) {
+                    $ocr = $this->ocrPdf($pdfAbs);
+                    if (mb_strlen($ocr) >= 40) {
+                        $text = $ocr;
+                        $usedOcr = true;
+                    }
                 }
             }
 
@@ -184,20 +191,9 @@ class GenerateAudioBook implements ShouldQueue
                 return false;
             }
 
+            // Both Bangla voices are REAL trained speakers (BanglaTTS
+            // male/female ONNX) — no pitch-shift derivation needed.
             file_put_contents($outAbs, $response->body());
-
-            // MMS ships one Bangla voice — derive the male variant by pitch
-            // shifting down three semitones (duration preserved).
-            if ($language === 'bn' && $voice === 'male') {
-                $shifted = "{$outAbs}.shift.wav";
-                exec(sprintf('ffmpeg -y -v error -i %s -af %s %s 2>&1',
-                    escapeshellarg($outAbs),
-                    escapeshellarg('asetrate=16000*0.8409,aresample=16000,atempo=1.1892'),
-                    escapeshellarg($shifted)), $o, $e);
-                if ($e === 0 && is_file($shifted)) {
-                    rename($shifted, $outAbs);
-                }
-            }
 
             return true;
         } catch (\Throwable $e) {
@@ -218,6 +214,24 @@ class GenerateAudioBook implements ShouldQueue
         @unlink($textFile);
 
         return $exit === 0 && is_file($outAbs);
+    }
+
+    /**
+     * Fingerprint of a broken Bangla text layer: dependent vowel signs (কার)
+     * can never begin a word in valid Bangla, but glyph-order extraction
+     * produces them constantly (split vowels detached from their consonant).
+     */
+    private function looksMangledBangla(string $text): bool
+    {
+        $bengali = preg_match_all('/\p{Bengali}/u', $text);
+        if ($bengali < 40) {
+            return false;   // not Bangla-dominant — nothing to judge
+        }
+
+        $brokenStarts = preg_match_all('/(?:^|\s)[\x{09BE}-\x{09CC}\x{09D7}\x{0981}-\x{0983}\x{09CD}]/u', $text);
+        $words = max(1, preg_match_all('/\S+/u', $text));
+
+        return ($brokenStarts / $words) > 0.02;
     }
 
     private function extractPdfText(string $pdfAbs): string

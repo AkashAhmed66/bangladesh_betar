@@ -139,8 +139,13 @@ services:
   # Full-text search engine (M06). Single-node, security disabled for the
   # in-network deployment. Heap is capped low (512m) to keep the footprint
   # modest; raise ES_JAVA_OPTS on a box with more RAM for better performance.
+  # Pinned to the 8.x line ON PURPOSE: ES 9.x requires x86-64-v3 CPU features
+  # (AVX/AVX2/BMI…) that the production server lacks — 9.x crash-loops there
+  # with "CPU features … required by the image". 8.x runs on baseline x86-64.
+  # NOTE: 9.x index data is unreadable by 8.x — wipe the es_data volume when
+  # switching; indices rebuild automatically on boot (search:index --if-empty).
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:9.4.0
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
     container_name: betar_elasticsearch
     restart: unless-stopped
     environment:
