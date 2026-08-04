@@ -37,14 +37,15 @@ return [
 
     // Neural TTS sidecar (M31) — Piper (English m/f) + Meta MMS (Bangla).
     // Empty base_url disables it; PDF-to-Speech then uses espeak-ng.
+    // External TTS API (M31): POST multipart {file: pdf|txt, voice: male|female}
+    // → audio bytes. Called from the queued generation job (never blocks the
+    // UI); espeak-ng remains the offline fallback when the API is unreachable.
     'tts' => [
-        'base_url' => env('TTS_SERVICE_URL', 'http://tts:5002'),
+        'api_url' => env('TTS_API_URL', 'http://202.59.133.123:9027/tts'),
+        // The "Enhanced" narration (Google-backed) — takes only the file.
+        'enhanced_url' => env('TTS_ENHANCED_API_URL', 'http://202.59.133.123:9027/tts-google'),
         'timeout' => (int) env('TTS_TIMEOUT_SECONDS', 1800),
-        // Bangla narration tuning (no rebuilds needed):
-        //   bn_pace — >1.0 slower & clearer articulation (0.8–1.4)
-        //   bn_expressiveness — higher = livelier, lower = cleaner (0.4–1.0)
-        'bn_pace' => (float) env('TTS_BN_PACE', 1.06),
-        'bn_expressiveness' => (float) env('TTS_BN_EXPRESSIVENESS', 0.70),
+        'connect_timeout' => (int) env('TTS_CONNECT_TIMEOUT', 5),
     ],
 
     // Audio Postmortem — duplicate / violence / anti-government detection +

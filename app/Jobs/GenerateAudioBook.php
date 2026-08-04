@@ -20,9 +20,10 @@ use Illuminate\Support\Facades\Storage;
  * Audio Book generation (M31):
  *  1. Extract text — pdftotext, with Tesseract OCR (ben+eng) fallback.
  *  2. Resolve language (Bengali script detection when "auto").
- *  3. Narrate in BOTH male and female voices — neural sidecar first
- *     (Piper English / BanglaTTS-ONNX Bangla, real speakers for both
- *     genders), espeak-ng as offline fallback — then encode each to MP3.
+ *  3. Narrate in BOTH male and female voices — the external TTS API first
+ *     (multipart {file, voice} → audio bytes; male then female, one after
+ *     another), espeak-ng as offline fallback — then encode each to MP3.
+ * Runs on the queue: the UI responds immediately and is never held up.
  */
 class GenerateAudioBook implements ShouldQueue
 {
@@ -96,17 +97,30 @@ class GenerateAudioBook implements ShouldQueue
                 'text' => $text,
             ]);
 
-            // ---- 3. Both voices -----------------------------------------
+            // ---- 3. Narrations -------------------------------------------
+            // TEMPORARY: the male/female narrations are commented out — only
+            // the Google-backed "Enhanced" narration is generated (and is
+            // therefore required). To restore three narrations, put 'male'
+            // and 'female' back into the list below.
             $paths = [];
             $durations = [];
             $engine = 'neural';
 
-            foreach (['male', 'female'] as $voice) {
+            foreach ([/* 'male', 'female', */ 'enhanced'] as $voice) {
                 $wavRel = "speech/audiobooks/{$book->id}-{$voice}.wav";
                 $mp3Rel = "speech/audiobooks/{$book->id}-{$voice}.mp3";
                 @mkdir(dirname($disk->path($wavRel)), 0775, true);
 
-                if (! $this->neuralSynthesize($text, $language, $voice, $disk->path($wavRel))) {
+                if (! $this->apiSynthesize($book, $text, $voice, $disk->path($wavRel))) {
+                    if ($voice === 'enhanced') {
+                        // Enhanced is currently the ONLY narration — without it
+                        // there is no audio, so the book fails with a clear error.
+                        // (When male/female are re-enabled, make this `continue;`
+                        // again so enhanced goes back to being optional.)
+                        $this->fail_($book, 'The Enhanced narration service is unavailable — please try again later.');
+
+                        return;
+                    }
                     $engine = 'espeak';
                     if (! $this->espeakSynthesize($text, $language, $voice, $disk->path($wavRel), $book->id)) {
                         $this->fail_($book, "Narration failed for the {$voice} voice.");
@@ -139,22 +153,26 @@ class GenerateAudioBook implements ShouldQueue
             $book->update([
                 'status' => 'ready',
                 'engine' => $engine,
-                'audio_male_path' => $paths['male'],
-                'audio_female_path' => $paths['female'],
-                'duration_male' => $durations['male'],
-                'duration_female' => $durations['female'],
+                'audio_male_path' => $paths['male'] ?? null,
+                'audio_female_path' => $paths['female'] ?? null,
+                'audio_enhanced_path' => $paths['enhanced'] ?? null,
+                'duration_male' => $durations['male'] ?? 0,
+                'duration_female' => $durations['female'] ?? 0,
+                'duration_enhanced' => $durations['enhanced'] ?? 0,
                 'error' => null,
             ]);
 
             AuditLog::record('audiobook_generated', $book, null, [
                 'language' => $language, 'engine' => $engine,
                 'characters' => $book->characters, 'ocr' => $usedOcr,
-                'duration_male' => $durations['male'], 'duration_female' => $durations['female'],
-            ], "Audio book “{$book->title}” narrated in both voices ({$language}, {$engine}) — ready for review.");
+                'duration_male' => $durations['male'] ?? 0, 'duration_female' => $durations['female'] ?? 0,
+                'duration_enhanced' => $durations['enhanced'] ?? 0,
+            ], "Audio book “{$book->title}” narrated (".implode(', ', array_keys($paths)).") ({$language}, {$engine}) — ready for review.");
 
+            $tracks = implode(', ', array_keys($paths));
             Notify::user($book->user, 'speech_ready',
                 'Audio book is ready',
-                "“{$book->title}” was narrated in both male and female ".($language === 'bn' ? 'Bangla' : 'English').' voices. Listen to it, then press Submit to send it for publication.'.($usedOcr ? ' Text was recovered by OCR — spot-check for errors.' : ''),
+                "“{$book->title}” was narrated ({$tracks}) in ".($language === 'bn' ? 'Bangla' : 'English').'. Listen, then press Submit to send it for publication.'.($usedOcr ? ' Text was recovered by OCR — spot-check for errors.' : ''),
                 route('admin.audiobooks.show', $book));
         } catch (\Throwable $e) {
             Log::error('[audiobook] failed', ['book' => $book->id, 'error' => $e->getMessage()]);
@@ -170,38 +188,63 @@ class GenerateAudioBook implements ShouldQueue
         }
     }
 
-    private function neuralSynthesize(string $text, string $language, string $voice, string $outAbs): bool
+    /**
+     * External TTS API: POST multipart {file: the original PDF (or the text
+     * as a .txt file), voice: male|female} → audio bytes. A short connect
+     * timeout makes an unreachable API fail fast (espeak takes over) while
+     * the response wait stays generous — narration takes time.
+     */
+    private function apiSynthesize(AudioBook $book, string $text, string $voice, string $outAbs): bool
     {
-        $base = rtrim((string) config('services.tts.base_url'), '/');
-        if ($base === '') {
+        // "enhanced" uses the Google-backed endpoint (file only); male/female
+        // use the standard endpoint with the voice form field.
+        $enhanced = $voice === 'enhanced';
+        $url = trim((string) config($enhanced ? 'services.tts.enhanced_url' : 'services.tts.api_url'));
+        if ($url === '') {
             return false;
         }
 
         try {
-            if (! Http::timeout(3)->get("{$base}/health")->ok()) {
-                return false;
+            $disk = Storage::disk('local');
+
+            if ($book->source_type === 'pdf' && $book->source_path && $disk->exists($book->source_path)) {
+                $contents = $disk->get($book->source_path);
+                $filename = 'book.pdf';
+            } else {
+                $contents = $text;
+                $filename = 'book.txt';
             }
 
-            $response = Http::timeout((int) config('services.tts.timeout', 1800))
-                ->post("{$base}/synthesize", [
-                    'text' => $text,
-                    'language' => $language,
-                    'voice' => $voice,
-                    'pace' => (float) config('services.tts.bn_pace', 1.06),
-                    'expressiveness' => (float) config('services.tts.bn_expressiveness', 0.70),
-                ]);
+            $response = Http::connectTimeout((int) config('services.tts.connect_timeout', 5))
+                ->timeout((int) config('services.tts.timeout', 1800))
+                ->attach('file', $contents, $filename)
+                ->post($url, $enhanced ? [] : ['voice' => $voice]);
 
             if (! $response->ok() || strlen($response->body()) < 1000) {
+                Log::info('[audiobook] TTS API returned no audio, falling back to espeak', [
+                    'status' => $response->status(), 'bytes' => strlen($response->body()),
+                ]);
+
                 return false;
             }
 
-            // Both Bangla voices are REAL trained speakers (BanglaTTS
-            // male/female ONNX) — no pitch-shift derivation needed.
             file_put_contents($outAbs, $response->body());
+
+            // The response must actually BE audio — probe it before accepting.
+            exec(sprintf('ffprobe -v error -show_entries format=duration -of csv=p=0 %s 2>&1',
+                escapeshellarg($outAbs)), $probe, $probeExit);
+            if ($probeExit !== 0 || (float) ($probe[0] ?? 0) < 0.5) {
+                Log::warning('[audiobook] TTS API response is not playable audio, falling back', [
+                    'probe_exit' => $probeExit,
+                ]);
+                @unlink($outAbs);
+
+                return false;
+            }
 
             return true;
         } catch (\Throwable $e) {
-            Log::info('[audiobook] neural TTS unavailable, falling back to espeak', ['error' => $e->getMessage()]);
+            Log::info('[audiobook] TTS API unavailable, falling back to espeak', ['error' => $e->getMessage()]);
 
             return false;
         }

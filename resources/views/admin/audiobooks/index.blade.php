@@ -4,7 +4,7 @@
 
 @section('content')
 <x-page-header title="Audio Books"
-               subtitle="Narrated books in both male and female voices — approved books go live for premium listeners with read-along text.">
+               subtitle="Narrated books — approved books go live for premium listeners with read-along text.">
     <a href="{{ route('admin.audiobooks.create') }}" class="btn-primary"><x-icon name="plus" class="size-4" /> Add New Audio Book</a>
 </x-page-header>
 
@@ -24,8 +24,15 @@
                         </td>
                         <td class="text-sm">{{ $book->language === 'bn' ? 'Bangla' : ($book->language === 'en' ? 'English' : 'Auto') }}</td>
                         <td class="text-sm text-slate-600 dark:text-slate-300">
-                            @if ($book->duration_male || $book->duration_female)
-                                ♂ {{ gmdate('i:s', $book->duration_male) }} · ♀ {{ gmdate('i:s', $book->duration_female) }}
+                            @php
+                                $tracks = array_filter([
+                                    '♂' => $book->audio_male_path ? gmdate('i:s', $book->duration_male) : null,
+                                    '♀' => $book->audio_female_path ? gmdate('i:s', $book->duration_female) : null,
+                                    '✦' => $book->audio_enhanced_path ? gmdate('i:s', $book->duration_enhanced) : null,
+                                ]);
+                            @endphp
+                            @if ($tracks)
+                                {{ implode(' · ', array_map(fn ($icon, $time) => "$icon $time", array_keys($tracks), $tracks)) }}
                                 @if ($book->engine)
                                     <span class="badge-{{ $book->engine === 'neural' ? 'green' : 'slate' }}">{{ $book->engine === 'neural' ? 'Neural' : 'Basic' }}</span>
                                 @endif
@@ -63,13 +70,13 @@
                                 @endif
                                 @if ($book->user_id === auth()->id() || auth()->user()->can('records.view-all'))
                                     <x-confirm-delete :action="route('admin.audiobooks.destroy', $book)"
-                                                      confirm="Delete this audio book and both narrations permanently?" />
+                                                      confirm="Delete this audio book and its narrations permanently?" />
                                 @endif
                             </div>
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="7"><x-empty-state icon="megaphone" title="No audio books yet" message="Click “Add New Audio Book” — both narrations are generated; review them, then submit for publication." /></td></tr>
+                    <tr><td colspan="7"><x-empty-state icon="megaphone" title="No audio books yet" message="Click “Add New Audio Book” — the narration is generated; review it, then submit for publication." /></td></tr>
                 @endforelse
             </tbody>
         </table>

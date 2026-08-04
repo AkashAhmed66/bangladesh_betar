@@ -50,12 +50,12 @@
 <div class="grid grid-cols-1 gap-6 xl:grid-cols-3">
     <div class="space-y-6 xl:col-span-2">
 
-        {{-- Both narrations --}}
-        @if ($book->audio_male_path || $book->audio_female_path)
+        {{-- Narrations — whichever voices were generated --}}
+        @if ($book->audio_male_path || $book->audio_female_path || $book->audio_enhanced_path)
             <div class="card">
                 <div class="card-header"><h3 class="font-semibold text-slate-800 dark:text-slate-100">Narrations</h3></div>
                 <div class="card-body space-y-4">
-                    @foreach (['male' => ['Male voice', $book->duration_male, $book->audio_male_path], 'female' => ['Female voice', $book->duration_female, $book->audio_female_path]] as $voice => [$label, $duration, $path])
+                    @foreach (['male' => ['Male voice', $book->duration_male, $book->audio_male_path], 'female' => ['Female voice', $book->duration_female, $book->audio_female_path], 'enhanced' => ['Enhanced', $book->duration_enhanced, $book->audio_enhanced_path]] as $voice => [$label, $duration, $path])
                         @if ($path)
                             <div>
                                 <p class="mb-1.5 flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
@@ -131,9 +131,10 @@
                 @foreach ([
                     'Language' => $book->language === 'bn' ? 'Bangla' : 'English',
                     'Source' => strtoupper($book->source_type).($book->used_ocr ? ' (OCR)' : ''),
-                    'Engine' => $book->engine ? ($book->engine === 'neural' ? 'Neural (Piper/MMS)' : 'espeak-ng') : null,
+                    'Engine' => $book->engine ? ($book->engine === 'neural' ? 'Neural (TTS API)' : 'espeak-ng') : null,
                     'Male narration' => $book->duration_male ? gmdate('i:s', $book->duration_male) : null,
                     'Female narration' => $book->duration_female ? gmdate('i:s', $book->duration_female) : null,
+                    'Enhanced narration' => $book->duration_enhanced ? gmdate('i:s', $book->duration_enhanced) : null,
                     'Characters' => $book->characters ? number_format($book->characters) : null,
                     'Created by' => $book->user?->name,
                     'Created' => $book->created_at->format('j M Y H:i'),
