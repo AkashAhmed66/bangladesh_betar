@@ -97,17 +97,30 @@ class GenerateAudioBook implements ShouldQueue
                 'text' => $text,
             ]);
 
-            // ---- 3. Both voices -----------------------------------------
+            // ---- 3. Narrations -------------------------------------------
+            // TEMPORARY: the male/female narrations are commented out — only
+            // the Google-backed "Enhanced" narration is generated (and is
+            // therefore required). To restore three narrations, put 'male'
+            // and 'female' back into the list below.
             $paths = [];
             $durations = [];
             $engine = 'neural';
 
-            foreach (['male', 'female'] as $voice) {
+            foreach ([/* 'male', 'female', */ 'enhanced'] as $voice) {
                 $wavRel = "speech/audiobooks/{$book->id}-{$voice}.wav";
                 $mp3Rel = "speech/audiobooks/{$book->id}-{$voice}.mp3";
                 @mkdir(dirname($disk->path($wavRel)), 0775, true);
 
                 if (! $this->apiSynthesize($book, $text, $voice, $disk->path($wavRel))) {
+                    if ($voice === 'enhanced') {
+                        // Enhanced is currently the ONLY narration — without it
+                        // there is no audio, so the book fails with a clear error.
+                        // (When male/female are re-enabled, make this `continue;`
+                        // again so enhanced goes back to being optional.)
+                        $this->fail_($book, 'The Enhanced narration service is unavailable — please try again later.');
+
+                        return;
+                    }
                     $engine = 'espeak';
                     if (! $this->espeakSynthesize($text, $language, $voice, $disk->path($wavRel), $book->id)) {
                         $this->fail_($book, "Narration failed for the {$voice} voice.");
@@ -140,22 +153,26 @@ class GenerateAudioBook implements ShouldQueue
             $book->update([
                 'status' => 'ready',
                 'engine' => $engine,
-                'audio_male_path' => $paths['male'],
-                'audio_female_path' => $paths['female'],
-                'duration_male' => $durations['male'],
-                'duration_female' => $durations['female'],
+                'audio_male_path' => $paths['male'] ?? null,
+                'audio_female_path' => $paths['female'] ?? null,
+                'audio_enhanced_path' => $paths['enhanced'] ?? null,
+                'duration_male' => $durations['male'] ?? 0,
+                'duration_female' => $durations['female'] ?? 0,
+                'duration_enhanced' => $durations['enhanced'] ?? 0,
                 'error' => null,
             ]);
 
             AuditLog::record('audiobook_generated', $book, null, [
                 'language' => $language, 'engine' => $engine,
                 'characters' => $book->characters, 'ocr' => $usedOcr,
-                'duration_male' => $durations['male'], 'duration_female' => $durations['female'],
-            ], "Audio book “{$book->title}” narrated in both voices ({$language}, {$engine}) — ready for review.");
+                'duration_male' => $durations['male'] ?? 0, 'duration_female' => $durations['female'] ?? 0,
+                'duration_enhanced' => $durations['enhanced'] ?? 0,
+            ], "Audio book “{$book->title}” narrated (".implode(', ', array_keys($paths)).") ({$language}, {$engine}) — ready for review.");
 
+            $tracks = implode(', ', array_keys($paths));
             Notify::user($book->user, 'speech_ready',
                 'Audio book is ready',
-                "“{$book->title}” was narrated in both male and female ".($language === 'bn' ? 'Bangla' : 'English').' voices. Listen to it, then press Submit to send it for publication.'.($usedOcr ? ' Text was recovered by OCR — spot-check for errors.' : ''),
+                "“{$book->title}” was narrated ({$tracks}) in ".($language === 'bn' ? 'Bangla' : 'English').'. Listen, then press Submit to send it for publication.'.($usedOcr ? ' Text was recovered by OCR — spot-check for errors.' : ''),
                 route('admin.audiobooks.show', $book));
         } catch (\Throwable $e) {
             Log::error('[audiobook] failed', ['book' => $book->id, 'error' => $e->getMessage()]);
@@ -179,7 +196,10 @@ class GenerateAudioBook implements ShouldQueue
      */
     private function apiSynthesize(AudioBook $book, string $text, string $voice, string $outAbs): bool
     {
-        $url = trim((string) config('services.tts.api_url'));
+        // "enhanced" uses the Google-backed endpoint (file only); male/female
+        // use the standard endpoint with the voice form field.
+        $enhanced = $voice === 'enhanced';
+        $url = trim((string) config($enhanced ? 'services.tts.enhanced_url' : 'services.tts.api_url'));
         if ($url === '') {
             return false;
         }
@@ -198,7 +218,7 @@ class GenerateAudioBook implements ShouldQueue
             $response = Http::connectTimeout((int) config('services.tts.connect_timeout', 5))
                 ->timeout((int) config('services.tts.timeout', 1800))
                 ->attach('file', $contents, $filename)
-                ->post($url, ['voice' => $voice]);
+                ->post($url, $enhanced ? [] : ['voice' => $voice]);
 
             if (! $response->ok() || strlen($response->body()) < 1000) {
                 Log::info('[audiobook] TTS API returned no audio, falling back to espeak', [

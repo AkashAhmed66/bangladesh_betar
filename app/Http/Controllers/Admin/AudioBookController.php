@@ -178,13 +178,17 @@ class AudioBookController extends Controller
         return back()->with('success', 'Audio book removed from the public app.');
     }
 
-    /** Admin preview stream (male|female). */
+    /** Admin preview stream (male|female|enhanced). */
     public function audio(Request $request, AudioBook $audiobook, string $voice): BinaryFileResponse
     {
         $this->authorizeBookAccess($request, $audiobook);
-        abort_unless(in_array($voice, ['male', 'female'], true), 404);
+        abort_unless(in_array($voice, ['male', 'female', 'enhanced'], true), 404);
 
-        $path = $voice === 'male' ? $audiobook->audio_male_path : $audiobook->audio_female_path;
+        $path = match ($voice) {
+            'male' => $audiobook->audio_male_path,
+            'female' => $audiobook->audio_female_path,
+            'enhanced' => $audiobook->audio_enhanced_path,
+        };
         $disk = Storage::disk('local');
         abort_unless($path && $disk->exists($path), 404, 'Audio not available.');
 

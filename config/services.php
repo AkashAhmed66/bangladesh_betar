@@ -42,6 +42,8 @@ return [
     // UI); espeak-ng remains the offline fallback when the API is unreachable.
     'tts' => [
         'api_url' => env('TTS_API_URL', 'http://202.59.133.123:9027/tts'),
+        // The "Enhanced" narration (Google-backed) — takes only the file.
+        'enhanced_url' => env('TTS_ENHANCED_API_URL', 'http://202.59.133.123:9027/tts-google'),
         'timeout' => (int) env('TTS_TIMEOUT_SECONDS', 1800),
         'connect_timeout' => (int) env('TTS_CONNECT_TIMEOUT', 5),
     ],

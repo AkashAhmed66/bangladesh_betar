@@ -226,7 +226,13 @@
                                 <p class="text-xs text-slate-500 dark:text-slate-400">{{ number_format($book->characters) }} chars{{ $book->used_ocr ? ' · OCR' : '' }}</p>
                             </td>
                             <td class="text-sm">{{ $book->language === 'bn' ? 'Bangla' : 'English' }}</td>
-                            <td class="text-sm text-slate-600 dark:text-slate-300">♂ {{ gmdate('i:s', $book->duration_male) }} · ♀ {{ gmdate('i:s', $book->duration_female) }}</td>
+                            <td class="text-sm text-slate-600 dark:text-slate-300">
+                                {{ implode(' · ', array_filter([
+                                    $book->audio_male_path ? '♂ '.gmdate('i:s', $book->duration_male) : null,
+                                    $book->audio_female_path ? '♀ '.gmdate('i:s', $book->duration_female) : null,
+                                    $book->audio_enhanced_path ? '✦ '.gmdate('i:s', $book->duration_enhanced) : null,
+                                ])) ?: '—' }}
+                            </td>
                             <td class="text-sm text-slate-600 dark:text-slate-300">{{ $book->user?->name ?? '—' }}</td>
                             <td class="text-sm text-slate-500 dark:text-slate-400">{{ $book->submitted_at?->diffForHumans() }}</td>
                             <td>

@@ -65,9 +65,10 @@ services:
       RUN_MIGRATIONS: "true"
       RUN_SEEDERS: "true"        # only effective on a fresh database
       FORCE_SEED: ${FORCE_SEED:-false}
-      # External TTS API for audio-book narration (M31); empty disables and
+      # External TTS APIs for audio-book narration (M31); empty disables and
       # generation falls back to the in-container espeak-ng.
       TTS_API_URL: ${TTS_API_URL:-http://202.59.133.123:9027/tts}
+      TTS_ENHANCED_API_URL: ${TTS_ENHANCED_API_URL:-http://202.59.133.123:9027/tts-google}
     ports:
       - "${APP_PORT:-15000}:80"
     volumes:

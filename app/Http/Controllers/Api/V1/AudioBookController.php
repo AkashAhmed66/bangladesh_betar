@@ -47,9 +47,13 @@ class AudioBookController extends Controller
     {
         abort_unless($request->hasValidSignature(), 403, 'Expired or invalid streaming URL.');
         abort_unless($audioBook->status === 'published', 404);
-        abort_unless(in_array($voice, ['male', 'female'], true), 404);
+        abort_unless(in_array($voice, ['male', 'female', 'enhanced'], true), 404);
 
-        $path = $voice === 'male' ? $audioBook->audio_male_path : $audioBook->audio_female_path;
+        $path = match ($voice) {
+            'male' => $audioBook->audio_male_path,
+            'female' => $audioBook->audio_female_path,
+            'enhanced' => $audioBook->audio_enhanced_path,
+        };
         $disk = Storage::disk('local');
         abort_unless($path && $disk->exists($path), 404, 'Audio not available.');
 
