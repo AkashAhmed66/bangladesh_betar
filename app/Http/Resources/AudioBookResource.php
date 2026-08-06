@@ -36,16 +36,28 @@ class AudioBookResource extends JsonResource
             // Only narrations that actually exist get a signed URL — the
             // public player builds its voice toggle from these keys.
             'streams' => $this->when($full, fn () => array_filter([
-                'male' => $this->audio_male_path
-                    ? URL::temporarySignedRoute('api.v1.audiobooks.play', now()->addMinutes(60), ['audioBook' => $this->id, 'voice' => 'male'])
-                    : null,
-                'female' => $this->audio_female_path
-                    ? URL::temporarySignedRoute('api.v1.audiobooks.play', now()->addMinutes(60), ['audioBook' => $this->id, 'voice' => 'female'])
-                    : null,
-                'enhanced' => $this->audio_enhanced_path
-                    ? URL::temporarySignedRoute('api.v1.audiobooks.play', now()->addMinutes(60), ['audioBook' => $this->id, 'voice' => 'enhanced'])
-                    : null,
+                'male' => $this->streamUrl('male', $this->audio_male_path),
+                'female' => $this->streamUrl('female', $this->audio_female_path),
+                'enhanced' => $this->streamUrl('enhanced', $this->audio_enhanced_path),
             ])),
         ];
+    }
+
+    /**
+     * Download protection: packaged narrations stream encrypted HLS; the
+     * legacy direct MP3 URL survives only as a short-lived fallback while
+     * packaging is still queued.
+     */
+    private function streamUrl(string $voice, ?string $path): ?string
+    {
+        if (! $path) {
+            return null;
+        }
+        if (\App\Support\Hls::isPackaged('audiobook', $this->id, $voice)) {
+            return \App\Support\Hls::playlistUrl('audiobook', $this->id, $voice);
+        }
+        \App\Support\Hls::ensureQueued('audiobook', $this->id, $voice);
+
+        return URL::temporarySignedRoute('api.v1.audiobooks.play', now()->addMinutes(5), ['audioBook' => $this->id, 'voice' => $voice]);
     }
 }

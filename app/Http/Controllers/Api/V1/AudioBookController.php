@@ -60,7 +60,7 @@ class AudioBookController extends Controller
         return response()->file($disk->path($path), [
             'Content-Type' => str_ends_with($path, '.mp3') ? 'audio/mpeg' : 'audio/wav',
             'Accept-Ranges' => 'bytes',
-            'Cache-Control' => 'private, max-age=600',
+            'Cache-Control' => 'no-store',
         ]);
     }
 }

@@ -42,7 +42,7 @@
     <div class="mb-6 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200">{{ $book->error }}</div>
 @elseif ($book->isPending())
     <div class="mb-6 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
-        <x-icon name="clock" class="size-4" /> Generating both narrations… this page refreshes automatically.
+        <x-icon name="clock" class="size-4" /> Generating the narration… this page refreshes automatically.
     </div>
     <script>setTimeout(function () { window.location.reload(); }, 8000);</script>
 @endif
@@ -61,7 +61,10 @@
                                 <p class="mb-1.5 flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
                                     {{ $label }} <span class="text-xs font-normal text-slate-400">{{ gmdate($duration >= 3600 ? 'G:i:s' : 'i:s', $duration) }}</span>
                                 </p>
-                                <audio controls preload="none" class="h-10 w-full" src="{{ route('admin.audiobooks.audio', [$book, $voice]) }}"></audio>
+                                <audio controls controlslist="nodownload" oncontextmenu="return false" preload="none" class="h-10 w-full"
+                                       data-hls="{{ \App\Support\Hls::adminBookHls($book, $voice) ?? '' }}"
+                                       data-fallback="{{ route('admin.audiobooks.audio', [$book, $voice]) }}"
+                                       x-init="window.betarHls($el)"></audio>
                             </div>
                         @endif
                     @endforeach
@@ -69,22 +72,57 @@
             </div>
         @endif
 
-        {{-- The text (what premium listeners read along) --}}
-        @if ($book->text)
-            <div class="card" x-data="{ fullText: false }">
+        {{-- The text (what premium listeners read along) — editable between
+             generations: saving regenerates the narration and the book must
+             pass approval again before publishing. --}}
+        @php
+            // Editable in every state except mid-generation; the approval
+            // flow is preserved — editing always routes back through Submit.
+            $canEditText = $book->status !== 'generating'
+                && ($book->user_id === auth()->id() || auth()->user()->can('records.view-all'));
+            $editWarning = match ($book->status) {
+                'published' => 'This book is LIVE — saving takes it off the public app until it is approved again. Continue?',
+                'pending_approval' => 'This withdraws the pending approval request — the book must be resubmitted after regeneration. Continue?',
+                default => 'Save the edited text and regenerate the narration? The book must be approved again before it is published.',
+            };
+        @endphp
+        @if ($book->text || $canEditText)
+            <div class="card" x-data="{ fullText: false, editing: {{ $errors->has('text') ? 'true' : 'false' }} }">
                 <div class="card-header">
                     <h3 class="font-semibold text-slate-800 dark:text-slate-100">Book Text</h3>
                     <div class="flex items-center gap-2">
-                        <span class="text-xs text-slate-400">{{ number_format($book->characters) }} characters @if ($book->used_ocr) · recovered by OCR @endif</span>
-                        <button type="button" @click="fullText = ! fullText" class="text-xs font-medium text-primary-700 hover:underline dark:text-primary-300">
+                        <span class="text-xs text-slate-400">{{ number_format((int) $book->characters) }} characters @if ($book->used_ocr) · recovered by OCR @endif @if ($book->text_edited) · edited @endif</span>
+                        <button type="button" x-show="! editing" @click="fullText = ! fullText" class="text-xs font-medium text-primary-700 hover:underline dark:text-primary-300">
                             <span x-text="fullText ? 'Show less' : 'Show full'"></span>
                         </button>
+                        @if ($canEditText)
+                            <button type="button" x-show="! editing" @click="editing = true"
+                                    class="text-xs font-medium text-primary-700 hover:underline dark:text-primary-300">Edit text</button>
+                        @endif
                     </div>
                 </div>
-                <div class="card-body">
+                <div class="card-body" x-show="! editing">
                     <p x-show="! fullText" class="{{ $book->language === 'bn' ? 'font-bangla' : '' }} whitespace-pre-wrap text-sm leading-relaxed text-slate-700 dark:text-slate-300">{{ Str::limit($book->text, 800) }}</p>
                     <p x-show="fullText" x-cloak class="{{ $book->language === 'bn' ? 'font-bangla' : '' }} max-h-[32rem] overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed text-slate-700 dark:text-slate-300">{{ $book->text }}</p>
                 </div>
+                @if ($canEditText)
+                    <form method="POST" action="{{ route('admin.audiobooks.update-text', $book) }}" x-show="editing" x-cloak
+                          onsubmit="return confirm({{ Illuminate\Support\Js::from($editWarning) }});">
+                        @csrf
+                        <div class="card-body">
+                            <textarea name="text" rows="18" required minlength="5" maxlength="120000"
+                                      class="{{ $book->language === 'bn' ? 'font-bangla' : '' }} w-full rounded-lg border-slate-300 bg-white text-sm leading-relaxed text-slate-800 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">{{ old('text', $book->text) }}</textarea>
+                            @error('text')<p class="mt-1 text-xs text-rose-600 dark:text-rose-400">{{ $message }}</p>@enderror
+                            <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                                Saving regenerates the narration from this text (the original document is no longer used) and the book must be submitted for approval again.
+                            </p>
+                        </div>
+                        <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-4 dark:border-slate-800">
+                            <button type="button" @click="editing = false" class="btn-secondary">Cancel</button>
+                            <button type="submit" class="btn-primary"><x-icon name="arrow-path" class="size-4" /> Save &amp; Regenerate Narration</button>
+                        </div>
+                    </form>
+                @endif
             </div>
         @endif
 

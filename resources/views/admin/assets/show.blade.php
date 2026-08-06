@@ -145,7 +145,9 @@
          }">
         @if ($playVersion)
             <audio x-ref="audio" preload="none" class="hidden"
-                   src="{{ route('admin.assets.stream', ['asset' => $asset->id, 'version' => $playVersion->id], false) }}"
+                   data-hls="{{ \App\Support\Hls::adminAssetHls($asset, $playVersion) ?? '' }}"
+                   data-fallback="{{ route('admin.assets.stream', ['asset' => $asset->id, 'version' => $playVersion->id], false) }}"
+                   x-init="window.betarHls($el)"
                    @play="playing=true" @pause="playing=false" @ended="playing=false"
                    @timeupdate="cur=$refs.audio.currentTime"
                    @loadedmetadata="ready=true; if($refs.audio.duration) dur=$refs.audio.duration"></audio>

@@ -133,6 +133,7 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
             Route::post('audiobooks', [Admin\AudioBookController::class, 'store'])->name('audiobooks.store');
             Route::get('audiobooks/{audiobook}', [Admin\AudioBookController::class, 'show'])->name('audiobooks.show');
             Route::post('audiobooks/{audiobook}/submit', [Admin\AudioBookController::class, 'submit'])->name('audiobooks.submit');
+            Route::post('audiobooks/{audiobook}/text', [Admin\AudioBookController::class, 'updateText'])->name('audiobooks.update-text');
             Route::post('audiobooks/{audiobook}/review', [Admin\AudioBookController::class, 'review'])
                 ->middleware('permission:audiobooks.approve')->name('audiobooks.review');
             Route::post('audiobooks/{audiobook}/unpublish', [Admin\AudioBookController::class, 'unpublish'])

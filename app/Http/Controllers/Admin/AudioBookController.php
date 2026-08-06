@@ -195,8 +195,65 @@ class AudioBookController extends Controller
         return response()->file($disk->path($path), [
             'Content-Type' => str_ends_with($path, '.mp3') ? 'audio/mpeg' : 'audio/wav',
             'Accept-Ranges' => 'bytes',
-            'Cache-Control' => 'private, max-age=600',
+            'Cache-Control' => 'no-store',
         ]);
+    }
+
+    /**
+     * Edit the book text and regenerate the narration from it. The edited
+     * text becomes authoritative (PDF re-extraction is skipped from now on).
+     * Editable in EVERY state except mid-generation: editing a published
+     * book takes it off the public app, editing a pending one withdraws the
+     * submission — either way the book must pass approval again via Submit.
+     */
+    public function updateText(Request $request, AudioBook $audiobook): RedirectResponse
+    {
+        $user = $request->user();
+        abort_unless($audiobook->user_id === $user->id || $user->can('records.view-all'), 403);
+        // Only the brief generation window is blocked — two concurrent jobs
+        // would race on the same narration files.
+        abort_unless(
+            $audiobook->status !== 'generating',
+            422,
+            'The narration is being generated right now — wait for it to finish, then edit.',
+        );
+
+        $data = $request->validate([
+            'text' => ['required', 'string', 'min:5', 'max:120000'],   // GenerateAudioBook::MAX_CHARS
+        ]);
+
+        $old = (string) $audiobook->text;
+        $wasLive = $audiobook->status === 'published';
+        $wasPending = $audiobook->status === 'pending_approval';
+
+        $audiobook->update([
+            'text' => $data['text'],
+            'characters' => mb_strlen($data['text']),
+            'text_edited' => true,
+            'status' => 'generating',
+            'error' => null,
+        ]);
+
+        try {
+            $note = $wasLive ? ' The book was withdrawn from the public app.'
+                : ($wasPending ? ' The pending approval request was withdrawn.' : '');
+            AuditLog::record('audiobook_text_edited', $audiobook, null, [
+                'old_length' => mb_strlen($old),
+                'new_length' => mb_strlen($data['text']),
+                'old' => $old,
+                'new' => $data['text'],
+            ], "Audio book “{$audiobook->title}” text edited by {$user->name} — narration regenerating; approval required again.{$note}");
+        } catch (\Throwable) {
+            // the edit must never fail because the audit write did
+        }
+
+        GenerateAudioBook::dispatch($audiobook->id);
+
+        $flash = $wasLive
+            ? 'Text saved — the book is off the public app while the narration regenerates. Submit for approval once it is ready.'
+            : 'Text saved — the narration is being regenerated. Submit for publication once it is ready.';
+
+        return redirect()->route('admin.audiobooks.show', $audiobook)->with('success', $flash);
     }
 
     public function destroy(Request $request, AudioBook $audiobook): RedirectResponse
@@ -204,11 +261,12 @@ class AudioBookController extends Controller
         $user = $request->user();
         abort_unless($audiobook->user_id === $user->id || $user->can('records.view-all'), 403);
 
-        foreach ([$audiobook->source_path, $audiobook->audio_male_path, $audiobook->audio_female_path] as $path) {
+        foreach ([$audiobook->source_path, $audiobook->audio_male_path, $audiobook->audio_female_path, $audiobook->audio_enhanced_path] as $path) {
             if ($path) {
                 Storage::disk('local')->delete($path);
             }
         }
+        \App\Support\Hls::delete('audiobook', $audiobook->id);
         $audiobook->delete();
 
         return redirect()->route('admin.audiobooks.index')->with('success', 'Audio book removed.');

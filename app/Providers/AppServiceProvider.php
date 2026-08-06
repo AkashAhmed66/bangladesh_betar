@@ -35,6 +35,11 @@ class AppServiceProvider extends ServiceProvider
         // Tighter limit on auth endpoints to slow credential stuffing.
         RateLimiter::for('auth', fn (Request $request) => Limit::perMinute(10)->by($request->ip()));
 
+        // HLS segments: ~6/min is real-time playback for 10s chunks; 90/min
+        // leaves room for buffering and seeks while making bulk ripping of
+        // long recordings impractically slow (download-protection policy).
+        RateLimiter::for('hls-seg', fn (Request $request) => Limit::perMinute(90)->by($request->ip()));
+
         // Stable aliases for polymorphic relations — keeps DB values and
         // public API type strings decoupled from PHP class names.
         Relation::enforceMorphMap([

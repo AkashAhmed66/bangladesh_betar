@@ -115,6 +115,68 @@ class PlaybackController extends Controller
     }
 
     /**
+     * Premium offline listening — returns the ENCRYPTED-HLS manifest the
+     * client stores locally: segments stay AES-encrypted at rest on the
+     * device and the key is imported as a non-extractable CryptoKey. No
+     * decodable file is ever handed out (the plain download route stays
+     * removed). `?renew=1` re-issues the license without logging a download.
+     */
+    public function offlineManifest(Request $request, AudioAsset $asset): JsonResponse
+    {
+        abort_unless($asset->isPublished(), 404, 'Content not available.');
+
+        $user = $request->user();
+        abort_if($user === null, 401, 'Sign in to save recordings for offline listening.');
+        abort_unless(
+            app(\App\Services\EntitlementService::class)->canDownloadOffline($user),
+            403,
+            'Offline listening is a Premium feature.',
+        );
+
+        $version = $asset->versions()
+            ->where('is_default', true)
+            ->where('version_type', '!=', 'preservation_master')
+            ->first();
+        abort_unless($version !== null, 404, 'No offline version is available for this content.');
+
+        if (! \App\Support\Hls::isPackaged('version', $version->id, 'main')) {
+            if (\App\Support\Hls::sourceForVersion($version, $asset->id) !== null) {
+                \App\Support\Hls::ensureQueued('version', $version->id, 'main');
+            }
+
+            return response()->json([
+                'message' => 'This recording is being prepared for offline listening — try again in a minute.',
+            ], 425);
+        }
+
+        if (! $request->boolean('renew')) {
+            try {
+                PlayEvent::query()->create([
+                    'audio_asset_id' => $asset->id,
+                    'user_id' => $user->id,
+                    'anonymous_id' => null,
+                    'event_type' => 'download',
+                    'position_seconds' => 0,
+                    'platform' => 'web',
+                    'device' => $this->detectDevice($request),
+                    'region' => null,
+                    'created_at' => now(),
+                ]);
+            } catch (\Throwable) {
+                // best-effort analytics only
+            }
+        }
+
+        return response()->json([
+            'asset_id' => $asset->id,
+            'duration_seconds' => $version->duration_seconds ?: $asset->duration_seconds,
+            // Two-hour window to finish fetching every segment of the save.
+            'playlist_url' => \App\Support\Hls::playlistUrl('version', $version->id, 'main', 120),
+            'license_days' => 30,
+        ]);
+    }
+
+    /**
      * FR-ANL-01 — record a playback event. Also updates Continue Listening
      * for signed-in users (FR-PLY-09) and increments play counts.
      */
@@ -279,10 +341,11 @@ class PlaybackController extends Controller
         };
 
         // BinaryFileResponse honours Range/If-Range requests, enabling seek.
+        // no-store: never leave a copy in any cache (download protection).
         return response()->file($absolutePath, [
             'Content-Type' => $mime,
             'Accept-Ranges' => 'bytes',
-            'Cache-Control' => 'private, max-age=1800',
+            'Cache-Control' => 'no-store',
         ]);
     }
 }

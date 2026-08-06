@@ -111,6 +111,17 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
     Route::get('stream/{asset}/play/{version}', [V1\PlaybackController::class, 'play'])
         ->name('stream.play')->middleware('signed');
 
+    // Encrypted-HLS delivery (download protection) — playlist/key/segments
+    // are all signed short-lived URLs; segments are rate-limited so the
+    // archive cannot be bulk-ripped. See App\Support\Hls.
+    Route::get('hls/{group}/{id}/{variant}/playlist.m3u8', [V1\HlsController::class, 'playlist'])
+        ->name('hls.playlist')->middleware('signed');
+    Route::get('hls/{group}/{id}/{variant}/key', [V1\HlsController::class, 'key'])
+        ->name('hls.key')->middleware('signed');
+    Route::get('hls/{group}/{id}/{variant}/{file}', [V1\HlsController::class, 'segment'])
+        ->name('hls.segment')->middleware(['signed', 'throttle:hls-seg'])
+        ->where('file', 'seg\d+\.ts');
+
     // Audio Book streaming — signed URLs issued only to premium accounts (M31)
     Route::get('audiobooks/{audioBook}/play/{voice}', [V1\AudioBookController::class, 'play'])
         ->name('audiobooks.play')->middleware('signed');
@@ -139,8 +150,12 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
         Route::get('me/favorites', [V1\LibraryController::class, 'favorites'])->name('favorites.index');
         Route::post('me/favorites/toggle', [V1\LibraryController::class, 'toggleFavorite'])->name('favorites.toggle');
 
-        // Premium offline download — returns the full audio file (entitlement enforced).
-        Route::get('assets/{asset}/download', [V1\PlaybackController::class, 'download'])->name('assets.download');
+        // Premium offline download of the PLAIN file — permanently disabled
+        // (download-protection policy). Offline listening instead stores the
+        // encrypted-HLS package via the manifest below; no decodable file is
+        // ever handed out.
+        // Route::get('assets/{asset}/download', [V1\PlaybackController::class, 'download'])->name('assets.download');
+        Route::get('assets/{asset}/offline-manifest', [V1\PlaybackController::class, 'offlineManifest'])->name('assets.offline-manifest');
 
         Route::get('me/follows', [V1\LibraryController::class, 'follows'])->name('follows.index');
         Route::post('me/follows/toggle', [V1\LibraryController::class, 'toggleFollow'])->name('follows.toggle');

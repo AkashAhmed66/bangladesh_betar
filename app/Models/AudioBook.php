@@ -19,6 +19,7 @@ class AudioBook extends Model
 
     protected $casts = [
         'used_ocr' => 'boolean',
+        'text_edited' => 'boolean',
         'submitted_at' => 'datetime',
         'approved_at' => 'datetime',
         'published_at' => 'datetime',

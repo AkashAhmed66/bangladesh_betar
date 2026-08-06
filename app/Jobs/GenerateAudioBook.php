@@ -53,10 +53,12 @@ class GenerateAudioBook implements ShouldQueue
 
         try {
             // ---- 1. Text ------------------------------------------------
+            // Manually edited text is authoritative: never re-extract from
+            // the PDF and overwrite the creator's corrections.
             $text = trim((string) $book->text);
-            $usedOcr = false;
+            $usedOcr = $book->text_edited ? (bool) $book->used_ocr : false;
 
-            if ($book->source_type === 'pdf') {
+            if ($book->source_type === 'pdf' && ! $book->text_edited) {
                 $pdfAbs = $disk->path($book->source_path);
                 $text = $this->extractPdfText($pdfAbs);
 
@@ -162,6 +164,12 @@ class GenerateAudioBook implements ShouldQueue
                 'error' => null,
             ]);
 
+            // Download protection: package each narration into encrypted HLS
+            // right away so the very first play already streams protected.
+            foreach ($paths as $voice => $rel) {
+                \App\Support\Hls::package($disk->path($rel), 'audiobook', $book->id, $voice);
+            }
+
             AuditLog::record('audiobook_generated', $book, null, [
                 'language' => $language, 'engine' => $engine,
                 'characters' => $book->characters, 'ocr' => $usedOcr,
@@ -207,7 +215,9 @@ class GenerateAudioBook implements ShouldQueue
         try {
             $disk = Storage::disk('local');
 
-            if ($book->source_type === 'pdf' && $book->source_path && $disk->exists($book->source_path)) {
+            // Edited text is authoritative — once the creator has corrected
+            // the text, narrate THAT, never the original PDF.
+            if ($book->source_type === 'pdf' && ! $book->text_edited && $book->source_path && $disk->exists($book->source_path)) {
                 $contents = $disk->get($book->source_path);
                 $filename = 'book.pdf';
             } else {

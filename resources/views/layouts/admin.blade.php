@@ -16,6 +16,29 @@
             document.documentElement.classList.toggle('dark', dark);
         })();
     </script>
+    {{-- Encrypted-HLS playback (download protection): players carry
+         data-hls / data-fallback and call window.betarHls($el) on init. --}}
+    <script src="{{ asset('vendor/hls.min.js') }}" defer></script>
+    <script>
+        window.betarHls = function (el) {
+            var src = el.dataset.hls || '', fallback = el.dataset.fallback || '';
+            var start = function () {
+                if (src && window.Hls && Hls.isSupported()) {
+                    var h = new Hls({ enableWorker: false });
+                    h.on(Hls.Events.ERROR, function (_, data) {
+                        if (data.fatal) { h.destroy(); if (fallback) el.src = fallback; }
+                    });
+                    h.loadSource(src);
+                    h.attachMedia(el);
+                } else if (src && el.canPlayType('application/vnd.apple.mpegurl')) {
+                    el.src = src;
+                } else if (fallback) {
+                    el.src = fallback;
+                }
+            };
+            if (window.Hls || ! src) { start(); } else { window.addEventListener('DOMContentLoaded', start); }
+        };
+    </script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="h-full" x-data :class="$store.ui.sidebarCollapsed ? 'sidebar-collapsed' : ''">

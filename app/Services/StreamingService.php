@@ -50,9 +50,23 @@ class StreamingService
         $maxQuality = $this->entitlements->entitlements($user)['max_quality_kbps'];
         $ttl = (int) \App\Models\Setting::get('stream_url_ttl_minutes', 30);
 
+        // Download protection: full listens stream AES-encrypted HLS instead
+        // of a saveable file. Unpackaged recordings queue packaging and fall
+        // back to the legacy signed URL just this once; previews (short clips)
+        // keep the plain URL.
+        $hlsUrl = null;
+        if ($version->version_type !== 'preview') {
+            if (\App\Support\Hls::isPackaged('version', $version->id, 'main')) {
+                $hlsUrl = \App\Support\Hls::playlistUrl('version', $version->id, 'main', $ttl);
+            } elseif (\App\Support\Hls::sourceForVersion($version, $asset->id) !== null) {
+                \App\Support\Hls::ensureQueued('version', $version->id, 'main');
+            }
+        }
+
         return [
             'version' => $version->version_type,
-            'url' => $this->signedUrl($asset, $version, $ttl),
+            'url' => $hlsUrl ?? $this->signedUrl($asset, $version, $ttl),
+            'is_hls' => $hlsUrl !== null,
             'expires_at' => now()->addMinutes($ttl)->toIso8601String(),
             'duration_seconds' => $version->duration_seconds ?: $asset->duration_seconds,
             'is_preview' => $version->version_type === 'preview',
