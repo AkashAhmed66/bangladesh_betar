@@ -37,7 +37,7 @@
 <div class="card">
     @forelse ($notifications as $n)
         @php [$icon, $colorClasses] = $eventMeta[$n->data['event'] ?? ''] ?? ['bell', $slate]; @endphp
-        <a href="{{ route('admin.notifications.open', $n->id) }}"
+        <a href="{{ route('admin.notifications.open', $n->id, absolute: false) }}"
            class="flex items-start gap-3 border-b border-slate-100 px-5 py-3.5 transition last:border-0 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/60 {{ $n->read_at ? 'opacity-60' : '' }}">
             <span class="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full {{ $colorClasses }}">
                 <x-icon :name="$icon" class="size-4.5" />

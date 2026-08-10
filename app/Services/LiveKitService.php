@@ -8,6 +8,7 @@ use App\Models\BroadcastChannel;
 use App\Models\User;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 /**
  * LiveKit integration for live audio broadcasting (M27).
@@ -269,8 +270,127 @@ class LiveKitService
         }
     }
 
+    /**
+     * Close a LiveKit room and disconnect every participant in it.
+     *
+     * Ending the database session alone only hides a broadcast from the
+     * catalogue; the room itself would otherwise remain open until its last
+     * participant leaves. Explicitly deleting it makes an admin "Stop" action
+     * final for both the broadcaster and every listener.
+     */
+    public function terminateRoom(string $room): bool
+    {
+        if (! $this->isConfigured() || $room === '') {
+            return false;
+        }
+
+        try {
+            $res = Http::timeout(4)
+                ->withToken($this->roomAdminToken($room))
+                ->acceptJson()
+                ->post($this->host.'/twirp/livekit.RoomService/DeleteRoom', ['room' => $room]);
+
+            // Deleting an already-empty/removed room is also a successful
+            // terminal state, which keeps Stop safe to retry.
+            return $res->successful() || $res->status() === 404;
+        } catch (\Throwable $e) {
+            Log::warning('LiveKit DeleteRoom failed: '.$e->getMessage());
+
+            return false;
+        }
+    }
+
+    /** Ensure an empty room exists before an Egress recorder is attached. */
+    public function ensureRoom(string $room): bool
+    {
+        if (! $this->isConfigured() || $room === '') {
+            return false;
+        }
+
+        try {
+            $res = Http::timeout(8)
+                ->withToken($this->roomAdminToken($room))
+                ->acceptJson()
+                ->post($this->host.'/twirp/livekit.RoomService/CreateRoom', [
+                    'name' => $room,
+                    'emptyTimeout' => 300,
+                ]);
+
+            // A room with this stable channel name may already exist when a
+            // broadcaster reloads the studio. That is an idempotent success.
+            return $res->successful() || $res->status() === 409;
+        } catch (\Throwable $e) {
+            Log::warning('LiveKit CreateRoom failed: '.$e->getMessage());
+
+            return false;
+        }
+    }
+
+    /**
+     * Start one mixed, audio-only RoomComposite recording.
+     *
+     * @return array{egress_id:string, status:mixed}
+     */
+    public function startRoomRecording(string $room, string $absoluteOutputPath): array
+    {
+        if (! $this->isConfigured() || $room === '' || $absoluteOutputPath === '') {
+            throw new \RuntimeException('LiveKit recording is not configured.');
+        }
+
+        $res = Http::timeout(20)
+            ->withToken($this->recordingAdminToken())
+            ->acceptJson()
+            ->post($this->host.'/twirp/livekit.Egress/StartRoomCompositeEgress', [
+                'roomName' => $room,
+                'audioOnly' => true,
+                'fileOutputs' => [[
+                    // LiveKit EncodedFileType.OGG. OGG/Opus preserves the
+                    // WebRTC audio without adding another lossy MP3 encode.
+                    'fileType' => 2,
+                    'filepath' => $absoluteOutputPath,
+                ]],
+            ]);
+
+        if (! $res->successful()) {
+            throw new \RuntimeException('LiveKit could not start recording: '.Str::limit($res->body(), 500));
+        }
+
+        $egressId = (string) ($res->json('egressId') ?? $res->json('egress_id') ?? '');
+        if ($egressId === '') {
+            throw new \RuntimeException('LiveKit started recording without returning an Egress ID.');
+        }
+
+        return [
+            'egress_id' => $egressId,
+            'status' => $res->json('status'),
+        ];
+    }
+
+    /** Request finalization of an active Egress recording. */
+    public function stopRoomRecording(string $egressId): bool
+    {
+        if (! $this->isConfigured() || $egressId === '') {
+            return false;
+        }
+
+        try {
+            $res = Http::timeout(20)
+                ->withToken($this->recordingAdminToken())
+                ->acceptJson()
+                ->post($this->host.'/twirp/livekit.Egress/StopEgress', [
+                    'egressId' => $egressId,
+                ]);
+
+            return $res->successful() || $res->status() === 404;
+        } catch (\Throwable $e) {
+            Log::warning('LiveKit StopEgress failed: '.$e->getMessage());
+
+            return false;
+        }
+    }
+
     /* --------------------------------------------------------------------- */
-    /* JWT helpers (HS256)                                                     */
+    /* JWT helpers (HS256) */
     /* --------------------------------------------------------------------- */
 
     /**
@@ -320,7 +440,22 @@ class LiveKitService
             room: $room,
             canPublish: false,
             ttlMinutes: 5,
-            extraVideoGrant: ['roomAdmin' => true],
+            // DeleteRoom requires roomCreate (not roomAdmin) in LiveKit's
+            // RoomService API. Keep roomAdmin too for participant operations.
+            extraVideoGrant: ['roomAdmin' => true, 'roomCreate' => true],
+        );
+    }
+
+    /** A short-lived server token allowed to start, list and stop Egress. */
+    private function recordingAdminToken(): string
+    {
+        return $this->mintToken(
+            identity: 'recording-admin',
+            name: 'recording-service',
+            room: '',
+            canPublish: false,
+            ttlMinutes: 5,
+            extraVideoGrant: ['roomRecord' => true],
         );
     }
 

@@ -1,0 +1,16 @@
+api_key: devkey
+api_secret: "betar_livekit_dev_secret_please_change_in_prod_0001"
+ws_url: ws://livekit:7880
+insecure: true
+
+# LiveKit Server and Egress must share the same Redis instance.
+redis:
+  address: redis:6379
+
+health_port: 7981
+logging:
+  level: info
+  json: false
+
+# Keep failed finalizations on the private shared recording volume.
+backup_storage: /out/failed

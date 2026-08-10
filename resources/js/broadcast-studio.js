@@ -20,6 +20,8 @@ function boot() {
         error: $('broadcast-error'),
         statusPill: $('status-pill'),
         statusText: $('status-text'),
+        recordingPill: $('recording-pill'),
+        recordingText: $('recording-text'),
         elapsed: $('elapsed'),
         onairClock: $('onair-clock'),
         connDot: $('conn-dot'),
@@ -29,6 +31,7 @@ function boot() {
         goLive: $('go-live-btn'),
         stop: $('stop-btn'),
         mute: $('mute-btn'),
+        muteIcon: $('mute-icon'),
         muteLabel: $('mute-label'),
         monitor: $('monitor-btn'),
         monitorLabel: $('monitor-label'),
@@ -147,6 +150,44 @@ function boot() {
         const [label, dotCls] = map[state.quality] || map.unknown;
         els.connText.textContent = state.live ? label : (state.armed ? 'Mic ready' : 'Not connected');
         els.connDot.className = 'size-2 rounded-full ' + (state.live ? dotCls : (state.armed ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'));
+    };
+
+    const setRecordingStatus = (status) => {
+        if (!els.recordingPill || !els.recordingText) return;
+        const value = String(status || 'ready');
+        const dot = els.recordingPill.querySelector('span.rounded-full') || els.recordingPill.querySelector('span');
+        els.recordingPill.classList.remove(
+            'bg-slate-100', 'text-slate-500', 'dark:bg-slate-800', 'dark:text-slate-400',
+            'bg-rose-100', 'text-rose-700', 'dark:bg-rose-500/15', 'dark:text-rose-300',
+            'bg-amber-100', 'text-amber-700', 'dark:bg-amber-500/15', 'dark:text-amber-300',
+            'bg-emerald-100', 'text-emerald-700', 'dark:bg-emerald-500/15', 'dark:text-emerald-300',
+        );
+
+        if (value === 'active') {
+            els.recordingPill.classList.add('bg-rose-100', 'text-rose-700', 'dark:bg-rose-500/15', 'dark:text-rose-300');
+            els.recordingText.textContent = 'Recording';
+            if (dot) dot.className = 'size-2 rounded-full bg-rose-600 animate-pulse';
+        } else if (['starting', 'pending'].includes(value)) {
+            els.recordingPill.classList.add('bg-amber-100', 'text-amber-700', 'dark:bg-amber-500/15', 'dark:text-amber-300');
+            els.recordingText.textContent = 'Recorder starting';
+            if (dot) dot.className = 'size-2 rounded-full bg-amber-500 animate-pulse';
+        } else if (value === 'finalizing') {
+            els.recordingPill.classList.add('bg-amber-100', 'text-amber-700', 'dark:bg-amber-500/15', 'dark:text-amber-300');
+            els.recordingText.textContent = 'Finalizing audio';
+            if (dot) dot.className = 'size-2 rounded-full bg-amber-500 animate-pulse';
+        } else if (value === 'complete') {
+            els.recordingPill.classList.add('bg-emerald-100', 'text-emerald-700', 'dark:bg-emerald-500/15', 'dark:text-emerald-300');
+            els.recordingText.textContent = 'Recording ready';
+            if (dot) dot.className = 'size-2 rounded-full bg-emerald-500';
+        } else if (['failed', 'aborted'].includes(value)) {
+            els.recordingPill.classList.add('bg-rose-100', 'text-rose-700', 'dark:bg-rose-500/15', 'dark:text-rose-300');
+            els.recordingText.textContent = 'Recording failed';
+            if (dot) dot.className = 'size-2 rounded-full bg-rose-600';
+        } else {
+            els.recordingPill.classList.add('bg-slate-100', 'text-slate-500', 'dark:bg-slate-800', 'dark:text-slate-400');
+            els.recordingText.textContent = 'Recorder ready';
+            if (dot) dot.className = 'size-2 rounded-full bg-slate-400';
+        }
     };
 
     const api = async (url, body) => {
@@ -423,6 +464,7 @@ function boot() {
         let creds;
         try {
             creds = await api(CFG.urls.goLive, { title: (els.topic?.value || '').trim() || null });
+            setRecordingStatus(creds.recording_status);
         } catch (e) {
             showError(e.message);
             setStatus('off'); els.goLive.disabled = !CFG.active;
@@ -475,6 +517,7 @@ function boot() {
         state.startedAt = Date.now();
         setStatus('live');
         setQuality('good');
+        startClock();
         els.goLive.classList.add('hidden');
         els.stop.classList.remove('hidden');
         els.stop.classList.add('flex');
@@ -482,8 +525,21 @@ function boot() {
         els.monitor.disabled = false;
         lockInputs(true);
         els.hint.textContent = 'You are on air — listeners hear you live. Press M or Mute for a cough-mute.';
+        if (creds.recording_status === 'failed') {
+            showError('The broadcast is live, but recording could not start: ' + (creds.recording_error || 'check the Egress service.'));
+        }
 
-        els.elapsedTimer = setInterval(() => { els.elapsed.textContent = fmtElapsed(Date.now() - state.startedAt); }, 500);
+        const updateElapsed = () => {
+            // A stop/disconnect clears startedAt. Guarding the timer prevents
+            // null from being treated as 1970 and rendered as a huge duration.
+            if (!state.live || !Number.isFinite(state.startedAt)) {
+                els.elapsed.textContent = '00:00';
+                return;
+            }
+            els.elapsed.textContent = fmtElapsed(Date.now() - state.startedAt);
+        };
+        updateElapsed();
+        els.elapsedTimer = setInterval(updateElapsed, 500);
         pollStatus();
         state.statusTimer = setInterval(pollStatus, 5000);
         pollParticipants();
@@ -492,21 +548,44 @@ function boot() {
 
     async function stop() {
         els.stop.disabled = true;
-        try { await state.room?.disconnect(); } catch (_) {}
-        state.room = null; state.lkTrack = null;
-        await api(CFG.urls.stop).catch(() => {});
-        endLocally();
-        els.stop.disabled = false;
+        try {
+            const result = await api(CFG.urls.stop);
+            setRecordingStatus(result.recording_finalizing === false ? 'failed' : 'finalizing');
+        } catch (e) {
+            showError(e.message || 'The server could not completely stop the broadcast.');
+        } finally {
+            // Always release this browser's microphone/publisher. The server
+            // endpoint additionally deletes the room and disconnects listeners.
+            try { await state.room?.disconnect(); } catch (_) {}
+            endLocally();
+            els.stop.disabled = false;
+            // Reload the server-rendered history so the just-ended session is
+            // immediately visible with its current finalization state.
+            setTimeout(() => window.location.reload(), 1200);
+        }
     }
 
     function endLocally() {
         state.live = false;
         state.muted = false;
+        state.monitoring = false;
+        state.startedAt = null;
+        state.room = null;
+        state.lkTrack = null;
         if (state.elapsedTimer) clearInterval(state.elapsedTimer);
         if (state.statusTimer) clearInterval(state.statusTimer);
         if (state.participantsTimer) clearInterval(state.participantsTimer);
         state.elapsedTimer = state.statusTimer = state.participantsTimer = null;
+        stopClock();
+        els.elapsed.textContent = '00:00';
+        els.listeners.textContent = '0';
+        els.peakListeners.textContent = '0';
+        els.startedAt.textContent = '—';
+        state.listenerHistory = [];
+        drawSpark();
         renderParticipants([]);
+        void teardownGraph();
+        state.armed = false;
         setStatus('off');
         setQuality('unknown');
         els.stop.classList.add('hidden');
@@ -516,6 +595,8 @@ function boot() {
         els.mute.disabled = true;
         els.monitor.disabled = true;
         updateMuteUI();
+        els.monitorLabel.textContent = 'Monitor';
+        els.monitor.classList.remove('bg-primary-600', 'text-white', 'border-primary-600');
         lockInputs(false);
         els.hint.textContent = 'Off air. Click Go Live to broadcast again.';
     }
@@ -528,18 +609,44 @@ function boot() {
 
     async function toggleMute() {
         if (!state.live || !state.lkTrack) return;
-        state.muted = !state.muted;
-        try { state.muted ? await state.lkTrack.mute() : await state.lkTrack.unmute(); } catch (_) {}
-        updateMuteUI();
-        setStatus('live');
+        const nextMuted = !state.muted;
+        els.mute.disabled = true;
+        try {
+            if (nextMuted) await state.lkTrack.mute();
+            else await state.lkTrack.unmute();
+            state.muted = nextMuted;
+            updateMuteUI();
+            setStatus('live');
+        } catch (e) {
+            showError('Could not ' + (nextMuted ? 'mute' : 'unmute') + ' the microphone: ' + (e.message || e));
+        } finally {
+            if (state.live) els.mute.disabled = false;
+        }
     }
 
     function updateMuteUI() {
-        const on = state.muted;
-        els.muteLabel.textContent = on ? 'Muted' : 'Mute';
-        els.mute.classList.toggle('bg-rose-600', on);
-        els.mute.classList.toggle('text-white', on);
-        els.mute.classList.toggle('border-rose-600', on);
+        const muted = state.muted;
+        const action = muted ? 'Unmute microphone' : 'Mute microphone';
+        els.muteLabel.textContent = muted ? 'Unmute' : 'Mute';
+        els.mute.setAttribute('aria-label', action);
+        els.mute.title = action;
+        // Apply the muted palette as one atomic state. Important inline values
+        // prevent the button's light/dark hover variants from briefly replacing
+        // the red background while the pointer remains over it after a click.
+        if (muted) {
+            els.mute.style.setProperty('background-color', '#e11d48', 'important');
+            els.mute.style.setProperty('border-color', '#e11d48', 'important');
+            els.mute.style.setProperty('color', '#ffffff', 'important');
+        } else {
+            els.mute.style.removeProperty('background-color');
+            els.mute.style.removeProperty('border-color');
+            els.mute.style.removeProperty('color');
+        }
+        if (els.muteIcon) {
+            els.muteIcon.innerHTML = muted
+                ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="size-4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Zm0 3v3.75m-3.75 0h7.5M18 11.25v1.5a6 6 0 0 1-6 6m0 0a6 6 0 0 1-6-6v-1.5M3 3l18 18"/></svg>'
+                : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="size-4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"/></svg>';
+        }
     }
 
     function toggleMonitor() {
@@ -574,6 +681,7 @@ function boot() {
             if (s.started_at && els.startedAt.textContent === '—') {
                 els.startedAt.textContent = new Date(s.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             }
+            if (s.recording_status) setRecordingStatus(s.recording_status);
             state.listenerHistory.push(n);
             if (state.listenerHistory.length > 60) state.listenerHistory.shift();
             drawSpark();
@@ -661,9 +769,16 @@ function boot() {
     }
 
     function startClock() {
+        if (state.clockTimer) clearInterval(state.clockTimer);
         const tick = () => { els.onairClock.textContent = new Date().toLocaleTimeString([], { hour12: false }); };
         tick();
         state.clockTimer = setInterval(tick, 1000);
+    }
+
+    function stopClock() {
+        if (state.clockTimer) clearInterval(state.clockTimer);
+        state.clockTimer = null;
+        els.onairClock.textContent = '00:00';
     }
 
     /* ------------------------------- wire up ------------------------------ */
@@ -736,7 +851,8 @@ function boot() {
 
     setStatus('off');
     setQuality('unknown');
-    startClock();
+    setRecordingStatus(CFG.recordingStatus || 'ready');
+    stopClock();
     applyGain();
 }
 

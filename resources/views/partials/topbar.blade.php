@@ -58,7 +58,7 @@
             </div>
             <div class="max-h-96 overflow-y-auto">
                 @forelse ($recentNotifications as $n)
-                    <a href="{{ route('admin.notifications.open', $n->id) }}"
+                    <a href="{{ route('admin.notifications.open', $n->id, absolute: false) }}"
                        class="block border-b border-slate-50 px-4 py-2.5 transition hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/60 {{ $n->read_at ? 'opacity-60' : '' }}">
                         <p class="flex items-start gap-2 text-sm">
                             @unless ($n->read_at)<span class="mt-1.5 size-2 shrink-0 rounded-full bg-accent-600"></span>@endunless

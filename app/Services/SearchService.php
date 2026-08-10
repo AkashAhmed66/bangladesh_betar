@@ -31,6 +31,7 @@ class SearchService
         'podcast' => 'podcast_channels',
         'podcast_episode' => 'podcast_episodes',
         'live_radio' => 'broadcast_channels',
+        'audio_book' => 'audio_books',
     ];
 
     private Client $client;
@@ -49,8 +50,9 @@ class SearchService
     /**
      * Run one ranked query per requested type in a single _msearch round trip.
      *
+     * Hits are grouped by type and already sorted best-first by Elasticsearch.
+     *
      * @return array<string, array<int, array{id:int, score:float}>>
-     *         type => hits (already sorted best-first by Elasticsearch)
      */
     public function search(string $query, ?string $type = null, int $perType = 20): array
     {

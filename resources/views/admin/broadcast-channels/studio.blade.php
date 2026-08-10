@@ -45,10 +45,16 @@
     <div class="space-y-5 xl:col-span-2">
         {{-- On-air control --}}
         <div class="card">
-            <div class="card-header flex items-center justify-between">
-                <div id="status-pill" class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                    <span class="size-2.5 rounded-full bg-slate-400"></span>
-                    <span id="status-text">Off air</span>
+            <div class="card-header flex items-center justify-between gap-3">
+                <div class="flex flex-wrap items-center gap-2">
+                    <div id="status-pill" class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                        <span class="size-2.5 rounded-full bg-slate-400"></span>
+                        <span id="status-text">Off air</span>
+                    </div>
+                    <div id="recording-pill" class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                        <span class="size-2 rounded-full bg-slate-400"></span>
+                        <span id="recording-text">Recorder ready</span>
+                    </div>
                 </div>
                 <div class="text-right">
                     <span id="elapsed" class="text-lg font-bold tabular-nums text-slate-800 dark:text-slate-100">00:00</span>
@@ -74,9 +80,12 @@
 
                 {{-- Transport controls (active while live) --}}
                 <div class="flex items-center gap-2">
-                    <button id="mute-btn" type="button" disabled
-                            class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700">
-                        <x-icon name="pause" class="size-4" /> <span id="mute-label">Mute</span>
+                    <button id="mute-btn" type="button" disabled aria-label="Mute microphone" title="Mute microphone"
+                            class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700">
+                        <span id="mute-icon" class="inline-flex size-4" aria-hidden="true">
+                            <x-icon name="microphone" class="size-4" />
+                        </span>
+                        <span id="mute-label">Mute</span>
                     </button>
                     <button id="monitor-btn" type="button" disabled
                             class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700">
@@ -210,27 +219,135 @@
             </div>
         </div>
 
-        {{-- Recent broadcasts --}}
-        @if ($recentSessions->isNotEmpty())
-            <div class="card">
-                <div class="card-header"><span class="text-sm font-semibold">Recent broadcasts</span></div>
-                <div class="card-body space-y-3">
-                    @foreach ($recentSessions as $s)
-                        <div class="flex items-center justify-between gap-3 text-xs">
-                            <div class="min-w-0">
-                                <p class="truncate font-medium text-slate-700 dark:text-slate-200">{{ $s->title ?: 'Untitled session' }}</p>
-                                <p class="truncate text-slate-400">{{ $s->broadcaster?->name ?? '—' }}</p>
-                            </div>
-                            <div class="shrink-0 text-right text-slate-400">
-                                <p class="tabular-nums">{{ $s->started_at?->diffForHumans(short: true) }}</p>
-                                <p class="tabular-nums">peak {{ $s->peak_listeners }}</p>
-                            </div>
-                        </div>
+    </div>
+</div>
+
+{{-- Complete recording history for this channel. --}}
+<div class="card mt-5" id="recording-history">
+    <div class="card-header flex flex-wrap items-center justify-between gap-3">
+        <div>
+            <div class="flex items-center gap-2">
+                <x-icon name="archive" class="size-4 text-primary-600 dark:text-primary-400" />
+                <span class="text-sm font-semibold">Broadcast recordings</span>
+                <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-slate-500 dark:bg-slate-800 dark:text-slate-400">{{ $recordedSessions->total() }}</span>
+            </div>
+            <p class="mt-1 text-xs font-normal text-slate-400">Private studio recordings for {{ $channel->name }}. Completed audio can be played or downloaded here.</p>
+        </div>
+        <a href="{{ request()->fullUrlWithQuery(['recordings' => $recordedSessions->currentPage()]) }}#recording-history" class="btn-secondary btn-sm">
+            <x-icon name="arrow-path" class="size-4" /> Refresh
+        </a>
+    </div>
+
+    @if ($recordedSessions->isEmpty())
+        <div class="card-body py-12 text-center">
+            <span class="mx-auto flex size-12 items-center justify-center rounded-full bg-primary-50 text-primary-600 dark:bg-primary-500/10 dark:text-primary-400">
+                <x-icon name="microphone" class="size-6" />
+            </span>
+            <p class="mt-3 text-sm font-semibold text-slate-700 dark:text-slate-200">No recordings yet</p>
+            <p class="mt-1 text-xs text-slate-400">The next broadcast will be recorded automatically and will appear here after it is stopped.</p>
+        </div>
+    @else
+        <div class="overflow-x-auto">
+            <table class="w-full min-w-[1100px]">
+                <thead>
+                    <tr class="border-b border-slate-200 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:border-slate-800">
+                        <th class="px-5 py-3">Broadcast</th>
+                        <th class="px-4 py-3">Date &amp; time</th>
+                        <th class="px-4 py-3">Length</th>
+                        <th class="px-4 py-3">Audience</th>
+                        <th class="px-4 py-3">File</th>
+                        <th class="px-4 py-3">Status</th>
+                        <th class="px-5 py-3">Audio</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                    @foreach ($recordedSessions as $session)
+                        @php
+                            $recording = $session->recording;
+                            $duration = $recording->duration_seconds
+                                ?? ($session->started_at ? (int) $session->started_at->diffInSeconds($session->ended_at ?? now()) : 0);
+                            $durationLabel = $duration >= 3600
+                                ? sprintf('%d:%02d:%02d', intdiv($duration, 3600), intdiv($duration % 3600, 60), $duration % 60)
+                                : sprintf('%02d:%02d', intdiv($duration, 60), $duration % 60);
+                            $sizeLabel = $recording->file_size
+                                ? ($recording->file_size >= 1048576
+                                    ? number_format($recording->file_size / 1048576, 1).' MB'
+                                    : number_format($recording->file_size / 1024, 1).' KB')
+                                : '—';
+                            $statusStyle = match ($recording->status) {
+                                'complete' => 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
+                                'active' => 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400',
+                                'starting', 'finalizing', 'pending' => 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
+                                default => 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400',
+                            };
+                            $statusLabel = match ($recording->status) {
+                                'active' => 'Recording',
+                                'finalizing' => 'Processing',
+                                'complete' => 'Ready',
+                                default => ucfirst($recording->status),
+                            };
+                        @endphp
+                        <tr class="align-middle hover:bg-slate-50/70 dark:hover:bg-slate-800/30">
+                            <td class="px-5 py-4">
+                                <div class="flex items-center gap-3">
+                                    <span class="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-50 text-primary-600 dark:bg-primary-500/10 dark:text-primary-400">
+                                        <x-icon name="radio" class="size-4" />
+                                    </span>
+                                    <div class="min-w-0">
+                                        <p class="max-w-64 truncate text-sm font-semibold text-slate-700 dark:text-slate-200">{{ $session->title ?: 'Untitled broadcast' }}</p>
+                                        <p class="mt-0.5 truncate text-xs text-slate-400">{{ $session->broadcaster?->name ?? 'Unknown broadcaster' }} · Session #{{ $session->id }}</p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-4 py-4 text-xs">
+                                <p class="font-medium text-slate-600 dark:text-slate-300">{{ $session->started_at?->format('M j, Y') ?? '—' }}</p>
+                                <p class="mt-0.5 tabular-nums text-slate-400">{{ $session->started_at?->format('g:i A') ?? '—' }}@if ($session->ended_at) – {{ $session->ended_at->format('g:i A') }}@endif</p>
+                            </td>
+                            <td class="px-4 py-4 text-sm font-semibold tabular-nums text-slate-600 dark:text-slate-300">{{ $durationLabel }}</td>
+                            <td class="px-4 py-4 text-xs text-slate-500 dark:text-slate-400">
+                                <p><span class="font-semibold tabular-nums text-slate-700 dark:text-slate-200">{{ $session->peak_listeners }}</span> peak</p>
+                            </td>
+                            <td class="px-4 py-4 text-xs text-slate-500 dark:text-slate-400">
+                                <p class="font-medium uppercase">{{ $recording->format ?: 'OGG' }}</p>
+                                <p class="mt-0.5 tabular-nums text-slate-400">{{ $sizeLabel }}</p>
+                            </td>
+                            <td class="px-4 py-4">
+                                <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide {{ $statusStyle }}">
+                                    @if ($recording->status === 'active')<span class="size-1.5 animate-pulse rounded-full bg-current"></span>@endif
+                                    {{ $statusLabel }}
+                                </span>
+                                @if ($recording->error)
+                                    <p class="mt-1 max-w-48 truncate text-[10px] text-rose-500" title="{{ $recording->error }}">{{ $recording->error }}</p>
+                                @endif
+                            </td>
+                            <td class="px-5 py-4">
+                                @if ($recording->isPlayable())
+                                    <div class="flex min-w-80 items-center gap-2">
+                                        <audio controls preload="none" class="h-9 w-64" src="{{ route('admin.broadcast-recordings.audio', $recording) }}">
+                                            Your browser does not support audio playback.
+                                        </audio>
+                                        <a href="{{ route('admin.broadcast-recordings.download', $recording) }}" class="btn-secondary btn-sm shrink-0" title="Download recording">
+                                            <x-icon name="download" class="size-4" />
+                                            <span class="sr-only">Download</span>
+                                        </a>
+                                    </div>
+                                @elseif (in_array($recording->status, ['starting', 'active', 'finalizing', 'pending'], true))
+                                    <span class="inline-flex items-center gap-2 text-xs text-slate-400"><span class="size-3 animate-spin rounded-full border-2 border-slate-300 border-t-primary-500"></span> Audio is being prepared</span>
+                                @else
+                                    <span class="text-xs text-slate-400">Audio unavailable</span>
+                                @endif
+                            </td>
+                        </tr>
                     @endforeach
-                </div>
+                </tbody>
+            </table>
+        </div>
+        @if ($recordedSessions->hasPages())
+            <div class="border-t border-slate-100 px-5 py-4 dark:border-slate-800">
+                {{ $recordedSessions->fragment('recording-history')->links() }}
             </div>
         @endif
-    </div>
+    @endif
 </div>
 
 <script>
@@ -241,6 +358,7 @@
         wsUrl: @json($wsUrl),
         listenUrl: @json($listenUrl),
         active: @json((bool) $channel->is_active),
+        recordingStatus: @json($channel->liveSession?->recording?->status),
         urls: {
             goLive: '{{ route('admin.broadcast-channels.go-live', $channel) }}',
             stop: '{{ route('admin.broadcast-channels.stop', $channel) }}',

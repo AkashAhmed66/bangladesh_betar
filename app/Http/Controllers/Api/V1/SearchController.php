@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ArtistResource;
 use App\Http\Resources\AudioAssetResource;
+use App\Http\Resources\AudioBookResource;
 use App\Http\Resources\EpisodeResource;
 use App\Http\Resources\LiveChannelResource;
 use App\Http\Resources\PodcastChannelResource;
@@ -15,6 +16,7 @@ use App\Http\Resources\ProgrammeResource;
 use App\Http\Resources\SongResource;
 use App\Models\Artist;
 use App\Models\AudioAsset;
+use App\Models\AudioBook;
 use App\Models\BroadcastChannel;
 use App\Models\Episode;
 use App\Models\PodcastChannel;
@@ -118,6 +120,9 @@ class SearchController extends Controller
             )]],
             'live_radio' => fn (array $ids) => ['live_radios' => ['data' => LiveChannelResource::collection(
                 $this->ordered(BroadcastChannel::query()->where('is_active', true)->with(['station', 'liveSession.broadcaster']), $ids),
+            )]],
+            'audio_book' => fn (array $ids) => ['audiobooks' => ['data' => AudioBookResource::collection(
+                $this->ordered(AudioBook::query()->published()->with('user'), $ids),
             )]],
         ];
 
@@ -242,6 +247,14 @@ class SearchController extends Controller
             )];
         }
 
+        if ($wants('audio_book')) {
+            $results['audiobooks'] = ['data' => AudioBookResource::collection(
+                AudioBook::query()->published()->with('user')
+                    ->where(fn ($w) => $w->where('title', 'like', $like)->orWhere('text', 'like', $like))
+                    ->take(20)->get(),
+            )];
+        }
+
         return $results;
     }
 
@@ -268,6 +281,10 @@ class SearchController extends Controller
                 ->where(fn ($w) => $w->where('title', 'like', $like)->orWhere('title_bn', 'like', $like))
                 ->take(2)->get(['title', 'title_bn'])
                 ->map(fn ($p) => ['text' => $bnQuery && $p->title_bn ? $p->title_bn : $p->title, 'type' => 'podcast']))
+            ->merge(AudioBook::query()->published()
+                ->where('title', 'like', $like)
+                ->take(3)->get(['title'])
+                ->map(fn ($book) => ['text' => $book->title, 'type' => 'audio_book']))
             ->filter(fn ($s) => ! empty($s['text']))
             ->unique('text')
             ->take(10)->values()

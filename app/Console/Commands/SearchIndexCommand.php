@@ -4,6 +4,14 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Models\Artist;
+use App\Models\AudioBook;
+use App\Models\BroadcastChannel;
+use App\Models\Episode;
+use App\Models\PodcastChannel;
+use App\Models\PodcastEpisode;
+use App\Models\Programme;
+use App\Models\Song;
 use Elastic\Client\ClientBuilderInterface;
 use Illuminate\Console\Command;
 
@@ -30,13 +38,14 @@ class SearchIndexCommand extends Command
 
     /** All searchable models. */
     private const MODELS = [
-        \App\Models\Song::class,
-        \App\Models\Artist::class,
-        \App\Models\Programme::class,
-        \App\Models\Episode::class,
-        \App\Models\PodcastChannel::class,
-        \App\Models\PodcastEpisode::class,
-        \App\Models\BroadcastChannel::class,
+        Song::class,
+        Artist::class,
+        Programme::class,
+        Episode::class,
+        PodcastChannel::class,
+        PodcastEpisode::class,
+        BroadcastChannel::class,
+        AudioBook::class,
     ];
 
     public function handle(ClientBuilderInterface $clientBuilder): int
@@ -55,10 +64,16 @@ class SearchIndexCommand extends Command
 
         foreach (self::MODELS as $model) {
             $index = (new $model)->searchableAs();
+            // Audiobooks carry their complete read-along text, so smaller
+            // bulk requests stay comfortably below Elasticsearch HTTP limits.
+            $importOptions = ['model' => $model];
+            if ($model === AudioBook::class) {
+                $importOptions['--chunk'] = 25;
+            }
 
             if ($this->option('fresh')) {
                 $this->call('scout:flush', ['model' => $model]);
-                $this->call('scout:import', ['model' => $model]);
+                $this->call('scout:import', $importOptions);
 
                 continue;
             }
@@ -69,7 +84,7 @@ class SearchIndexCommand extends Command
                 continue;
             }
 
-            $this->call('scout:import', ['model' => $model]);
+            $this->call('scout:import', $importOptions);
         }
 
         $this->info('Search indices are ready.');

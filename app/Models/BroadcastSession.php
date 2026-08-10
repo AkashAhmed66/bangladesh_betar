@@ -6,6 +6,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * One live on-air session on a broadcast channel. Not Auditable on purpose:
@@ -31,5 +32,10 @@ class BroadcastSession extends Model
     public function broadcaster(): BelongsTo
     {
         return $this->belongsTo(User::class, 'broadcaster_id');
+    }
+
+    public function recording(): HasOne
+    {
+        return $this->hasOne(BroadcastRecording::class);
     }
 }

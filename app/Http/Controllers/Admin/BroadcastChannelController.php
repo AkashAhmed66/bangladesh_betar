@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BroadcastChannel;
 use App\Models\BroadcastSession;
 use App\Models\Station;
+use App\Services\BroadcastRecordingService;
 use App\Services\LiveKitService;
 use App\Services\SpeakRequestStore;
 use Illuminate\Http\JsonResponse;
@@ -18,7 +19,10 @@ use Illuminate\View\View;
 
 class BroadcastChannelController extends Controller
 {
-    public function __construct(private readonly LiveKitService $liveKit) {}
+    public function __construct(
+        private readonly LiveKitService $liveKit,
+        private readonly BroadcastRecordingService $recordings,
+    ) {}
 
     public function index(): View
     {
@@ -80,14 +84,14 @@ class BroadcastChannelController extends Controller
     }
 
     /* --------------------------------------------------------------------- */
-    /* Broadcaster studio (go on air)                                         */
+    /* Broadcaster studio (go on air) */
     /* --------------------------------------------------------------------- */
 
     public function studio(Request $request, BroadcastChannel $broadcastChannel): View
     {
         $this->authorize('broadcasts.broadcast');
 
-        $broadcastChannel->load(['station', 'liveSession.broadcaster']);
+        $broadcastChannel->load(['station', 'liveSession.broadcaster', 'liveSession.recording']);
 
         // Link broadcasters to the listener-facing page. Derive the public app
         // origin from the request host (so it points at the same IP the studio
@@ -98,17 +102,16 @@ class BroadcastChannelController extends Controller
         }
         $listenUrl = rtrim($publicBase, '/').'/live/'.$broadcastChannel->id;
 
-        $recentSessions = $broadcastChannel->sessions()
-            ->where('status', 'ended')
-            ->with('broadcaster')
-            ->limit(6)
-            ->get();
+        $recordedSessions = $broadcastChannel->sessions()
+            ->whereHas('recording')
+            ->with(['broadcaster', 'recording'])
+            ->paginate(15, ['*'], 'recordings');
 
         return view('admin.broadcast-channels.studio', [
             'channel' => $broadcastChannel,
             'wsUrl' => $this->liveKit->wsUrl($request->getHost()),
             'listenUrl' => $listenUrl,
-            'recentSessions' => $recentSessions,
+            'recordedSessions' => $recordedSessions,
         ]);
     }
 
@@ -143,8 +146,14 @@ class BroadcastChannelController extends Controller
             'started_at' => now(),
         ]);
 
+        $recording = $this->recordings->start($session);
+
         return response()->json(
-            $this->liveKit->publisherToken($broadcastChannel, $user) + ['session_id' => $session->id],
+            $this->liveKit->publisherToken($broadcastChannel, $user) + [
+                'session_id' => $session->id,
+                'recording_status' => $recording->status,
+                'recording_error' => $recording->error,
+            ],
         );
     }
 
@@ -153,30 +162,60 @@ class BroadcastChannelController extends Controller
     {
         $this->authorize('broadcasts.broadcast');
 
-        $broadcastChannel->sessions()->where('status', 'live')->update([
+        $liveSessions = $broadcastChannel->sessions()
+            ->where('status', 'live')
+            ->with('recording')
+            ->get();
+
+        $recordingStopping = $liveSessions
+            ->map(fn (BroadcastSession $session): bool => $this->recordings->stop($session))
+            ->every(fn (bool $stopped): bool => $stopped);
+
+        $ended = $broadcastChannel->sessions()->where('status', 'live')->update([
             'status' => 'ended',
             'ended_at' => now(),
             'current_listeners' => 0,
         ]);
+        SpeakRequestStore::clear($broadcastChannel->room_name);
 
-        return response()->json(['ok' => true]);
+        // A session is not fully stopped while its LiveKit room remains open:
+        // listeners can stay connected and the room can continue emitting
+        // events. Delete the room to disconnect everyone immediately.
+        $roomTerminated = $this->liveKit->terminateRoom($broadcastChannel->room_name);
+
+        if (! $roomTerminated) {
+            return response()->json([
+                'message' => 'The broadcast session was ended, but LiveKit could not close the room. Check the LiveKit service and stop again.',
+                'session_ended' => $ended > 0,
+                'room_terminated' => false,
+                'recording_finalizing' => $recordingStopping,
+            ], 502);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'session_ended' => $ended > 0,
+            'room_terminated' => true,
+            'recording_finalizing' => $recordingStopping,
+        ]);
     }
 
     /** Lightweight polling endpoint for the studio (live state + listeners). */
     public function status(BroadcastChannel $broadcastChannel): JsonResponse
     {
-        $session = $broadcastChannel->liveSession()->first();
+        $session = $broadcastChannel->liveSession()->with('recording')->first();
 
         return response()->json([
             'is_live' => $session !== null,
             'listeners' => $session?->current_listeners ?? 0,
             'peak_listeners' => $session?->peak_listeners ?? 0,
             'started_at' => $session?->started_at?->toIso8601String(),
+            'recording_status' => $session?->recording?->status,
         ]);
     }
 
     /* --------------------------------------------------------------------- */
-    /* Interactive audience: raise-hand / grant / revoke speaking             */
+    /* Interactive audience: raise-hand / grant / revoke speaking */
     /* --------------------------------------------------------------------- */
 
     /** Current listeners in the room, flagged with raised-hand / speaker state. */

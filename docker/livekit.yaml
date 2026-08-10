@@ -27,6 +27,11 @@ rtc:
 keys:
   devkey: "betar_livekit_dev_secret_please_change_in_prod_0001"
 
+# Required by the separate Egress recording worker. Both services use this
+# Redis bus to launch, monitor and finalize recording jobs.
+redis:
+  address: redis:6379
+
 # LiveKit calls back to the Laravel app (internal docker network) so live
 # sessions self-heal: room_finished ends a session, participant_* updates the
 # listener count. Signed with the devkey secret above; verified server-side.

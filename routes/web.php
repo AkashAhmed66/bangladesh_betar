@@ -177,6 +177,10 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
             ->middleware('permission:broadcasts.broadcast')->name('broadcast-channels.grant-speak');
         Route::post('broadcast-channels/{broadcastChannel}/revoke-speak', [Admin\BroadcastChannelController::class, 'revokeSpeak'])
             ->middleware('permission:broadcasts.broadcast')->name('broadcast-channels.revoke-speak');
+        Route::get('broadcast-recordings/{recording}/audio', [Admin\BroadcastRecordingController::class, 'audio'])
+            ->middleware('permission:broadcasts.view')->name('broadcast-recordings.audio');
+        Route::get('broadcast-recordings/{recording}/download', [Admin\BroadcastRecordingController::class, 'download'])
+            ->middleware('permission:broadcasts.view')->name('broadcast-recordings.download');
         Route::resource('broadcast-channels', Admin\BroadcastChannelController::class)->except('show')
             ->middleware('permission:broadcasts.view');
 
