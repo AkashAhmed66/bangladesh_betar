@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Support;
 
+use App\Jobs\PackageHlsAudio;
 use App\Models\AudioAsset;
 use App\Models\AudioBook;
 use App\Models\AudioVersion;
+use App\Models\BroadcastRecording;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -27,7 +29,7 @@ use Illuminate\Support\Facades\URL;
  */
 final class Hls
 {
-    public const GROUPS = ['version', 'audiobook'];
+    public const GROUPS = ['version', 'audiobook', 'broadcast'];
 
     public static function dir(string $group, int|string $id, string $variant): string
     {
@@ -40,18 +42,23 @@ final class Hls
     }
 
     /** Signed playlist URL — the single entry point players are handed. */
-    public static function playlistUrl(string $group, int|string $id, string $variant, int $ttlMinutes = 30): string
-    {
-        return URL::temporarySignedRoute('api.v1.hls.playlist', now()->addMinutes($ttlMinutes), [
+    public static function playlistUrl(
+        string $group,
+        int|string $id,
+        string $variant,
+        int $ttlMinutes = 30,
+        array $parameters = [],
+    ): string {
+        return URL::temporarySignedRoute('api.v1.hls.playlist', now()->addMinutes($ttlMinutes), array_merge([
             'group' => $group, 'id' => $id, 'variant' => $variant,
-        ]);
+        ], $parameters));
     }
 
     /** Queue packaging exactly once (10-minute dedup guard). */
     public static function ensureQueued(string $group, int|string $id, string $variant): void
     {
         if (Cache::add("hls-package:{$group}:{$id}:{$variant}", 1, 600)) {
-            \App\Jobs\PackageHlsAudio::dispatch($group, (int) $id, $variant);
+            PackageHlsAudio::dispatch($group, (int) $id, $variant);
         }
     }
 
@@ -107,6 +114,40 @@ final class Hls
         }
 
         return null;
+    }
+
+    /**
+     * Protected playback for an old live broadcast. There is deliberately no
+     * direct-file fallback: callers wait for encrypted HLS packaging instead
+     * of exposing the original OGG as a downloadable URL.
+     */
+    public static function broadcastRecordingUrl(BroadcastRecording $recording, bool $admin = false): ?string
+    {
+        if (! $recording->isPlayable()) {
+            return null;
+        }
+        if (self::isPackaged('broadcast', $recording->id, 'main')) {
+            return self::playlistUrl(
+                'broadcast',
+                $recording->id,
+                'main',
+                parameters: $admin ? ['access' => 'admin'] : [],
+            );
+        }
+        if (self::sourceForBroadcastRecording($recording) !== null) {
+            self::ensureQueued('broadcast', $recording->id, 'main');
+        }
+
+        return null;
+    }
+
+    public static function sourceForBroadcastRecording(BroadcastRecording $recording): ?string
+    {
+        $disk = Storage::disk($recording->disk);
+
+        return $recording->file_path && $disk->exists($recording->file_path)
+            ? $disk->path($recording->file_path)
+            : null;
     }
 
     /**

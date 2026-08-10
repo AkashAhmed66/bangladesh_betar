@@ -22,7 +22,7 @@
     ];
 @endphp
 
-<div class="studio-root pr-16" x-data>
+<div class="studio-root pb-20 lg:pb-0 lg:pr-16" x-data>
 
 {{-- ===================== Hero ===================== --}}
 <div class="studio-hero mb-5 px-5 py-4 sm:px-6 sm:py-5">
@@ -445,7 +445,7 @@
      the Panels launcher. Editors get the same launcher inside the editing rail
      (see partials/editor). Both drive the shared $store.studioPanels. --}}
 @cannot('editing.use')
-<div class="fixed right-0 top-16 bottom-0 z-40 flex w-16 flex-col items-center gap-0.5 border-l border-slate-200 bg-white/95 p-1.5 shadow-xl backdrop-blur dark:border-slate-700 dark:bg-slate-900/95">
+<div class="studio-tool-rail fixed right-0 top-16 bottom-0 z-40 flex w-16 flex-col items-center gap-0.5 border-l border-slate-200 bg-white/95 p-1.5 shadow-xl backdrop-blur dark:border-slate-700 dark:bg-slate-900/95">
     <p class="pb-0.5 text-[9px] font-semibold uppercase tracking-wider text-slate-400">View</p>
     <div class="group relative">
         <button @click="$store.studioPanels.togglePanels()" class="tool-btn" :class="$store.studioPanels.panelsOpen ? 'bg-primary-600 text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-primary-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-primary-300'"><x-icon name="squares" class="size-5" /></button>
@@ -458,7 +458,7 @@
      Panels as a tool inside the editing rail's shared dialog instead, so opening
      it replaces the previous tool in place. State: shared $store.studioPanels. --}}
 <div x-show="$store.studioPanels.panelsOpen" x-cloak :style="`left:${$store.studioPanels.dialogX}px; top:${$store.studioPanels.dialogY}px`"
-     class="fixed z-50 w-80 rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+     class="studio-tool-dialog fixed z-50 w-80 rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
     <div class="flex cursor-move items-center justify-between rounded-t-xl border-b border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800" @mousedown="$store.studioPanels.startDrag($event)">
         <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Visualization Panels</span>
         <button @click="$store.studioPanels.closePanels()" @mousedown.stop class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"><x-icon name="x" class="size-4" /></button>
@@ -597,6 +597,38 @@
     .panel-toggle.on .pt-ico { background:linear-gradient(135deg,var(--primary-500),var(--primary-700)); color:#fff; }
     .panel-empty { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.25rem; text-align:center; border-radius:1rem; border:1px dashed rgba(148,163,184,.35); padding:3rem 1.5rem; }
     .dark .panel-empty { border-color:rgba(148,163,184,.22); }
+
+    @media (max-width: 1023px) {
+        .studio-tool-rail {
+            left: 0;
+            right: 0;
+            top: auto;
+            bottom: 0;
+            width: 100%;
+            height: calc(4rem + env(safe-area-inset-bottom));
+            flex-direction: row;
+            justify-content: flex-start;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding: .5rem max(.5rem, env(safe-area-inset-left)) max(.5rem, env(safe-area-inset-bottom)) max(.5rem, env(safe-area-inset-right));
+            border-left: 0;
+            border-top: 1px solid rgb(226 232 240);
+        }
+        .dark .studio-tool-rail { border-top-color: rgb(51 65 85); }
+        .studio-tool-rail > p,
+        .studio-tool-rail .tool-tip { display: none; }
+        .studio-tool-rail > *,
+        .studio-tool-rail .group { flex: 0 0 auto; }
+        .studio-tool-dialog {
+            left: .75rem !important;
+            right: .75rem !important;
+            top: auto !important;
+            bottom: calc(4.75rem + env(safe-area-inset-bottom)) !important;
+            width: auto;
+            max-height: calc(100dvh - 10rem);
+            overflow: hidden;
+        }
+    }
 
     /* Workspace masonry — open panels pack into two balanced columns on large
        screens, so panels of different heights don't leave awkward grid gaps. */

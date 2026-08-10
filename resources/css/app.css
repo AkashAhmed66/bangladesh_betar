@@ -48,11 +48,15 @@
 @layer base {
     html {
         @apply antialiased;
+        max-width: 100%;
     }
 
     body {
         @apply bg-slate-100 text-slate-800 dark:bg-slate-950 dark:text-slate-200;
         font-family: var(--font-sans);
+        max-width: 100%;
+        min-width: 0;
+        overflow-x: hidden;
     }
 
     ::selection {
@@ -151,7 +155,8 @@
 
     /* Tables */
     .table-shell {
-        @apply w-full overflow-x-auto scrollbar-slim;
+        @apply relative w-full max-w-full overflow-x-auto overscroll-x-contain scrollbar-slim;
+        -webkit-overflow-scrolling: touch;
     }
 
     .table-app {
@@ -249,5 +254,62 @@
 
     .stat-down {
         @apply text-xs font-medium text-rose-600 dark:text-rose-400;
+    }
+}
+
+/* Mobile usability: readable controls, reliable tap targets, and contained
+   data tables across the admin portal without changing desktop density. */
+@media (max-width: 639px) {
+    .card-header,
+    .card-body {
+        padding: 1rem;
+    }
+
+    .page-title {
+        font-size: 1.125rem;
+        line-height: 1.5rem;
+    }
+
+    .form-input {
+        min-height: 2.75rem;
+        font-size: 1rem;
+    }
+
+    .btn,
+    .btn-primary,
+    .btn-accent,
+    .btn-secondary,
+    .btn-danger,
+    .btn-ghost {
+        min-height: 2.75rem;
+    }
+
+    .btn-sm {
+        min-height: 2.5rem;
+    }
+
+    .table-app {
+        min-width: 42rem;
+    }
+
+    .table-app thead th,
+    .table-app tbody td {
+        padding-left: .75rem;
+        padding-right: .75rem;
+    }
+
+    input[type='checkbox'],
+    input[type='radio'] {
+        min-height: 1.125rem;
+        min-width: 1.125rem;
+    }
+}
+
+@media (pointer: coarse) {
+    button,
+    a,
+    [role='button'] {
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
     }
 }

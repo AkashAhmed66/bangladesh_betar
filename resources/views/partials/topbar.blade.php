@@ -1,4 +1,4 @@
-<header class="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 bg-white/90 px-4 backdrop-blur
+<header class="sticky top-0 z-20 flex h-16 min-w-0 shrink-0 items-center gap-1.5 border-b border-slate-200 bg-white/90 px-3 backdrop-blur
                dark:border-slate-800 dark:bg-slate-900/90 sm:px-6">
 
     {{-- Mobile sidebar toggle --}}
@@ -21,7 +21,7 @@
             <x-icon name="sun" class="size-5 dark:hidden" />
             <x-icon name="moon" class="size-5 hidden dark:block" />
         </button>
-        <div x-show="open" @click.outside="open = false" x-transition.origin.top.right class="dropdown-panel w-40" x-cloak>
+        <div x-show="open" @click.outside="open = false" x-transition.origin.top.right class="dropdown-panel w-40 max-w-[calc(100vw-1.5rem)]" x-cloak>
             <button @click="$store.ui.setMode('light'); open = false" class="dropdown-item" :class="$store.ui.mode === 'light' && 'text-primary-700 dark:text-primary-300'">
                 <x-icon name="sun" class="size-4" /> Light
             </button>
@@ -47,7 +47,7 @@
                 {{ min($unreadCount, 9) }}{{ $unreadCount > 9 ? '+' : '' }}
             </span>
         </button>
-        <div x-show="open" @click.outside="open = false" x-transition.origin.top.right class="dropdown-panel w-96 max-w-[calc(100vw-2rem)] p-0" x-cloak>
+        <div x-show="open" @click.outside="open = false" x-transition.origin.top.right class="dropdown-panel w-96 max-w-[calc(100vw-1.5rem)] p-0" x-cloak>
             <div class="flex items-center justify-between border-b border-slate-100 px-4 py-2.5 dark:border-slate-700">
                 <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">Notifications</p>
                 @if ($unreadCount > 0)
@@ -96,7 +96,7 @@
             </span>
             <x-icon name="chevron-down" class="hidden size-3.5 text-slate-400 sm:block" />
         </button>
-        <div x-show="open" @click.outside="open = false" x-transition.origin.top.right class="dropdown-panel" x-cloak>
+        <div x-show="open" @click.outside="open = false" x-transition.origin.top.right class="dropdown-panel max-w-[calc(100vw-1.5rem)]" x-cloak>
             <div class="border-b border-slate-100 px-3 py-2.5 dark:border-slate-700">
                 <p class="truncate text-sm font-medium text-slate-800 dark:text-slate-100">{{ $me->name }}</p>
                 <p class="truncate text-xs text-slate-500 dark:text-slate-400">{{ $me->email }}</p>

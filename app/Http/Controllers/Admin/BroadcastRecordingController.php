@@ -6,44 +6,57 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\BroadcastRecording;
+use App\Support\Hls;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class BroadcastRecordingController extends Controller
 {
-    /** Authorized, range-capable playback for the studio audio controls. */
-    public function audio(BroadcastRecording $recording): BinaryFileResponse
+    public function publish(BroadcastRecording $recording): RedirectResponse
     {
-        $path = $this->absolutePath($recording);
+        abort_unless($recording->isPlayable(), 422, 'Only completed recordings can be published.');
+        abort_unless(
+            $recording->file_path && Storage::disk($recording->disk)->exists($recording->file_path),
+            404,
+            'The recording file is unavailable.',
+        );
 
-        return response()->file($path, [
-            'Content-Type' => $recording->mime_type ?: 'audio/ogg',
-            'Accept-Ranges' => 'bytes',
-            'Cache-Control' => 'private, no-store',
+        $recording->update([
+            'is_published' => true,
+            'published_at' => now(),
         ]);
+        Hls::ensureQueued('broadcast', $recording->id, 'main');
+
+        return back()->with('success', 'Broadcast recording published for Premium listeners.');
     }
 
-    public function download(BroadcastRecording $recording): BinaryFileResponse
+    public function unpublish(BroadcastRecording $recording): RedirectResponse
     {
-        $path = $this->absolutePath($recording);
-        $session = $recording->session;
-        $title = Str::slug($session?->title ?: 'broadcast-recording');
-        $date = $session?->started_at?->format('Y-m-d-His') ?? (string) $recording->id;
-
-        return response()->download($path, "{$title}-{$date}.ogg", [
-            'Content-Type' => $recording->mime_type ?: 'audio/ogg',
-            'Cache-Control' => 'private, no-store',
+        $recording->update([
+            'is_published' => false,
+            'published_at' => null,
         ]);
+
+        return back()->with('success', 'Broadcast recording removed from the public portal.');
     }
 
-    private function absolutePath(BroadcastRecording $recording): string
+    public function destroy(BroadcastRecording $recording): RedirectResponse
     {
-        abort_unless($recording->isPlayable(), 404, 'This recording is not ready yet.');
+        abort_if(
+            in_array($recording->status, ['pending', 'starting', 'active', 'finalizing'], true),
+            422,
+            'Stop and finalize this recording before deleting it.',
+        );
 
         $disk = Storage::disk($recording->disk);
-        abort_unless($recording->file_path && $disk->exists($recording->file_path), 404, 'The recording file is unavailable.');
+        if ($recording->file_path && $disk->exists($recording->file_path)) {
+            $disk->delete($recording->file_path);
+            abort_if($disk->exists($recording->file_path), 500, 'The recording file could not be deleted.');
+        }
 
-        return $disk->path($recording->file_path);
+        Hls::delete('broadcast', $recording->id);
+        $recording->delete();
+
+        return back()->with('success', 'Broadcast recording permanently deleted.');
     }
 }

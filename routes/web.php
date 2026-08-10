@@ -177,10 +177,12 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
             ->middleware('permission:broadcasts.broadcast')->name('broadcast-channels.grant-speak');
         Route::post('broadcast-channels/{broadcastChannel}/revoke-speak', [Admin\BroadcastChannelController::class, 'revokeSpeak'])
             ->middleware('permission:broadcasts.broadcast')->name('broadcast-channels.revoke-speak');
-        Route::get('broadcast-recordings/{recording}/audio', [Admin\BroadcastRecordingController::class, 'audio'])
-            ->middleware('permission:broadcasts.view')->name('broadcast-recordings.audio');
-        Route::get('broadcast-recordings/{recording}/download', [Admin\BroadcastRecordingController::class, 'download'])
-            ->middleware('permission:broadcasts.view')->name('broadcast-recordings.download');
+        Route::post('broadcast-recordings/{recording}/publish', [Admin\BroadcastRecordingController::class, 'publish'])
+            ->middleware('permission:broadcasts.manage')->name('broadcast-recordings.publish');
+        Route::post('broadcast-recordings/{recording}/unpublish', [Admin\BroadcastRecordingController::class, 'unpublish'])
+            ->middleware('permission:broadcasts.manage')->name('broadcast-recordings.unpublish');
+        Route::delete('broadcast-recordings/{recording}', [Admin\BroadcastRecordingController::class, 'destroy'])
+            ->middleware('permission:broadcasts.manage')->name('broadcast-recordings.destroy');
         Route::resource('broadcast-channels', Admin\BroadcastChannelController::class)->except('show')
             ->middleware('permission:broadcasts.view');
 

@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Models\Artist;
 use App\Models\AudioBook;
 use App\Models\BroadcastChannel;
+use App\Models\BroadcastRecording;
 use App\Models\Episode;
 use App\Models\PodcastChannel;
 use App\Models\PodcastEpisode;
@@ -46,6 +47,7 @@ class SearchIndexCommand extends Command
         PodcastEpisode::class,
         BroadcastChannel::class,
         AudioBook::class,
+        BroadcastRecording::class,
     ];
 
     public function handle(ClientBuilderInterface $clientBuilder): int

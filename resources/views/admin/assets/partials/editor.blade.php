@@ -7,7 +7,7 @@
     {{-- Docked full-height rail on the right edge (below the sticky 4rem topbar).
          Fixed so it stays put while the page scrolls; the studio content reserves
          a matching pr-16 gutter so the rail never overlaps other sections. --}}
-    <div class="fixed right-0 top-16 bottom-0 z-40 flex w-16 flex-col items-center gap-0.5 overflow-y-auto border-l border-slate-200 bg-white/95 p-1.5 shadow-xl backdrop-blur scrollbar-slim dark:border-slate-700 dark:bg-slate-900/95">
+    <div class="studio-tool-rail fixed right-0 top-16 bottom-0 z-40 flex w-16 flex-col items-center gap-0.5 overflow-y-auto border-l border-slate-200 bg-white/95 p-1.5 shadow-xl backdrop-blur scrollbar-slim dark:border-slate-700 dark:bg-slate-900/95">
         <p class="pb-0.5 text-[9px] font-semibold uppercase tracking-wider text-slate-400">Edit</p>
 
         <div class="group relative">
@@ -70,7 +70,7 @@
 
     {{-- ---------------------------- Draggable dialog ---------------------------- --}}
     <div x-show="openTool" x-cloak :style="`left:${dialogX}px; top:${dialogY}px`"
-         class="fixed z-50 w-80 rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+         class="studio-tool-dialog fixed z-50 w-80 rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
         <div class="flex cursor-move items-center justify-between rounded-t-xl border-b border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800" @mousedown="startDrag($event)">
             <span class="text-sm font-semibold text-slate-700 dark:text-slate-200" x-text="toolLabel()"></span>
             <button @click="openTool=null" @mousedown.stop class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"><x-icon name="x" class="size-4" /></button>

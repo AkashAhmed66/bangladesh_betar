@@ -105,7 +105,8 @@ class BroadcastChannelController extends Controller
         $recordedSessions = $broadcastChannel->sessions()
             ->whereHas('recording')
             ->with(['broadcaster', 'recording'])
-            ->paginate(15, ['*'], 'recordings');
+            ->paginate(10, ['*'], 'recordings')
+            ->withQueryString();
 
         return view('admin.broadcast-channels.studio', [
             'channel' => $broadcastChannel,

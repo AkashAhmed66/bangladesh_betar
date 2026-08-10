@@ -32,6 +32,7 @@ class SearchService
         'podcast_episode' => 'podcast_episodes',
         'live_radio' => 'broadcast_channels',
         'audio_book' => 'audio_books',
+        'broadcast_recording' => 'broadcast_recordings',
     ];
 
     private Client $client;

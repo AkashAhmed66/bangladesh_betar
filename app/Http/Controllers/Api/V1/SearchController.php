@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\ArtistResource;
 use App\Http\Resources\AudioAssetResource;
 use App\Http\Resources\AudioBookResource;
+use App\Http\Resources\BroadcastRecordingResource;
 use App\Http\Resources\EpisodeResource;
 use App\Http\Resources\LiveChannelResource;
 use App\Http\Resources\PodcastChannelResource;
@@ -18,6 +19,7 @@ use App\Models\Artist;
 use App\Models\AudioAsset;
 use App\Models\AudioBook;
 use App\Models\BroadcastChannel;
+use App\Models\BroadcastRecording;
 use App\Models\Episode;
 use App\Models\PodcastChannel;
 use App\Models\PodcastEpisode;
@@ -123,6 +125,9 @@ class SearchController extends Controller
             )]],
             'audio_book' => fn (array $ids) => ['audiobooks' => ['data' => AudioBookResource::collection(
                 $this->ordered(AudioBook::query()->published()->with('user'), $ids),
+            )]],
+            'broadcast_recording' => fn (array $ids) => ['broadcast_recordings' => ['data' => BroadcastRecordingResource::collection(
+                $this->ordered(BroadcastRecording::query()->published()->with(['session.channel.station', 'session.broadcaster']), $ids),
             )]],
         ];
 
@@ -255,6 +260,15 @@ class SearchController extends Controller
             )];
         }
 
+        if ($wants('broadcast_recording')) {
+            $results['broadcast_recordings'] = ['data' => BroadcastRecordingResource::collection(
+                BroadcastRecording::query()->published()
+                    ->with(['session.channel.station', 'session.broadcaster'])
+                    ->whereHas('session', fn (Builder $w) => $w->where('title', 'like', $like))
+                    ->take(20)->get(),
+            )];
+        }
+
         return $results;
     }
 
@@ -285,6 +299,13 @@ class SearchController extends Controller
                 ->where('title', 'like', $like)
                 ->take(3)->get(['title'])
                 ->map(fn ($book) => ['text' => $book->title, 'type' => 'audio_book']))
+            ->merge(BroadcastRecording::query()->published()->with('session')
+                ->whereHas('session', fn (Builder $w) => $w->where('title', 'like', $like))
+                ->take(3)->get()
+                ->map(fn (BroadcastRecording $recording) => [
+                    'text' => $recording->session?->title,
+                    'type' => 'broadcast_recording',
+                ]))
             ->filter(fn ($s) => ! empty($s['text']))
             ->unique('text')
             ->take(10)->values()

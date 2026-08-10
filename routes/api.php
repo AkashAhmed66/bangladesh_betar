@@ -77,6 +77,7 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
         // Live broadcasting (M27) — what's on air + subscribe-only listener tokens
         Route::get('live-channels', [V1\LiveController::class, 'index'])->name('live-channels.index');
         Route::get('live-channels/{broadcastChannel}', [V1\LiveController::class, 'show'])->name('live-channels.show');
+        Route::get('broadcast-recordings', [V1\BroadcastRecordingController::class, 'index'])->name('broadcast-recordings.index');
         Route::post('live-channels/{broadcastChannel}/token', [V1\LiveController::class, 'token'])->name('live-channels.token');
         Route::post('live-channels/{broadcastChannel}/raise-hand', [V1\LiveController::class, 'raiseHand'])->name('live-channels.raise-hand');
         Route::post('live-channels/{broadcastChannel}/lower-hand', [V1\LiveController::class, 'lowerHand'])->name('live-channels.lower-hand');
@@ -180,6 +181,7 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
 
         // Subscription management (M18)
         Route::get('me/subscription', [V1\SubscriptionController::class, 'status'])->name('subscription.status');
+        Route::get('broadcast-recordings/{recording}/stream', [V1\BroadcastRecordingController::class, 'stream'])->name('broadcast-recordings.stream');
         Route::post('me/subscription/subscribe', [V1\SubscriptionController::class, 'subscribe'])->name('subscription.subscribe');
         Route::post('me/subscription/cancel', [V1\SubscriptionController::class, 'cancel'])->name('subscription.cancel');
         Route::get('me/payments', [V1\SubscriptionController::class, 'payments'])->name('payments.index');

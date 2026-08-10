@@ -42,16 +42,16 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="h-full" x-data :class="$store.ui.sidebarCollapsed ? 'sidebar-collapsed' : ''">
-<div class="flex h-full">
+<div class="flex h-full min-w-0 overflow-hidden">
 
     {{-- Mobile overlay --}}
     <div x-show="$store.ui.sidebarOpenMobile" x-transition.opacity @click="$store.ui.sidebarOpenMobile = false"
          class="fixed inset-0 z-30 bg-slate-950/60 lg:hidden" x-cloak></div>
 
     {{-- Sidebar --}}
-    <aside class="fixed inset-y-0 left-0 z-40 flex flex-col bg-slate-900 transition-all duration-200 dark:border-r dark:border-slate-800
+    <aside class="fixed inset-y-0 left-0 z-40 flex w-[min(18rem,calc(100vw-3rem))] flex-col bg-slate-900 transition-all duration-200 dark:border-r dark:border-slate-800
                   -translate-x-full lg:translate-x-0"
-           :class="[$store.ui.sidebarCollapsed ? 'lg:w-[68px]' : 'lg:w-64', $store.ui.sidebarOpenMobile ? 'translate-x-0 w-64' : '']">
+           :class="[$store.ui.sidebarCollapsed ? 'lg:w-[68px]' : 'lg:w-64', $store.ui.sidebarOpenMobile ? 'translate-x-0' : '']">
 
         {{-- Brand --}}
         <div class="flex h-16 shrink-0 items-center gap-3 border-b border-white/10 px-4">
@@ -62,6 +62,11 @@
                 <p class="truncate text-sm font-semibold text-white">{{ \App\Support\Theme::brand('name') }}</p>
                 <p class="truncate text-[11px] text-slate-400">Admin Portal</p>
             </div>
+            <button type="button" @click="$store.ui.sidebarOpenMobile = false"
+                    class="ml-auto flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-white/10 hover:text-white lg:hidden"
+                    aria-label="Close navigation">
+                <x-icon name="x" class="size-5" />
+            </button>
         </div>
 
         {{-- Navigation --}}
@@ -78,12 +83,12 @@
     </aside>
 
     {{-- Main column --}}
-    <div class="flex min-w-0 flex-1 flex-col transition-all duration-200"
+    <div class="flex min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden transition-all duration-200"
          :class="$store.ui.sidebarCollapsed ? 'lg:pl-[68px]' : 'lg:pl-64'">
 
         @include('partials.topbar')
 
-        <main class="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+        <main class="min-w-0 flex-1 px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
             @if (session('success'))
                 <div x-data="{ open: true }" x-show="open" x-transition
                      class="mb-5 flex items-start justify-between gap-3 rounded-(--radius-app) border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
@@ -109,7 +114,7 @@
             @yield('content')
         </main>
 
-        <footer class="border-t border-slate-200 px-6 py-4 text-xs text-slate-400 dark:border-slate-800 dark:text-slate-500">
+        <footer class="border-t border-slate-200 px-4 py-4 text-center text-xs leading-relaxed text-slate-400 dark:border-slate-800 dark:text-slate-500 sm:px-6 sm:text-left">
             {{ \App\Support\Theme::brand('full_name') }} · v1.1 · © {{ date('Y') }} Bangladesh Betar
         </footer>
     </div>

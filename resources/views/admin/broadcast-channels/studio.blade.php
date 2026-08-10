@@ -29,7 +29,7 @@
             </p>
         </div>
     </div>
-    <div class="flex items-center gap-4 text-xs">
+    <div class="flex w-full items-center justify-between gap-2 text-xs sm:w-auto sm:justify-end sm:gap-4">
         <span class="inline-flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
             <x-icon name="clock" class="size-4" /> <span id="onair-clock" class="font-medium tabular-nums">--:--:--</span>
         </span>
@@ -45,7 +45,7 @@
     <div class="space-y-5 xl:col-span-2">
         {{-- On-air control --}}
         <div class="card">
-            <div class="card-header flex items-center justify-between gap-3">
+            <div class="card-header flex items-start justify-between gap-3 sm:items-center">
                 <div class="flex flex-wrap items-center gap-2">
                     <div id="status-pill" class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                         <span class="size-2.5 rounded-full bg-slate-400"></span>
@@ -57,22 +57,22 @@
                     </div>
                 </div>
                 <div class="text-right">
-                    <span id="elapsed" class="text-lg font-bold tabular-nums text-slate-800 dark:text-slate-100">00:00</span>
-                    <span class="ml-1 text-[10px] uppercase tracking-wide text-slate-400">on air</span>
+                    <span id="elapsed" class="block text-lg font-bold tabular-nums text-slate-800 dark:text-slate-100 sm:inline">00:00</span>
+                    <span class="text-[10px] uppercase tracking-wide text-slate-400 sm:ml-1">on air</span>
                 </div>
             </div>
 
             <div class="card-body flex flex-col items-center gap-6 py-8">
                 {{-- On-air lamp + big control --}}
-                <div class="relative flex size-44 items-center justify-center">
+                <div class="relative flex size-36 items-center justify-center sm:size-44">
                     <div id="lamp-ring" class="absolute inset-0 rounded-full border-4 border-slate-200 transition-colors dark:border-slate-800"></div>
                     <button id="go-live-btn" type="button"
-                            class="group z-10 flex size-36 flex-col items-center justify-center gap-2 rounded-full bg-primary-600 text-white shadow-lg transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50">
+                            class="group z-10 flex size-28 flex-col items-center justify-center gap-2 rounded-full bg-primary-600 text-white shadow-lg transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50 sm:size-36">
                         <x-icon name="microphone" class="size-11" />
                         <span class="text-sm font-semibold">Go Live</span>
                     </button>
                     <button id="stop-btn" type="button"
-                            class="z-10 hidden size-36 flex-col items-center justify-center gap-2 rounded-full bg-rose-600 text-white shadow-lg transition hover:bg-rose-700">
+                            class="z-10 hidden size-28 flex-col items-center justify-center gap-2 rounded-full bg-rose-600 text-white shadow-lg transition hover:bg-rose-700 sm:size-36">
                         <x-icon name="x" class="size-11" />
                         <span class="text-sm font-semibold">Stop</span>
                     </button>
@@ -231,7 +231,7 @@
                 <span class="text-sm font-semibold">Broadcast recordings</span>
                 <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-slate-500 dark:bg-slate-800 dark:text-slate-400">{{ $recordedSessions->total() }}</span>
             </div>
-            <p class="mt-1 text-xs font-normal text-slate-400">Private studio recordings for {{ $channel->name }}. Completed audio can be played or downloaded here.</p>
+            <p class="mt-1 text-xs font-normal text-slate-400">Protected recordings for {{ $channel->name }}. Published audio appears for Premium listeners; direct downloads are disabled.</p>
         </div>
         <a href="{{ request()->fullUrlWithQuery(['recordings' => $recordedSessions->currentPage()]) }}#recording-history" class="btn-secondary btn-sm">
             <x-icon name="arrow-path" class="size-4" /> Refresh
@@ -247,8 +247,8 @@
             <p class="mt-1 text-xs text-slate-400">The next broadcast will be recorded automatically and will appear here after it is stopped.</p>
         </div>
     @else
-        <div class="overflow-x-auto">
-            <table class="w-full min-w-[1100px]">
+        <div class="table-shell" aria-label="Broadcast recordings table; scroll horizontally for more columns on small screens">
+            <table class="w-full min-w-[1280px] text-left text-sm">
                 <thead>
                     <tr class="border-b border-slate-200 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:border-slate-800">
                         <th class="px-5 py-3">Broadcast</th>
@@ -258,6 +258,7 @@
                         <th class="px-4 py-3">File</th>
                         <th class="px-4 py-3">Status</th>
                         <th class="px-5 py-3">Audio</th>
+                        <th class="px-5 py-3 text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
@@ -286,6 +287,9 @@
                                 'complete' => 'Ready',
                                 default => ucfirst($recording->status),
                             };
+                            $hlsUrl = $recording->isPlayable()
+                                ? \App\Support\Hls::broadcastRecordingUrl($recording, admin: true)
+                                : null;
                         @endphp
                         <tr class="align-middle hover:bg-slate-50/70 dark:hover:bg-slate-800/30">
                             <td class="px-5 py-4">
@@ -316,26 +320,58 @@
                                     @if ($recording->status === 'active')<span class="size-1.5 animate-pulse rounded-full bg-current"></span>@endif
                                     {{ $statusLabel }}
                                 </span>
+                                @if ($recording->isPublished())
+                                    <span class="mt-1 inline-flex rounded-full bg-violet-50 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-violet-700 dark:bg-violet-500/10 dark:text-violet-300">Premium public</span>
+                                @elseif ($recording->isPlayable())
+                                    <span class="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-400">Unpublished</span>
+                                @endif
                                 @if ($recording->error)
                                     <p class="mt-1 max-w-48 truncate text-[10px] text-rose-500" title="{{ $recording->error }}">{{ $recording->error }}</p>
                                 @endif
                             </td>
                             <td class="px-5 py-4">
-                                @if ($recording->isPlayable())
-                                    <div class="flex min-w-80 items-center gap-2">
-                                        <audio controls preload="none" class="h-9 w-64" src="{{ route('admin.broadcast-recordings.audio', $recording) }}">
-                                            Your browser does not support audio playback.
-                                        </audio>
-                                        <a href="{{ route('admin.broadcast-recordings.download', $recording) }}" class="btn-secondary btn-sm shrink-0" title="Download recording">
-                                            <x-icon name="download" class="size-4" />
-                                            <span class="sr-only">Download</span>
-                                        </a>
-                                    </div>
+                                @if ($hlsUrl)
+                                    <audio controls controlslist="nodownload noplaybackrate" oncontextmenu="return false" preload="none" class="h-10 w-64 max-w-full sm:w-72"
+                                           data-hls="{{ $hlsUrl }}" x-init="window.betarHls($el)">
+                                        Your browser does not support audio playback.
+                                    </audio>
+                                @elseif ($recording->isPlayable())
+                                    <span class="inline-flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400"><span class="size-3 animate-spin rounded-full border-2 border-amber-300 border-t-amber-600"></span> Preparing protected stream</span>
                                 @elseif (in_array($recording->status, ['starting', 'active', 'finalizing', 'pending'], true))
                                     <span class="inline-flex items-center gap-2 text-xs text-slate-400"><span class="size-3 animate-spin rounded-full border-2 border-slate-300 border-t-primary-500"></span> Audio is being prepared</span>
                                 @else
                                     <span class="text-xs text-slate-400">Audio unavailable</span>
                                 @endif
+                            </td>
+                            <td class="px-5 py-4">
+                                @can('broadcasts.manage')
+                                    <div class="flex items-center justify-end gap-2">
+                                        @if ($recording->isPlayable())
+                                            @if ($recording->isPublished())
+                                                <form method="POST" action="{{ route('admin.broadcast-recordings.unpublish', $recording) }}"
+                                                      onsubmit="return confirm('Remove this recording from the Premium public archive?');">
+                                                    @csrf
+                                                    <button type="submit" class="btn-secondary btn-sm"><x-icon name="x" class="size-4" /> Unpublish</button>
+                                                </form>
+                                            @else
+                                                <form method="POST" action="{{ route('admin.broadcast-recordings.publish', $recording) }}">
+                                                    @csrf
+                                                    <button type="submit" class="btn-primary btn-sm"><x-icon name="check" class="size-4" /> Publish</button>
+                                                </form>
+                                            @endif
+                                        @endif
+                                        @unless (in_array($recording->status, ['pending', 'starting', 'active', 'finalizing'], true))
+                                            <form method="POST" action="{{ route('admin.broadcast-recordings.destroy', $recording) }}"
+                                                  onsubmit="return confirm('Permanently delete this recording? This cannot be undone.');">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="btn-danger btn-sm" title="Delete recording"><x-icon name="trash" class="size-4" /><span class="sr-only">Delete</span></button>
+                                            </form>
+                                        @endunless
+                                    </div>
+                                @else
+                                    <span class="block text-right text-xs text-slate-400">—</span>
+                                @endcan
                             </td>
                         </tr>
                     @endforeach

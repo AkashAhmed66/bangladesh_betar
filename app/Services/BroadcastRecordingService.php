@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Models\BroadcastRecording;
 use App\Models\BroadcastSession;
+use App\Support\Hls;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -179,9 +180,16 @@ class BroadcastRecordingService
             'status' => $complete ? 'complete' : (in_array($rawStatus, [5, '5', 'EGRESS_ABORTED'], true) ? 'aborted' : 'failed'),
             'duration_seconds' => $duration,
             'file_size' => $size,
+            'published_at' => $complete && $recording->is_published
+                ? ($recording->published_at ?? now())
+                : $recording->published_at,
             'ended_at' => $this->timestamp($info['endedAt'] ?? $info['ended_at'] ?? null) ?? now(),
             'error' => $error !== '' ? $error : null,
         ])->save();
+
+        if ($complete && $recording->is_published) {
+            Hls::ensureQueued('broadcast', $recording->id, 'main');
+        }
     }
 
     private function timestamp(mixed $value): ?CarbonImmutable
