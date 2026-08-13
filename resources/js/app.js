@@ -64,6 +64,59 @@ Alpine.store('ui', {
 });
 
 Alpine.plugin(collapse);
+
+Alpine.data('aiAnalysisMonitor', (endpoint, initialPending = false) => ({
+    pending: Boolean(initialPending),
+    polling: false,
+    timer: null,
+    controller: null,
+    error: '',
+
+    init() {
+        if (this.pending) {
+            this.timer = window.setTimeout(() => this.poll(), 1000);
+        }
+    },
+
+    async poll() {
+        if (!this.pending || this.polling) return;
+
+        this.polling = true;
+        this.controller = new AbortController();
+
+        try {
+            const response = await fetch(endpoint, {
+                headers: { Accept: 'application/json' },
+                cache: 'no-store',
+                signal: this.controller.signal,
+            });
+
+            if (!response.ok) throw new Error(`Status request failed (${response.status})`);
+
+            const result = await response.json();
+            this.$refs.content.innerHTML = result.html;
+            this.pending = Boolean(result.pending);
+            this.error = '';
+        } catch (error) {
+            if (error.name !== 'AbortError') {
+                this.error = 'The live update was interrupted. Retrying automatically...';
+            }
+        } finally {
+            this.polling = false;
+            this.controller = null;
+
+            if (this.pending) {
+                this.timer = window.setTimeout(() => this.poll(), this.error ? 5000 : 3000);
+            }
+        }
+    },
+
+    destroy() {
+        window.clearTimeout(this.timer);
+        this.controller?.abort();
+    },
+}));
+
 window.Alpine = Alpine;
 Alpine.start();
 

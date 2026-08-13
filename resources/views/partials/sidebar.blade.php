@@ -7,6 +7,7 @@
         ],
         'Archive' => [
             ['assets.view', 'admin.assets.index', 'archive', 'Audio Assets', ['admin.assets.']],
+            ['assets.view', 'admin.archive.index', 'server', 'Archive', ['admin.archive.']],
             ['digitization.view', 'admin.media-items.index', 'disc', 'Digitization', ['admin.media-items.']],
             ['stations.view', 'admin.stations.index', 'radio', 'Stations', ['admin.stations.']],
             ['editing.view', 'admin.edit-sessions.index', 'scissors', 'Edit Sessions', ['admin.edit-sessions.']],

@@ -24,7 +24,7 @@ class PodcastChannelController extends Controller
         $channels = PodcastChannel::query()
             ->visibleTo($request->user())
             ->with(['category', 'language', 'owner'])
-            ->withCount('episodes')
+            ->withCount(['episodes' => fn ($episodes) => $episodes->withoutArchivedAudioAsset()])
             ->when($request->filled('q'), fn ($q) => $q->where(fn ($w) => $w
                 ->where('title', 'like', '%'.$request->string('q').'%')
                 ->orWhere('title_bn', 'like', '%'.$request->string('q').'%')))

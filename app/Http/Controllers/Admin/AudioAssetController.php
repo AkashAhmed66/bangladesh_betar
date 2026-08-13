@@ -9,8 +9,8 @@ use App\Jobs\SubmitAudioForAiAnalysis;
 use App\Models\Approval;
 use App\Models\ApprovalAction;
 use App\Models\AudioAsset;
-use App\Models\AuditLog;
 use App\Models\AudioVersion;
+use App\Models\AuditLog;
 use App\Models\Category;
 use App\Models\Language;
 use App\Models\Programme;
@@ -18,8 +18,11 @@ use App\Models\RightsHolder;
 use App\Models\RightsRecord;
 use App\Models\Station;
 use App\Models\Workflow;
+use App\Services\AudioAssetArchiveService;
 use App\Services\AudioProcessor;
 use App\Support\Notify;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -59,6 +62,7 @@ class AudioAssetController extends Controller
     {
         $assets = AudioAsset::query()
             ->visibleTo($request->user())
+            ->notArchived()
             ->with(['station', 'category', 'uploader'])
             ->when($request->filled('q'), fn ($q) => $q->where(fn ($w) => $w
                 ->where('title', 'like', '%'.$request->string('q').'%')
@@ -77,9 +81,56 @@ class AudioAssetController extends Controller
             'contentTypes' => self::CONTENT_TYPES,
             'statuses' => [
                 'analyzing', 'ai_review', 'ai_flagged', 'ai_rejected', 'draft',
-                'in_review', 'pending_approval', 'approved', 'published', 'rejected', 'unpublished', 'archived',
+                'in_review', 'pending_approval', 'approved', 'published', 'rejected', 'unpublished',
             ],
         ]);
+    }
+
+    public function archiveIndex(Request $request): View
+    {
+        $assets = AudioAsset::query()
+            ->visibleTo($request->user())
+            ->archived()
+            ->with(['station', 'category', 'uploader', 'archivedBy'])
+            ->when($request->filled('q'), fn (Builder $query) => $query->where(fn (Builder $where) => $where
+                ->where('title', 'like', '%'.$request->string('q').'%')
+                ->orWhere('title_bn', 'like', '%'.$request->string('q').'%')
+                ->orWhere('archive_no', 'like', '%'.$request->string('q').'%')))
+            ->when($request->filled('type'), fn (Builder $query) => $query->where('content_type', $request->string('type')))
+            ->when($request->filled('station'), fn (Builder $query) => $query->where('station_id', $request->integer('station')))
+            ->orderByDesc('archived_at')
+            ->paginate(12)
+            ->withQueryString();
+
+        return view('admin.assets.archive', [
+            'assets' => $assets,
+            'stations' => Station::query()->orderBy('name')->pluck('name', 'id'),
+            'contentTypes' => self::CONTENT_TYPES,
+        ]);
+    }
+
+    public function archive(Request $request, AudioAsset $asset, AudioAssetArchiveService $archiveService): RedirectResponse
+    {
+        $this->authorizeRecordVisibility($asset);
+
+        if (! $archiveService->archive($asset, $request->user())) {
+            return redirect()->route('admin.archive.index')->with('success', 'Asset is already archived.');
+        }
+
+        return redirect()->route('admin.archive.index')
+            ->with('success', "Asset {$asset->archive_no} moved to Archive.");
+    }
+
+    public function unarchive(Request $request, AudioAsset $asset, AudioAssetArchiveService $archiveService): RedirectResponse
+    {
+        $this->authorizeRecordVisibility($asset);
+
+        if (! $archiveService->unarchive($asset, $request->user())) {
+            return redirect()->route('admin.assets.index')->with('success', 'Asset is already active.');
+        }
+
+        return redirect()->route('admin.archive.index')
+            ->with('success', "Asset {$asset->archive_no} restored to Audio Assets.");
     }
 
     public function create(): View
@@ -154,7 +205,7 @@ class AudioAssetController extends Controller
             $limit = ini_get('upload_max_filesize');
             $post = ini_get('post_max_size');
 
-            return "No file was received. The file may exceed the server upload limit "
+            return 'No file was received. The file may exceed the server upload limit '
                 ."(upload_max_filesize={$limit}, post_max_size={$post}). Increase these limits or upload a smaller file.";
         }
 
@@ -162,8 +213,7 @@ class AudioAssetController extends Controller
 
         if (! $file->isValid()) {
             return match ($file->getError()) {
-                UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE =>
-                    'The file exceeds the server upload limit (upload_max_filesize='.ini_get('upload_max_filesize').'). '
+                UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'The file exceeds the server upload limit (upload_max_filesize='.ini_get('upload_max_filesize').'). '
                     .'Increase upload_max_filesize/post_max_size (already set to 512M in the Docker image).',
                 UPLOAD_ERR_PARTIAL => 'The upload was interrupted — please try again.',
                 UPLOAD_ERR_NO_TMP_DIR => 'The server has no writable temp directory for uploads.',
@@ -268,7 +318,7 @@ class AudioAssetController extends Controller
     }
 
     /** Persist browser-computed waveform peaks (used when no server ffmpeg). */
-    public function storePeaks(Request $request, AudioAsset $asset): \Illuminate\Http\JsonResponse
+    public function storePeaks(Request $request, AudioAsset $asset): JsonResponse
     {
         $this->authorize('assets.edit');
         $this->authorizeRecordVisibility($asset);
@@ -296,6 +346,30 @@ class AudioAssetController extends Controller
         $stats = $asset->dailyStats()->orderByDesc('stat_date')->take(14)->get()->reverse()->values();
 
         return view('admin.assets.show', compact('asset', 'stats'));
+    }
+
+    /**
+     * Return the latest asynchronous AI analysis and transcript markup so the
+     * asset page can update in place while the external service is running.
+     */
+    public function analysisStatus(AudioAsset $asset): JsonResponse
+    {
+        $this->authorizeRecordVisibility($asset);
+
+        $asset->refresh()->load([
+            'latestAiAnalysisJob.reviewer',
+            'transcripts',
+        ]);
+
+        $job = $asset->latestAiAnalysisJob;
+        $pending = $asset->status === 'analyzing' || $job?->status === 'processing';
+
+        return response()->json([
+            'pending' => $pending,
+            'asset_status' => $asset->status,
+            'analysis_status' => $job?->status,
+            'html' => view('admin.assets.partials.ai-analysis', compact('asset', 'job', 'pending'))->render(),
+        ])->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     }
 
     public function edit(AudioAsset $asset): View
@@ -476,6 +550,10 @@ class AudioAssetController extends Controller
     public function publish(AudioAsset $asset): RedirectResponse
     {
         $this->authorizeRecordVisibility($asset);
+
+        if ($asset->isArchived()) {
+            return back()->with('error', 'Archived assets cannot be published. Unarchive this asset first.');
+        }
 
         if ($asset->rights_status !== 'approved') {
             return back()->with('error', 'Publication blocked: rights are not approved. Complete the rights record in Rights Records and set it to Approved first (FR-CPR-05).');

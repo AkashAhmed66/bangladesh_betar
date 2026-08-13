@@ -23,6 +23,7 @@ class PodcastEpisodeController extends Controller
     {
         $episodes = PodcastEpisode::query()
             ->visibleTo($request->user())
+            ->withoutArchivedAudioAsset()
             ->with(['channel', 'audioAsset'])
             ->when($request->filled('q'), fn ($q) => $q->where('title', 'like', '%'.$request->string('q').'%'))
             ->when($request->filled('channel'), fn ($q) => $q->where('podcast_channel_id', $request->integer('channel')))
@@ -85,7 +86,7 @@ class PodcastEpisodeController extends Controller
     {
         return $request->validate([
             'podcast_channel_id' => ['required', 'exists:podcast_channels,id'],
-            'audio_asset_id' => ['nullable', 'exists:audio_assets,id'],
+            'audio_asset_id' => ['nullable', Rule::exists('audio_assets', 'id')->whereNull('archived_at')],
             'season_number' => ['required', 'integer', 'min:1'],
             'episode_number' => ['required', 'integer', 'min:1'],
             'title' => ['required', 'string', 'max:255'],
@@ -103,7 +104,7 @@ class PodcastEpisodeController extends Controller
         return [
             'channels' => PodcastChannel::query()->visibleTo(auth()->user())->orderBy('title')->pluck('title', 'id'),
             // Asset picker honours record visibility for restricted users.
-            'assets' => AudioAsset::query()->visibleTo(auth()->user())->where('content_type', 'podcast')->orderByDesc('id')->take(200)->pluck('title', 'id'),
+            'assets' => AudioAsset::query()->visibleTo(auth()->user())->notArchived()->where('content_type', 'podcast')->orderByDesc('id')->take(200)->pluck('title', 'id'),
         ];
     }
 }

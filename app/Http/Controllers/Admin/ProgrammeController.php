@@ -21,7 +21,10 @@ class ProgrammeController extends Controller
         $programmes = Programme::query()
             ->visibleTo($request->user())
             ->with(['station', 'category'])
-            ->withCount(['episodes', 'audioAssets'])
+            ->withCount([
+                'episodes' => fn ($episodes) => $episodes->withoutArchivedAudioAsset(),
+                'audioAssets' => fn ($assets) => $assets->notArchived(),
+            ])
             ->when($request->filled('q'), fn ($q) => $q->where('title', 'like', '%'.$request->string('q').'%'))
             ->orderBy('title')
             ->paginate(15)

@@ -109,7 +109,8 @@ class SearchController extends Controller
                 $this->ordered(Artist::query()->published(), $ids),
             )]],
             'programme' => fn (array $ids) => ['programmes' => ['data' => ProgrammeResource::collection(
-                $this->ordered(Programme::query()->published()->withCount('episodes'), $ids),
+                $this->ordered(Programme::query()->published()
+                    ->withCount(['episodes' => fn ($episodes) => $episodes->withoutArchivedAudioAsset()]), $ids),
             )]],
             'episode' => fn (array $ids) => ['episodes' => ['data' => EpisodeResource::collection(
                 $this->ordered(Episode::query()->published()->with('programme')->whereNotNull('audio_asset_id'), $ids),
@@ -202,7 +203,8 @@ class SearchController extends Controller
 
         if ($wants('programme')) {
             $results['programmes'] = ['data' => ProgrammeResource::collection(
-                Programme::query()->published()->withCount('episodes')
+                Programme::query()->published()
+                    ->withCount(['episodes' => fn ($episodes) => $episodes->withoutArchivedAudioAsset()])
                     ->where(function ($w) use ($like, $txt) {
                         $w->where('title', 'like', $like)->orWhere('title_bn', 'like', $like)
                             ->orWhereHas('audioAssets.transcripts', $txt);

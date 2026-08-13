@@ -9,7 +9,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\AlbumResource;
 use App\Http\Resources\ArtistResource;
 use App\Http\Resources\AudioAssetResource;
-use App\Http\Resources\PodcastChannelResource;
 use App\Http\Resources\PodcastEpisodeResource;
 use App\Http\Resources\ProgrammeResource;
 use App\Http\Resources\SongResource;
@@ -19,8 +18,6 @@ use App\Models\AudioAsset;
 use App\Models\Banner;
 use App\Models\Category;
 use App\Models\Genre;
-use App\Models\Playlist;
-use App\Models\PodcastChannel;
 use App\Models\PodcastEpisode;
 use App\Models\Programme;
 use App\Models\Song;
@@ -200,7 +197,8 @@ class BrowseController extends Controller
             ->orderByRaw('COALESCE(published_at, created_at) DESC')
             ->take($max)->get();
 
-        $programmes = Programme::query()->published()->withCount('episodes')
+        $programmes = Programme::query()->published()
+            ->withCount(['episodes' => fn ($episodes) => $episodes->withoutArchivedAudioAsset()])
             ->latest()->take($max)->get();
 
         return collect()

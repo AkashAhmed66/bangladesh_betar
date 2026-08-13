@@ -59,15 +59,22 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
         // ---- M02/M04: Audio assets & versions ----
         Route::middleware('permission:assets.view')->group(function (): void {
             Route::get('assets', [Admin\AudioAssetController::class, 'index'])->name('assets.index');
+            Route::get('archive', [Admin\AudioAssetController::class, 'archiveIndex'])->name('archive.index');
             Route::get('assets/create', [Admin\AudioAssetController::class, 'create'])
                 ->middleware('permission:assets.upload')->name('assets.create');
             Route::post('assets', [Admin\AudioAssetController::class, 'store'])
                 ->middleware('permission:assets.upload')->name('assets.store');
+            Route::get('assets/{asset}/analysis-status', [Admin\AudioAssetController::class, 'analysisStatus'])
+                ->name('assets.analysis-status');
             Route::get('assets/{asset}', [Admin\AudioAssetController::class, 'show'])->name('assets.show');
             Route::get('assets/{asset}/edit', [Admin\AudioAssetController::class, 'edit'])
                 ->middleware('permission:assets.edit')->name('assets.edit');
             Route::put('assets/{asset}', [Admin\AudioAssetController::class, 'update'])
                 ->middleware('permission:assets.edit')->name('assets.update');
+            Route::post('assets/{asset}/archive', [Admin\AudioAssetController::class, 'archive'])
+                ->middleware('permission:assets.edit')->name('assets.archive');
+            Route::post('assets/{asset}/unarchive', [Admin\AudioAssetController::class, 'unarchive'])
+                ->middleware('permission:assets.edit')->name('assets.unarchive');
             Route::delete('assets/{asset}', [Admin\AudioAssetController::class, 'destroy'])
                 ->middleware('permission:assets.delete')->name('assets.destroy');
             Route::post('assets/{asset}/publish', [Admin\AudioAssetController::class, 'publish'])

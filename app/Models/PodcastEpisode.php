@@ -53,7 +53,16 @@ class PodcastEpisode extends Model
 
     public function scopePublished(Builder $query): Builder
     {
-        return $query->where('status', 'published');
+        return $query->where('status', 'published')
+            ->whereHas('audioAsset', fn (Builder $asset) => $asset->published());
+    }
+
+    /** Keep unlinked drafts, but hide episodes linked to archived recordings. */
+    public function scopeWithoutArchivedAudioAsset(Builder $query): Builder
+    {
+        return $query->where(fn (Builder $episode) => $episode
+            ->whereNull($this->qualifyColumn('audio_asset_id'))
+            ->orWhereHas('audioAsset', fn (Builder $asset) => $asset->notArchived()));
     }
 
     /* ------------------------------ search ---------------------------- */
@@ -61,7 +70,9 @@ class PodcastEpisode extends Model
     /** Published podcast episodes that actually have audio attached. */
     public function shouldBeSearchable(): bool
     {
-        return $this->status === 'published' && $this->audio_asset_id !== null;
+        return $this->status === 'published'
+            && $this->audio_asset_id !== null
+            && ($this->audioAsset?->isPublished() ?? false);
     }
 
     public function toSearchableArray(): array
