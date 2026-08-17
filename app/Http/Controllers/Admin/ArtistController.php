@@ -6,15 +6,17 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Artist;
+use App\Services\ArtworkService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class ArtistController extends Controller
 {
+    public function __construct(private readonly ArtworkService $artwork) {}
+
     public function index(Request $request): View
     {
         $artists = Artist::query()
@@ -44,8 +46,8 @@ class ArtistController extends Controller
 
         $data = $this->validated($request);
         $data['slug'] = Str::slug($data['name']).'-'.Str::lower(Str::random(3));
-        $data['photo_path'] = $this->storeImage($request, 'photo', 'artists/photos', null);
-        $data['cover_path'] = $this->storeImage($request, 'cover', 'artists/covers', null);
+        $data['photo_path'] = $this->artwork->sync($request, 'artwork/artists/photos', null, 'photo', 'remove_photo');
+        $data['cover_path'] = $this->artwork->sync($request, 'artwork/artists/covers', null, 'cover', 'remove_cover');
 
         Artist::query()->create($data);
 
@@ -66,13 +68,13 @@ class ArtistController extends Controller
         $this->authorizeRecordVisibility($artist);
 
         $data = $this->validated($request);
-        $data['photo_path'] = $this->storeImage($request, 'photo', 'artists/photos', $artist->photo_path);
-        $data['cover_path'] = $this->storeImage($request, 'cover', 'artists/covers', $artist->cover_path);
+        $data['photo_path'] = $this->artwork->sync($request, 'artwork/artists/photos', $artist->photo_path, 'photo', 'remove_photo');
+        $data['cover_path'] = $this->artwork->sync($request, 'artwork/artists/covers', $artist->cover_path, 'cover', 'remove_cover');
 
         $artist->update($data);
 
         // Keep a linked account's avatar in sync with the artist photo.
-        if ($artist->user_id && $request->hasFile('photo')) {
+        if ($artist->user_id && ($request->hasFile('photo') || $request->boolean('remove_photo'))) {
             $artist->user()->update(['avatar_path' => $data['photo_path']]);
         }
 
@@ -102,6 +104,8 @@ class ArtistController extends Controller
             'is_verified' => ['boolean'],
             'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
             'cover' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
+            'remove_photo' => ['boolean'],
+            'remove_cover' => ['boolean'],
             'social' => ['nullable', 'array'],
             'social.website' => ['nullable', 'url', 'max:255'],
             'social.facebook' => ['nullable', 'url', 'max:255'],
@@ -112,24 +116,10 @@ class ArtistController extends Controller
         ]);
 
         // Files are stored separately by the caller; map social → social_links.
-        unset($data['photo'], $data['cover'], $data['social']);
+        unset($data['photo'], $data['cover'], $data['remove_photo'], $data['remove_cover'], $data['social']);
         $social = array_filter($request->input('social', []));
         $data['social_links'] = $social ?: null;
 
         return $data;
-    }
-
-    /** Store an uploaded image on the public disk, replacing any previous file. */
-    private function storeImage(Request $request, string $field, string $dir, ?string $existing): ?string
-    {
-        if (! $request->hasFile($field)) {
-            return $existing;
-        }
-
-        if ($existing) {
-            Storage::disk('public')->delete($existing);
-        }
-
-        return $request->file($field)->store($dir, 'public');
     }
 }

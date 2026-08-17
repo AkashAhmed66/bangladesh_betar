@@ -19,6 +19,19 @@
     <a href="{{ route('admin.playlists.index') }}" class="btn-secondary"><x-icon name="chevron-left" class="size-4" /> Back to Playlists</a>
 </div>
 
+<div class="mb-6 card">
+    <div class="card-header"><span class="text-sm font-semibold">Playlist Image</span></div>
+    <form method="POST" action="{{ route('admin.playlists.update-artwork', $playlist) }}" enctype="multipart/form-data">
+        @csrf
+        <div class="card-body">
+            <x-form.artwork-upload :current-path="$playlist->artwork_path" label="Playlist cover" />
+        </div>
+        <div class="flex items-center justify-end border-t border-slate-200 px-5 py-4 dark:border-slate-800">
+            <button type="submit" class="btn-primary">Save Image</button>
+        </div>
+    </form>
+</div>
+
 <div class="card">
     <div class="card-header"><span class="text-sm font-semibold">Tracks</span></div>
     <div class="table-shell">

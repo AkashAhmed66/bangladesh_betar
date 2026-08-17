@@ -9,6 +9,7 @@ use App\Models\Category;
 use App\Models\Language;
 use App\Models\PodcastChannel;
 use App\Models\User;
+use App\Services\ArtworkService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -19,6 +20,8 @@ use Illuminate\View\View;
  */
 class PodcastChannelController extends Controller
 {
+    public function __construct(private readonly ArtworkService $artwork) {}
+
     public function index(Request $request): View
     {
         $channels = PodcastChannel::query()
@@ -48,6 +51,8 @@ class PodcastChannelController extends Controller
 
         $data = $this->validated($request);
         $data['slug'] = Str::slug($data['title']);
+        $data['artwork_path'] = $this->artwork->sync($request, 'artwork/podcasts', null);
+        unset($data['artwork'], $data['remove_artwork']);
 
         PodcastChannel::query()->create($data);
 
@@ -67,7 +72,11 @@ class PodcastChannelController extends Controller
         $this->authorize('podcasts.manage');
         $this->authorizeRecordVisibility($podcastChannel);
 
-        $podcastChannel->update($this->validated($request));
+        $data = $this->validated($request);
+        $data['artwork_path'] = $this->artwork->sync($request, 'artwork/podcasts', $podcastChannel->artwork_path);
+        unset($data['artwork'], $data['remove_artwork']);
+
+        $podcastChannel->update($data);
 
         return redirect()->route('admin.podcast-channels.index')->with('success', 'Podcast channel updated.');
     }
@@ -78,6 +87,7 @@ class PodcastChannelController extends Controller
         $this->authorizeRecordVisibility($podcastChannel);
 
         $podcastChannel->delete();
+        $this->artwork->delete($podcastChannel->artwork_path);
 
         return redirect()->route('admin.podcast-channels.index')->with('success', 'Podcast channel removed.');
     }
@@ -88,7 +98,8 @@ class PodcastChannelController extends Controller
             'title' => ['required', 'string', 'max:255'],
             'title_bn' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'artwork_path' => ['nullable', 'string', 'max:255'],
+            'artwork' => ArtworkService::rules(),
+            'remove_artwork' => ['boolean'],
             'category_id' => ['nullable', 'exists:categories,id'],
             'language_id' => ['nullable', 'exists:languages,id'],
             'owner_id' => ['nullable', 'exists:users,id'],

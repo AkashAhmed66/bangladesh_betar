@@ -6,7 +6,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Album;
-use App\Models\Artist;
+use App\Services\ArtworkService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -15,6 +15,8 @@ use Illuminate\View\View;
 
 class AlbumController extends Controller
 {
+    public function __construct(private readonly ArtworkService $artwork) {}
+
     public function index(Request $request): View
     {
         $albums = Album::query()
@@ -42,6 +44,8 @@ class AlbumController extends Controller
 
         $data = $this->validated($request);
         $data['slug'] = Str::slug($data['title']).'-'.Str::lower(Str::random(3));
+        $data['artwork_path'] = $this->artwork->sync($request, 'artwork/albums', null);
+        unset($data['artwork'], $data['remove_artwork']);
 
         Album::query()->create($data);
 
@@ -61,7 +65,11 @@ class AlbumController extends Controller
         $this->authorize('albums.manage');
         $this->authorizeRecordVisibility($album);
 
-        $album->update($this->validated($request));
+        $data = $this->validated($request);
+        $data['artwork_path'] = $this->artwork->sync($request, 'artwork/albums', $album->artwork_path);
+        unset($data['artwork'], $data['remove_artwork']);
+
+        $album->update($data);
 
         return redirect()->route('admin.albums.index')->with('success', 'Album updated.');
     }
@@ -72,6 +80,7 @@ class AlbumController extends Controller
         $this->authorizeRecordVisibility($album);
 
         $album->delete();
+        $this->artwork->delete($album->artwork_path);
 
         return redirect()->route('admin.albums.index')->with('success', 'Album removed.');
     }
@@ -84,6 +93,8 @@ class AlbumController extends Controller
             'album_type' => ['required', Rule::in(['album', 'film', 'compilation', 'single'])],
             'year' => ['nullable', 'integer', 'min:1900', 'max:'.(date('Y') + 1)],
             'description' => ['nullable', 'string'],
+            'artwork' => ArtworkService::rules(),
+            'remove_artwork' => ['boolean'],
             'is_published' => ['boolean'],
             'is_featured' => ['boolean'],
         ]);

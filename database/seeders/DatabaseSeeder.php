@@ -30,7 +30,7 @@ class DatabaseSeeder extends Seeder
             BroadcastChannelSeeder::class, // M27 live broadcast channels
             WorkflowSeeder::class,         // approval workflows + live instances
             RightsSeeder::class,           // rights holders & records
-            QcAndDigitizationSeeder::class,// media items + QC reports
+            QcAndDigitizationSeeder::class, // media items + QC reports
             TranscriptAiSeeder::class,     // transcripts + AI suggestions
             AudioMarkerSeeder::class,      // studio content markers & chapters
             PlanSeeder::class,             // Free/Premium plans + promo codes
@@ -40,6 +40,7 @@ class DatabaseSeeder extends Seeder
             AdvertisementSeeder::class,    // advertisers, campaigns (audio-asset creatives), impressions
             AnalyticsSeeder::class,        // play events + daily stats/heat maps
             SystemSeeder::class,           // backups + integrity checks
+            DemoArtworkSeeder::class,      // fill missing artwork without replacing uploads
         ]);
     }
 }

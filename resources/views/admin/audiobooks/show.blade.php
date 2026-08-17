@@ -164,6 +164,19 @@
     {{-- Right rail --}}
     <div class="space-y-6">
         <div class="card">
+            <div class="card-header"><h3 class="font-semibold text-slate-800 dark:text-slate-100">Cover Image</h3></div>
+            <form method="POST" action="{{ route('admin.audiobooks.update-artwork', $book) }}" enctype="multipart/form-data">
+                @csrf
+                <div class="card-body">
+                    <x-form.artwork-upload :current-path="$book->artwork_path" label="Audio book cover" />
+                </div>
+                <div class="flex items-center justify-end border-t border-slate-200 px-5 py-4 dark:border-slate-800">
+                    <button type="submit" class="btn-primary">Save Image</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="card">
             <div class="card-header"><h3 class="font-semibold text-slate-800 dark:text-slate-100">Details</h3></div>
             <dl class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
                 @foreach ([

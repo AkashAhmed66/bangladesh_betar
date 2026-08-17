@@ -6,7 +6,7 @@
 <x-page-header :title="$song ? 'Edit Song' : 'Create Song Record'"
                subtitle="Links a song's metadata, artists and version family to an audio asset (FR-SNG-01/03)" />
 
-<form method="POST" action="{{ $song ? route('admin.songs.update', $song) : route('admin.songs.store') }}" class="max-w-4xl space-y-5">
+<form method="POST" action="{{ $song ? route('admin.songs.update', $song) : route('admin.songs.store') }}" enctype="multipart/form-data" class="max-w-4xl space-y-5">
     @csrf
     @if ($song) @method('PUT') @endif
 
@@ -22,6 +22,17 @@
             <x-form.select label="Version type" name="version_type" :value="$song?->version_type ?? 'original'" required
                            :options="['original' => 'Original', 'live' => 'Live', 'remastered' => 'Remastered', 'instrumental' => 'Instrumental', 'cover' => 'Cover']" />
             <x-form.select label="Master song (version family)" name="master_song_id" :value="$song?->master_song_id" placeholder="This is the master" :options="$masterSongs->all()" />
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header"><h3 class="font-semibold text-slate-800 dark:text-slate-100">Song Image</h3></div>
+        <div class="card-body">
+            <x-form.artwork-upload
+                :current-path="$song?->audioAsset?->artwork_path"
+                label="Song cover"
+                help="This image is attached to the selected song audio asset and appears on song cards, search results and the player. JPG, PNG or WebP, up to 8 MB."
+            />
         </div>
     </div>
 

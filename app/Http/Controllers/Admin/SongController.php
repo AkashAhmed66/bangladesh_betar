@@ -11,6 +11,7 @@ use App\Models\AudioAsset;
 use App\Models\Genre;
 use App\Models\Mood;
 use App\Models\Song;
+use App\Services\ArtworkService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -18,6 +19,8 @@ use Illuminate\View\View;
 
 class SongController extends Controller
 {
+    public function __construct(private readonly ArtworkService $artwork) {}
+
     public function index(Request $request): View
     {
         $songs = Song::query()
@@ -53,6 +56,7 @@ class SongController extends Controller
 
         $data = $this->validated($request);
         $artists = $this->pullArtists($data);
+        $this->syncArtwork($request, $data);
 
         $song = Song::query()->create($data);
         $this->syncArtists($song, $artists);
@@ -77,6 +81,7 @@ class SongController extends Controller
 
         $data = $this->validated($request);
         $artists = $this->pullArtists($data);
+        $this->syncArtwork($request, $data);
 
         $song->update($data);
         $this->syncArtists($song, $artists);
@@ -109,10 +114,25 @@ class SongController extends Controller
             'lyrics_bn' => ['nullable', 'string'],
             'mood_genre_verified' => ['boolean'],
             'is_featured' => ['boolean'],
+            'artwork' => ArtworkService::rules(),
+            'remove_artwork' => ['boolean'],
             'singer_id' => ['nullable', 'exists:artists,id'],
             'composer_id' => ['nullable', 'exists:artists,id'],
             'lyricist_id' => ['nullable', 'exists:artists,id'],
         ]);
+    }
+
+    private function syncArtwork(Request $request, array &$data): void
+    {
+        $asset = AudioAsset::query()->findOrFail($data['audio_asset_id']);
+
+        if ($request->hasFile('artwork') || $request->boolean('remove_artwork')) {
+            $asset->update([
+                'artwork_path' => $this->artwork->sync($request, 'artwork/songs', $asset->artwork_path),
+            ]);
+        }
+
+        unset($data['artwork'], $data['remove_artwork']);
     }
 
     /** @return array{singer: ?int, composer: ?int, lyricist: ?int} */

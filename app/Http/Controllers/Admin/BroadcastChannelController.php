@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BroadcastChannel;
 use App\Models\BroadcastSession;
 use App\Models\Station;
+use App\Services\ArtworkService;
 use App\Services\BroadcastRecordingService;
 use App\Services\LiveKitService;
 use App\Services\SpeakRequestStore;
@@ -22,6 +23,7 @@ class BroadcastChannelController extends Controller
     public function __construct(
         private readonly LiveKitService $liveKit,
         private readonly BroadcastRecordingService $recordings,
+        private readonly ArtworkService $artwork,
     ) {}
 
     public function index(): View
@@ -48,6 +50,8 @@ class BroadcastChannelController extends Controller
         $data = $this->validated($request);
         $data['slug'] = $this->uniqueSlug($data['name']);
         $data['room_name'] = 'betar-'.Str::lower(Str::random(12));
+        $data['artwork_path'] = $this->artwork->sync($request, 'artwork/live-radio', null);
+        unset($data['artwork'], $data['remove_artwork']);
 
         BroadcastChannel::query()->create($data);
 
@@ -65,7 +69,11 @@ class BroadcastChannelController extends Controller
     {
         $this->authorize('broadcasts.manage');
 
-        $broadcastChannel->update($this->validated($request));
+        $data = $this->validated($request);
+        $data['artwork_path'] = $this->artwork->sync($request, 'artwork/live-radio', $broadcastChannel->artwork_path);
+        unset($data['artwork'], $data['remove_artwork']);
+
+        $broadcastChannel->update($data);
 
         return redirect()->route('admin.broadcast-channels.index')->with('success', 'Broadcast channel updated.');
     }
@@ -79,6 +87,7 @@ class BroadcastChannelController extends Controller
         }
 
         $broadcastChannel->delete();
+        $this->artwork->delete($broadcastChannel->artwork_path);
 
         return redirect()->route('admin.broadcast-channels.index')->with('success', 'Broadcast channel deleted.');
     }
@@ -275,6 +284,8 @@ class BroadcastChannelController extends Controller
             'name_bn' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'station_id' => ['nullable', 'integer', 'exists:stations,id'],
+            'artwork' => ArtworkService::rules(),
+            'remove_artwork' => ['boolean'],
             'is_active' => ['boolean'],
         ]);
     }

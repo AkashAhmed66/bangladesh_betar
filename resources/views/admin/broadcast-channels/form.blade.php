@@ -8,7 +8,7 @@
 
 <form method="POST"
       action="{{ $channel ? route('admin.broadcast-channels.update', $channel) : route('admin.broadcast-channels.store') }}"
-      class="max-w-3xl">
+      enctype="multipart/form-data" class="max-w-3xl">
     @csrf
     @if ($channel) @method('PUT') @endif
 
@@ -28,6 +28,7 @@
                 <x-form.textarea label="Description" name="description" :value="$channel?->description" rows="3"
                                  help="Shown to listeners on the public app." />
             </div>
+            <x-form.artwork-upload class="sm:col-span-2" :current-path="$channel?->artwork_path" label="Live radio image" />
         </div>
 
         <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-4 dark:border-slate-800">

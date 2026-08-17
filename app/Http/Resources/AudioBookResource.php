@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Resources;
 
+use App\Support\Hls;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\URL;
@@ -23,6 +24,7 @@ class AudioBookResource extends JsonResource
             'id' => $this->id,
             'type' => 'audio_book',
             'title' => $this->title,
+            'artwork_url' => $this->artwork_path ? asset('storage/'.$this->artwork_path) : null,
             'language' => $this->language,
             'author' => $this->user?->name,
             'is_premium' => true,
@@ -53,10 +55,10 @@ class AudioBookResource extends JsonResource
         if (! $path) {
             return null;
         }
-        if (\App\Support\Hls::isPackaged('audiobook', $this->id, $voice)) {
-            return \App\Support\Hls::playlistUrl('audiobook', $this->id, $voice);
+        if (Hls::isPackaged('audiobook', $this->id, $voice)) {
+            return Hls::playlistUrl('audiobook', $this->id, $voice);
         }
-        \App\Support\Hls::ensureQueued('audiobook', $this->id, $voice);
+        Hls::ensureQueued('audiobook', $this->id, $voice);
 
         return URL::temporarySignedRoute('api.v1.audiobooks.play', now()->addMinutes(5), ['audioBook' => $this->id, 'voice' => $voice]);
     }

@@ -141,6 +141,7 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
             Route::get('audiobooks/{audiobook}', [Admin\AudioBookController::class, 'show'])->name('audiobooks.show');
             Route::post('audiobooks/{audiobook}/submit', [Admin\AudioBookController::class, 'submit'])->name('audiobooks.submit');
             Route::post('audiobooks/{audiobook}/text', [Admin\AudioBookController::class, 'updateText'])->name('audiobooks.update-text');
+            Route::post('audiobooks/{audiobook}/artwork', [Admin\AudioBookController::class, 'updateArtwork'])->name('audiobooks.update-artwork');
             Route::post('audiobooks/{audiobook}/review', [Admin\AudioBookController::class, 'review'])
                 ->middleware('permission:audiobooks.approve')->name('audiobooks.review');
             Route::post('audiobooks/{audiobook}/unpublish', [Admin\AudioBookController::class, 'unpublish'])
@@ -160,6 +161,8 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
             ->middleware('permission:songs.view');
         Route::resource('playlists', Admin\PlaylistController::class)->only(['index', 'show'])
             ->middleware('permission:playlists.view');
+        Route::post('playlists/{playlist}/artwork', [Admin\PlaylistController::class, 'updateArtwork'])
+            ->middleware('permission:playlists.view')->name('playlists.update-artwork');
 
         // ---- M09: Podcasts ----
         Route::resource('podcast-channels', Admin\PodcastChannelController::class)->except('show')

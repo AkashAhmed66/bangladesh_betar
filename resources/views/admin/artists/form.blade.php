@@ -49,7 +49,27 @@
                     <input type="file" name="photo" accept="image/*" class="hidden" @change="pick($event, 'photoPreview')">
                 </label>
             </div>
-            <p class="pb-2 text-xs text-slate-400">JPG, PNG or WebP. Photo up to 4 MB, cover up to 8 MB.</p>
+            <div class="pb-2 text-xs text-slate-400">
+                <p>JPG, PNG or WebP. Photo up to 4 MB, cover up to 8 MB.</p>
+                @if ($artist?->photo_path || $artist?->cover_path)
+                    <div class="mt-2 flex flex-wrap gap-4">
+                        @if ($artist?->photo_path)
+                            <label class="flex cursor-pointer items-center gap-1.5 text-rose-600 dark:text-rose-400">
+                                <input type="checkbox" name="remove_photo" value="1" @change="if ($event.target.checked) photoPreview = null" class="rounded border-slate-300 text-rose-600 focus:ring-rose-500">
+                                Remove profile photo
+                            </label>
+                        @endif
+                        @if ($artist?->cover_path)
+                            <label class="flex cursor-pointer items-center gap-1.5 text-rose-600 dark:text-rose-400">
+                                <input type="checkbox" name="remove_cover" value="1" @change="if ($event.target.checked) coverPreview = null" class="rounded border-slate-300 text-rose-600 focus:ring-rose-500">
+                                Remove cover banner
+                            </label>
+                        @endif
+                    </div>
+                @endif
+                @error('photo')<p class="form-error">{{ $message }}</p>@enderror
+                @error('cover')<p class="form-error">{{ $message }}</p>@enderror
+            </div>
         </div>
     </div>
 
