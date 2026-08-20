@@ -27,6 +27,12 @@
             ['programmes.view', 'admin.programmes.index', 'squares', 'Programmes', ['admin.programmes.']],
             ['episodes.view', 'admin.episodes.index', 'ghost', 'Programme Episodes', ['admin.episodes.']],
         ],
+        'News Portal' => [
+            ['news.view', 'admin.news-articles.index', 'document-text', 'News Articles', ['admin.news-articles.']],
+        ],
+        'Watch Portal' => [
+            ['watch.view', 'admin.watch-shows.index', 'play', 'Watch Shows', ['admin.watch-shows.', 'admin.watch-episodes.']],
+        ],
         'Governance' => [
             ['workflows.view', 'admin.workflows.index', 'workflow', 'Workflows', ['admin.workflows.']],
             ['rights.view', 'admin.rights-records.index', 'scale', 'Rights Records', ['admin.rights-records.']],

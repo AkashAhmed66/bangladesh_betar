@@ -83,6 +83,9 @@ class AppServiceProvider extends ServiceProvider
             'broadcast_channel' => \App\Models\BroadcastChannel::class,
             'speech_conversion' => \App\Models\SpeechConversion::class,
             'audio_book' => \App\Models\AudioBook::class,
+            'news_article' => \App\Models\NewsArticle::class,
+            'watch_show' => \App\Models\WatchShow::class,
+            'watch_episode' => \App\Models\WatchEpisode::class,
         ]);
     }
 }

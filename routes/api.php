@@ -56,6 +56,13 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
         Route::get('featured-artists', [V1\BrowseController::class, 'featuredArtists'])->name('featured-artists');
         Route::get('radio', [V1\BrowseController::class, 'radio'])->name('radio');
 
+        // News + Watch portal editorial content (managed in the admin portal)
+        Route::get('portal-categories', [V1\PortalContentController::class, 'categories'])->name('portal-categories.index');
+        Route::get('news', [V1\PortalContentController::class, 'news'])->name('news.index');
+        Route::get('news/{slug}', [V1\PortalContentController::class, 'newsArticle'])->name('news.show');
+        Route::get('watch', [V1\PortalContentController::class, 'watch'])->name('watch.index');
+        Route::get('watch/{slug}', [V1\PortalContentController::class, 'watchShow'])->name('watch.show');
+
         // Search (M06)
         Route::get('search', [V1\SearchController::class, 'search'])->name('search');
         Route::get('search/suggest', [V1\SearchController::class, 'suggest'])->name('search.suggest');

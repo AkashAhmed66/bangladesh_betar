@@ -170,6 +170,24 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
         Route::resource('podcast-episodes', Admin\PodcastEpisodeController::class)->except('show')
             ->middleware('permission:podcasts.view');
 
+        // ---- Public News portal editorial management ----
+        Route::resource('news-articles', Admin\NewsArticleController::class)->except('show')
+            ->middleware('permission:news.view');
+
+        // ---- Public Watch/OTT portal catalogue + episode uploads ----
+        Route::resource('watch-shows', Admin\WatchShowController::class)->except('show')
+            ->middleware('permission:watch.view');
+        Route::get('watch-shows/{watchShow}/episodes/create', [Admin\WatchEpisodeController::class, 'create'])
+            ->middleware('permission:watch.view')->name('watch-shows.episodes.create');
+        Route::post('watch-shows/{watchShow}/episodes', [Admin\WatchEpisodeController::class, 'store'])
+            ->middleware('permission:watch.view')->name('watch-shows.episodes.store');
+        Route::get('watch-episodes/{watchEpisode}/edit', [Admin\WatchEpisodeController::class, 'edit'])
+            ->middleware('permission:watch.view')->name('watch-episodes.edit');
+        Route::put('watch-episodes/{watchEpisode}', [Admin\WatchEpisodeController::class, 'update'])
+            ->middleware('permission:watch.view')->name('watch-episodes.update');
+        Route::delete('watch-episodes/{watchEpisode}', [Admin\WatchEpisodeController::class, 'destroy'])
+            ->middleware('permission:watch.view')->name('watch-episodes.destroy');
+
         // ---- M27: Live broadcasting ----
         // Custom routes are declared before the resource so /studio, /status etc.
         // are matched ahead of the {broadcast_channel} wildcard.
