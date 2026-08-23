@@ -5,13 +5,18 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Models\NewsArticle;
+use App\Models\NewsCategory;
+use App\Models\Plan;
+use App\Models\Subscription;
 use App\Models\User;
+use App\Models\WatchCategory;
 use App\Models\WatchEpisode;
 use App\Models\WatchShow;
 use Database\Seeders\PortalContentSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
@@ -32,16 +37,54 @@ final class PortalContentTest extends TestCase
         $this->getJson(route('api.v1.news.show', 'draft-story'))->assertNotFound();
     }
 
-    public function test_public_watch_api_includes_only_published_episodes(): void
+    public function test_watch_playback_requires_a_signed_in_premium_member(): void
     {
+        Storage::fake('public');
+        Storage::disk('public')->put('watch/videos/private-episode.mp4', 'video-content');
         $show = WatchShow::factory()->create(['slug' => 'dynamic-show']);
-        WatchEpisode::factory()->for($show, 'show')->create(['title' => 'Public episode', 'is_published' => true]);
+        WatchEpisode::factory()->for($show, 'show')->create([
+            'title' => 'Public episode',
+            'is_published' => true,
+            'video_path' => 'watch/videos/private-episode.mp4',
+        ]);
         WatchEpisode::factory()->for($show, 'show')->create(['title' => 'Draft episode', 'is_published' => false, 'position' => 2]);
+
+        $this->getJson(route('api.v1.watch.index'))
+            ->assertOk()
+            ->assertJsonPath('data.0.episodes.0.video_url', null);
+
+        $this->getJson(route('api.v1.watch.preview', 'dynamic-show'))
+            ->assertOk()
+            ->assertJsonMissingPath('data.episodes');
 
         $this->getJson(route('api.v1.watch.show', 'dynamic-show'))
             ->assertOk()
             ->assertJsonCount(1, 'data.episodes')
-            ->assertJsonPath('data.episodes.0.title', 'Public episode');
+            ->assertJsonPath('data.episodes.0.has_video', true)
+            ->assertJsonPath('data.episodes.0.video_url', null);
+
+        Sanctum::actingAs(User::factory()->create(['user_type' => 'listener']));
+        $this->getJson(route('api.v1.watch.show', 'dynamic-show'))
+            ->assertOk()
+            ->assertJsonPath('data.episodes.0.has_video', true)
+            ->assertJsonPath('data.episodes.0.video_url', null);
+
+        Sanctum::actingAs($this->premiumUser());
+        $response = $this->getJson(route('api.v1.watch.show', 'dynamic-show'))
+            ->assertOk()
+            ->assertJsonCount(1, 'data.episodes')
+            ->assertJsonPath('data.episodes.0.title', 'Public episode')
+            ->assertJsonPath(
+                'data.episodes.0.video_url',
+                fn (string $url): bool => str_contains($url, "/api/v1/watch-episodes/{$show->episodes()->firstOrFail()->id}/play")
+                    && str_contains($url, 'signature='),
+            );
+
+        $playUrl = $response->json('data.episodes.0.video_url');
+        $this->getJson(route('api.v1.watch-episodes.play', $show->episodes()->firstOrFail()))->assertForbidden();
+        $this->get($playUrl)
+            ->assertOk()
+            ->assertHeader('Content-Disposition', 'inline');
     }
 
     public function test_public_portal_apis_publish_category_metadata_and_filter_content(): void
@@ -54,6 +97,8 @@ final class PortalContentTest extends TestCase
         $this->getJson(route('api.v1.portal-categories.index'))
             ->assertOk()
             ->assertJsonPath('data.news.0.slug', 'bangladesh')
+            ->assertJsonPath('data.news.0.show_in_header', true)
+            ->assertJsonPath('data.news.3.show_in_header', false)
             ->assertJsonPath('data.watch.0.slug', 'live-tv');
 
         $this->getJson(route('api.v1.news.index', ['category' => 'bangladesh']))
@@ -80,6 +125,12 @@ final class PortalContentTest extends TestCase
             ->assertSee('Bangladesh')
             ->assertSee('Science');
 
+        $this->actingAs($user)->get(route('admin.news-categories.create'))
+            ->assertOk()
+            ->assertSee('name="show_in_header"', false)
+            ->assertSee('Show in heading')
+            ->assertSee('Show under More');
+
         $this->actingAs($user)->get(route('admin.watch-shows.create'))
             ->assertOk()
             ->assertSee('<select id="category"', false)
@@ -99,8 +150,98 @@ final class PortalContentTest extends TestCase
         ])->assertSessionHasErrors('category');
     }
 
+    public function test_admin_managed_categories_drive_bilingual_content_and_public_filtering(): void
+    {
+        Storage::fake('public');
+        $user = $this->staffUser(['news.view', 'news.manage', 'watch.view', 'watch.manage', 'records.view-all']);
+
+        $this->actingAs($user)->post(route('admin.news-categories.store'), [
+            'name' => 'Technology',
+            'name_bn' => 'প্রযুক্তি',
+            'slug' => 'technology',
+            'description' => 'Technology reporting.',
+            'description_bn' => 'প্রযুক্তি বিষয়ক প্রতিবেদন।',
+            'position' => 20,
+            'is_active' => 1,
+            'show_in_header' => 0,
+        ])->assertRedirect(route('admin.news-categories.index'));
+
+        $category = NewsCategory::query()->where('slug', 'technology')->firstOrFail();
+
+        $this->actingAs($user)->post(route('admin.news-articles.store'), [
+            'title' => 'Digital service launched',
+            'title_bn' => 'ডিজিটাল সেবা চালু',
+            'slug' => 'digital-service-launched',
+            'summary' => 'A new service is now available.',
+            'summary_bn' => 'নতুন সেবা এখন পাওয়া যাচ্ছে।',
+            'category' => 'Technology',
+            'body_text' => 'The English article body.',
+            'body_text_bn' => 'বাংলা নিবন্ধের মূল লেখা।',
+            'read_time_minutes' => 2,
+            'position' => 0,
+            'is_featured' => 0,
+            'artwork' => $this->image('technology.png'),
+        ])->assertRedirect(route('admin.news-articles.index'));
+
+        $article = NewsArticle::query()->where('slug', 'digital-service-launched')->firstOrFail();
+        $this->assertSame($category->id, $article->news_category_id);
+        $this->assertSame('ডিজিটাল সেবা চালু', $article->title_bn);
+
+        $article->update(['is_published' => true, 'published_at' => now()]);
+
+        $this->getJson(route('api.v1.portal-categories.index'))
+            ->assertOk()
+            ->assertJsonFragment(['slug' => 'technology', 'label_bn' => 'প্রযুক্তি', 'show_in_header' => false]);
+
+        $this->getJson(route('api.v1.news.index', ['category' => 'technology']))
+            ->assertOk()
+            ->assertJsonPath('data.0.title_bn', 'ডিজিটাল সেবা চালু')
+            ->assertJsonPath('data.0.category_slug', 'technology');
+    }
+
+    public function test_admin_language_switch_is_persisted_for_the_user_and_session(): void
+    {
+        $user = $this->staffUser(['news.manage']);
+
+        $this->actingAs($user)->post(route('admin.locale.update'), ['locale' => 'bn'])
+            ->assertRedirect()
+            ->assertSessionHas('locale', 'bn');
+
+        $this->assertSame('bn', $user->fresh()->locale);
+        $this->actingAs($user)->withSession(['locale' => 'bn'])->get(route('admin.news-categories.index'))
+            ->assertOk()
+            ->assertSee('সংবাদ বিভাগ');
+    }
+
+    public function test_category_rename_keeps_existing_content_mapping_in_sync(): void
+    {
+        $user = $this->staffUser(['watch.manage']);
+        $category = WatchCategory::query()->where('slug', 'documentary')->firstOrFail();
+        $show = WatchShow::factory()->create([
+            'watch_category_id' => $category->id,
+            'category' => $category->name,
+        ]);
+
+        $this->actingAs($user)->put(route('admin.watch-categories.update', $category), [
+            'name' => 'Factual',
+            'name_bn' => 'তথ্যচিত্র',
+            'slug' => 'factual',
+            'description' => 'Factual programmes.',
+            'description_bn' => 'তথ্যভিত্তিক অনুষ্ঠান।',
+            'position' => 2,
+            'is_active' => 1,
+            'show_in_header' => 1,
+        ])->assertRedirect(route('admin.watch-categories.index'));
+
+        $this->assertSame('Factual', $show->fresh()->category);
+        $this->getJson(route('api.v1.watch.index', ['category' => 'factual']))
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $show->id);
+    }
+
     public function test_admin_publication_time_is_interpreted_as_bangladesh_time(): void
     {
+        Storage::fake('public');
         $user = $this->staffUser(['news.view', 'news.manage', 'records.view-all']);
 
         $this->actingAs($user)->post(route('admin.news-articles.store'), [
@@ -114,6 +255,7 @@ final class PortalContentTest extends TestCase
             'is_featured' => 0,
             'is_published' => 1,
             'published_at' => '2026-08-20T17:30',
+            'artwork' => $this->image('timezone-news.png'),
         ])->assertRedirect(route('admin.news-articles.index'));
 
         $article = NewsArticle::query()->where('slug', 'timezone-safe-article')->firstOrFail();
@@ -194,6 +336,25 @@ final class PortalContentTest extends TestCase
         }
 
         $user->givePermissionTo($permissions);
+
+        return $user;
+    }
+
+    private function premiumUser(): User
+    {
+        $user = User::factory()->create(['user_type' => 'listener', 'status' => 'active']);
+        $plan = Plan::query()->create([
+            'name' => 'Premium',
+            'code' => 'premium',
+            'features' => ['premium_content' => 'full'],
+        ]);
+
+        Subscription::query()->create([
+            'user_id' => $user->id,
+            'plan_id' => $plan->id,
+            'status' => 'active',
+            'started_at' => now(),
+        ]);
 
         return $user;
     }

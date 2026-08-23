@@ -34,12 +34,23 @@
                 </div>
                 <div class="mt-4 flex items-center justify-between gap-3">
                     <div class="flex gap-1.5">
-                        <span class="{{ $show->is_published ? 'badge-emerald' : 'badge-slate' }}">{{ $show->is_published ? 'Published' : 'Draft' }}</span>
+                        <span class="{{ $show->is_published ? 'badge-emerald' : 'badge-slate' }}">{{ $show->is_published ? 'Published' : 'Not public' }}</span>
+                        <x-status-badge :status="$show->approval_status ?? 'draft'" />
                         @if ($show->is_featured)<span class="badge-amber">Featured</span>@endif
                     </div>
                     @can('watch.manage')
                         <div class="flex items-center gap-1">
                             <a href="{{ route('admin.watch-shows.edit', $show) }}" class="btn-ghost btn-sm" title="Edit and manage episodes"><x-icon name="pencil" class="size-4" /></a>
+                            @if (! $show->is_published && in_array($show->approval_status, ['draft', 'rejected', 'changes_requested'], true))
+                                <form method="POST" action="{{ route('admin.watch-shows.submit', $show) }}">@csrf<button class="btn-secondary btn-sm" title="Submit for approval"><x-icon name="upload" class="size-4" /><span class="sr-only">Submit for approval</span></button></form>
+                            @endif
+                            @can('watch.publish')
+                                @if ($show->is_published)
+                                    <form method="POST" action="{{ route('admin.watch-shows.unpublish', $show) }}">@csrf<button class="btn-secondary btn-sm" title="Unpublish"><x-icon name="eye" class="size-4" /><span class="sr-only">Unpublish</span></button></form>
+                                @elseif ($show->approval_status === 'approved')
+                                    <form method="POST" action="{{ route('admin.watch-shows.publish', $show) }}">@csrf<button class="btn-primary btn-sm" title="Publish"><x-icon name="check-badge" class="size-4" /><span class="sr-only">Publish</span></button></form>
+                                @endif
+                            @endcan
                             <x-confirm-delete :action="route('admin.watch-shows.destroy', $show)" confirm="Delete this show and all its episodes?" />
                         </div>
                     @endcan

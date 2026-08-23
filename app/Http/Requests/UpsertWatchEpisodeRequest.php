@@ -19,7 +19,9 @@ final class UpsertWatchEpisodeRequest extends FormRequest
     {
         return [
             'title' => ['required', 'string', 'max:255'],
+            'title_bn' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:5000'],
+            'description_bn' => ['nullable', 'string', 'max:5000'],
             'duration_minutes' => ['required', 'integer', 'min:1', 'max:1440'],
             'position' => ['required', 'integer', 'min:1', 'max:65535'],
             'is_published' => ['required', 'boolean'],

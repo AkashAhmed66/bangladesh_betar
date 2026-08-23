@@ -23,6 +23,7 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
 
     Route::middleware(['auth', 'staff'])->group(function (): void {
         Route::post('logout', [Admin\AuthController::class, 'logout'])->name('logout');
+        Route::post('locale', Admin\LocaleController::class)->name('locale.update');
 
         // ---- Self-service profile (every portal user, incl. artists) ----
         // Not permission-gated: a user may always manage their own account.
@@ -171,12 +172,28 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
             ->middleware('permission:podcasts.view');
 
         // ---- Public News portal editorial management ----
+        Route::resource('news-categories', Admin\NewsCategoryController::class)->except('show')
+            ->middleware('permission:news.manage');
         Route::resource('news-articles', Admin\NewsArticleController::class)->except('show')
             ->middleware('permission:news.view');
+        Route::post('news-articles/{newsArticle}/submit', [Admin\NewsArticleController::class, 'submit'])
+            ->middleware('permission:news.manage')->name('news-articles.submit');
+        Route::post('news-articles/{newsArticle}/publish', [Admin\NewsArticleController::class, 'publish'])
+            ->middleware('permission:news.publish')->name('news-articles.publish');
+        Route::post('news-articles/{newsArticle}/unpublish', [Admin\NewsArticleController::class, 'unpublish'])
+            ->middleware('permission:news.publish')->name('news-articles.unpublish');
 
         // ---- Public Watch/OTT portal catalogue + episode uploads ----
+        Route::resource('watch-categories', Admin\WatchCategoryController::class)->except('show')
+            ->middleware('permission:watch.manage');
         Route::resource('watch-shows', Admin\WatchShowController::class)->except('show')
             ->middleware('permission:watch.view');
+        Route::post('watch-shows/{watchShow}/submit', [Admin\WatchShowController::class, 'submit'])
+            ->middleware('permission:watch.manage')->name('watch-shows.submit');
+        Route::post('watch-shows/{watchShow}/publish', [Admin\WatchShowController::class, 'publish'])
+            ->middleware('permission:watch.publish')->name('watch-shows.publish');
+        Route::post('watch-shows/{watchShow}/unpublish', [Admin\WatchShowController::class, 'unpublish'])
+            ->middleware('permission:watch.publish')->name('watch-shows.unpublish');
         Route::get('watch-shows/{watchShow}/episodes/create', [Admin\WatchEpisodeController::class, 'create'])
             ->middleware('permission:watch.view')->name('watch-shows.episodes.create');
         Route::post('watch-shows/{watchShow}/episodes', [Admin\WatchEpisodeController::class, 'store'])
@@ -187,6 +204,18 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
             ->middleware('permission:watch.view')->name('watch-episodes.update');
         Route::delete('watch-episodes/{watchEpisode}', [Admin\WatchEpisodeController::class, 'destroy'])
             ->middleware('permission:watch.view')->name('watch-episodes.destroy');
+
+        // ---- Watch Live: camera + microphone video broadcasting ----
+        Route::get('watch-live-channels/{watchLiveChannel}/studio', [Admin\WatchLiveChannelController::class, 'studio'])
+            ->middleware('permission:watch.broadcast')->name('watch-live-channels.studio');
+        Route::get('watch-live-channels/{watchLiveChannel}/status', [Admin\WatchLiveChannelController::class, 'status'])
+            ->middleware('permission:watch.view')->name('watch-live-channels.status');
+        Route::post('watch-live-channels/{watchLiveChannel}/go-live', [Admin\WatchLiveChannelController::class, 'goLive'])
+            ->middleware('permission:watch.broadcast')->name('watch-live-channels.go-live');
+        Route::post('watch-live-channels/{watchLiveChannel}/stop', [Admin\WatchLiveChannelController::class, 'stop'])
+            ->middleware('permission:watch.broadcast')->name('watch-live-channels.stop');
+        Route::resource('watch-live-channels', Admin\WatchLiveChannelController::class)->except('show')
+            ->middleware('permission:watch.view');
 
         // ---- M27: Live broadcasting ----
         // Custom routes are declared before the resource so /studio, /status etc.

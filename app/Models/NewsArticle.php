@@ -9,6 +9,9 @@ use App\Models\Concerns\HasRecordVisibility;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 final class NewsArticle extends Model
@@ -19,6 +22,7 @@ final class NewsArticle extends Model
 
     protected $casts = [
         'body' => 'array',
+        'body_bn' => 'array',
         'is_featured' => 'boolean',
         'is_published' => 'boolean',
         'published_at' => 'immutable_datetime',
@@ -36,5 +40,20 @@ final class NewsArticle extends Model
             ->where(fn (Builder $published): Builder => $published
                 ->whereNull('published_at')
                 ->orWhere('published_at', '<=', now()));
+    }
+
+    public function approvals(): MorphMany
+    {
+        return $this->morphMany(Approval::class, 'approvable');
+    }
+
+    public function media(): HasMany
+    {
+        return $this->hasMany(NewsArticleMedia::class)->orderBy('position')->orderBy('id');
+    }
+
+    public function portalCategory(): BelongsTo
+    {
+        return $this->belongsTo(NewsCategory::class, 'news_category_id');
     }
 }

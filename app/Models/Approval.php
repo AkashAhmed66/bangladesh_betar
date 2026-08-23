@@ -69,6 +69,6 @@ class Approval extends Model
         return $user->can('approvals.act')
             && in_array($this->status, ['pending', 'changes_requested'], true)
             && $this->currentStage !== null
-            && $user->hasRole($this->currentStage->approver_role);
+            && ($user->hasRole('Super Administrator') || $user->hasRole($this->currentStage->approver_role));
     }
 }

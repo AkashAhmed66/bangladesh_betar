@@ -2,6 +2,46 @@
 
 namespace App\Providers;
 
+use App\Models\AdCampaign;
+use App\Models\Advertiser;
+use App\Models\Album;
+use App\Models\Artist;
+use App\Models\AudioAsset;
+use App\Models\AudioBook;
+use App\Models\AudioVersion;
+use App\Models\Banner;
+use App\Models\BroadcastChannel;
+use App\Models\Category;
+use App\Models\Comment;
+use App\Models\Department;
+use App\Models\EditSession;
+use App\Models\Episode;
+use App\Models\Genre;
+use App\Models\Language;
+use App\Models\MediaItem;
+use App\Models\Mood;
+use App\Models\NewsArticle;
+use App\Models\NewsCategory;
+use App\Models\Payment;
+use App\Models\Plan;
+use App\Models\Playlist;
+use App\Models\PodcastChannel;
+use App\Models\PodcastEpisode;
+use App\Models\Programme;
+use App\Models\PromoCode;
+use App\Models\RightsHolder;
+use App\Models\RightsRecord;
+use App\Models\Setting;
+use App\Models\Song;
+use App\Models\SpeechConversion;
+use App\Models\Station;
+use App\Models\Subscription;
+use App\Models\Transcript;
+use App\Models\User;
+use App\Models\WatchCategory;
+use App\Models\WatchEpisode;
+use App\Models\WatchShow;
+use App\Models\Workflow;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\Request;
@@ -43,49 +83,51 @@ class AppServiceProvider extends ServiceProvider
         // Stable aliases for polymorphic relations — keeps DB values and
         // public API type strings decoupled from PHP class names.
         Relation::enforceMorphMap([
-            'user' => \App\Models\User::class,
-            'audio_asset' => \App\Models\AudioAsset::class,
-            'audio_version' => \App\Models\AudioVersion::class,
-            'song' => \App\Models\Song::class,
-            'album' => \App\Models\Album::class,
-            'artist' => \App\Models\Artist::class,
-            'programme' => \App\Models\Programme::class,
-            'episode' => \App\Models\Episode::class,
-            'podcast_channel' => \App\Models\PodcastChannel::class,
-            'podcast_episode' => \App\Models\PodcastEpisode::class,
-            'playlist' => \App\Models\Playlist::class,
-            'comment' => \App\Models\Comment::class,
-            'edit_session' => \App\Models\EditSession::class,
-            'media_item' => \App\Models\MediaItem::class,
-            'rights_record' => \App\Models\RightsRecord::class,
-            'station' => \App\Models\Station::class,
-            'plan' => \App\Models\Plan::class,
-            'payment' => \App\Models\Payment::class,
-            'subscription' => \App\Models\Subscription::class,
-            'setting' => \App\Models\Setting::class,
-            'banner' => \App\Models\Banner::class,
+            'user' => User::class,
+            'audio_asset' => AudioAsset::class,
+            'audio_version' => AudioVersion::class,
+            'song' => Song::class,
+            'album' => Album::class,
+            'artist' => Artist::class,
+            'programme' => Programme::class,
+            'episode' => Episode::class,
+            'podcast_channel' => PodcastChannel::class,
+            'podcast_episode' => PodcastEpisode::class,
+            'playlist' => Playlist::class,
+            'comment' => Comment::class,
+            'edit_session' => EditSession::class,
+            'media_item' => MediaItem::class,
+            'rights_record' => RightsRecord::class,
+            'station' => Station::class,
+            'plan' => Plan::class,
+            'payment' => Payment::class,
+            'subscription' => Subscription::class,
+            'setting' => Setting::class,
+            'banner' => Banner::class,
 
             // The rest of the Auditable models — every one needs an entry or
             // creating the very first real (non-seeded) row throws
             // ClassMorphViolationException from the audit-log hook, since
             // Auditable calls getMorphClass() on every create/update/delete.
-            'ad_campaign' => \App\Models\AdCampaign::class,
-            'advertiser' => \App\Models\Advertiser::class,
-            'category' => \App\Models\Category::class,
-            'department' => \App\Models\Department::class,
-            'genre' => \App\Models\Genre::class,
-            'language' => \App\Models\Language::class,
-            'mood' => \App\Models\Mood::class,
-            'promo_code' => \App\Models\PromoCode::class,
-            'rights_holder' => \App\Models\RightsHolder::class,
-            'transcript' => \App\Models\Transcript::class,
-            'workflow' => \App\Models\Workflow::class,
-            'broadcast_channel' => \App\Models\BroadcastChannel::class,
-            'speech_conversion' => \App\Models\SpeechConversion::class,
-            'audio_book' => \App\Models\AudioBook::class,
-            'news_article' => \App\Models\NewsArticle::class,
-            'watch_show' => \App\Models\WatchShow::class,
-            'watch_episode' => \App\Models\WatchEpisode::class,
+            'ad_campaign' => AdCampaign::class,
+            'advertiser' => Advertiser::class,
+            'category' => Category::class,
+            'department' => Department::class,
+            'genre' => Genre::class,
+            'language' => Language::class,
+            'mood' => Mood::class,
+            'promo_code' => PromoCode::class,
+            'rights_holder' => RightsHolder::class,
+            'transcript' => Transcript::class,
+            'workflow' => Workflow::class,
+            'broadcast_channel' => BroadcastChannel::class,
+            'speech_conversion' => SpeechConversion::class,
+            'audio_book' => AudioBook::class,
+            'news_article' => NewsArticle::class,
+            'news_category' => NewsCategory::class,
+            'watch_show' => WatchShow::class,
+            'watch_episode' => WatchEpisode::class,
+            'watch_category' => WatchCategory::class,
         ]);
     }
 }

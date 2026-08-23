@@ -29,6 +29,7 @@ class BroadcastChannelController extends Controller
     public function index(): View
     {
         $channels = BroadcastChannel::query()
+            ->audio()
             ->with(['station', 'liveSession.broadcaster'])
             ->orderBy('name')
             ->get();
@@ -50,6 +51,7 @@ class BroadcastChannelController extends Controller
         $data = $this->validated($request);
         $data['slug'] = $this->uniqueSlug($data['name']);
         $data['room_name'] = 'betar-'.Str::lower(Str::random(12));
+        $data['channel_type'] = 'audio';
         $data['artwork_path'] = $this->artwork->sync($request, 'artwork/live-radio', null);
         unset($data['artwork'], $data['remove_artwork']);
 
@@ -60,6 +62,7 @@ class BroadcastChannelController extends Controller
 
     public function edit(BroadcastChannel $broadcastChannel): View
     {
+        $this->ensureAudioChannel($broadcastChannel);
         $this->authorize('broadcasts.manage');
 
         return view('admin.broadcast-channels.form', ['channel' => $broadcastChannel] + $this->options());
@@ -67,6 +70,7 @@ class BroadcastChannelController extends Controller
 
     public function update(Request $request, BroadcastChannel $broadcastChannel): RedirectResponse
     {
+        $this->ensureAudioChannel($broadcastChannel);
         $this->authorize('broadcasts.manage');
 
         $data = $this->validated($request);
@@ -80,6 +84,7 @@ class BroadcastChannelController extends Controller
 
     public function destroy(BroadcastChannel $broadcastChannel): RedirectResponse
     {
+        $this->ensureAudioChannel($broadcastChannel);
         $this->authorize('broadcasts.manage');
 
         if ($broadcastChannel->isLive()) {
@@ -98,6 +103,7 @@ class BroadcastChannelController extends Controller
 
     public function studio(Request $request, BroadcastChannel $broadcastChannel): View
     {
+        $this->ensureAudioChannel($broadcastChannel);
         $this->authorize('broadcasts.broadcast');
 
         $broadcastChannel->load(['station', 'liveSession.broadcaster', 'liveSession.recording']);
@@ -128,6 +134,7 @@ class BroadcastChannelController extends Controller
     /** Begin (or resume) an on-air session and hand back a publisher token. */
     public function goLive(Request $request, BroadcastChannel $broadcastChannel): JsonResponse
     {
+        $this->ensureAudioChannel($broadcastChannel);
         $this->authorize('broadcasts.broadcast');
 
         if (! $broadcastChannel->is_active) {
@@ -170,6 +177,7 @@ class BroadcastChannelController extends Controller
     /** End the current on-air session. */
     public function stop(BroadcastChannel $broadcastChannel): JsonResponse
     {
+        $this->ensureAudioChannel($broadcastChannel);
         $this->authorize('broadcasts.broadcast');
 
         $liveSessions = $broadcastChannel->sessions()
@@ -213,6 +221,7 @@ class BroadcastChannelController extends Controller
     /** Lightweight polling endpoint for the studio (live state + listeners). */
     public function status(BroadcastChannel $broadcastChannel): JsonResponse
     {
+        $this->ensureAudioChannel($broadcastChannel);
         $session = $broadcastChannel->liveSession()->with('recording')->first();
 
         return response()->json([
@@ -231,6 +240,7 @@ class BroadcastChannelController extends Controller
     /** Current listeners in the room, flagged with raised-hand / speaker state. */
     public function participants(BroadcastChannel $broadcastChannel): JsonResponse
     {
+        $this->ensureAudioChannel($broadcastChannel);
         $room = $broadcastChannel->room_name;
         $hands = SpeakRequestStore::all($room);
 
@@ -250,6 +260,7 @@ class BroadcastChannelController extends Controller
     /** Let a listener speak (canPublish = true). */
     public function grantSpeak(Request $request, BroadcastChannel $broadcastChannel): JsonResponse
     {
+        $this->ensureAudioChannel($broadcastChannel);
         $identity = $request->string('identity')->trim()->toString();
         if ($identity === '') {
             return response()->json(['message' => 'Missing participant identity.'], 422);
@@ -264,6 +275,7 @@ class BroadcastChannelController extends Controller
     /** Revoke a listener's speaking access (canPublish = false; auto-unpublishes). */
     public function revokeSpeak(Request $request, BroadcastChannel $broadcastChannel): JsonResponse
     {
+        $this->ensureAudioChannel($broadcastChannel);
         $identity = $request->string('identity')->trim()->toString();
         if ($identity === '') {
             return response()->json(['message' => 'Missing participant identity.'], 422);
@@ -283,6 +295,7 @@ class BroadcastChannelController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'name_bn' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
+            'description_bn' => ['nullable', 'string'],
             'station_id' => ['nullable', 'integer', 'exists:stations,id'],
             'artwork' => ArtworkService::rules(),
             'remove_artwork' => ['boolean'],
@@ -308,5 +321,10 @@ class BroadcastChannelController extends Controller
         }
 
         return $slug;
+    }
+
+    private function ensureAudioChannel(BroadcastChannel $channel): void
+    {
+        abort_unless($channel->isAudio(), 404);
     }
 }

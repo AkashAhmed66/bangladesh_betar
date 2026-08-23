@@ -134,6 +134,11 @@ class User extends Authenticatable
         return $this->hasMany(Rating::class);
     }
 
+    public function contentReactions(): HasMany
+    {
+        return $this->hasMany(ContentReaction::class);
+    }
+
     public function savedSearches(): HasMany
     {
         return $this->hasMany(SavedSearch::class);

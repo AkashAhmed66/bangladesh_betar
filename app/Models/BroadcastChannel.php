@@ -17,6 +17,10 @@ class BroadcastChannel extends Model
 {
     use Auditable, Searchable, SoftDeletes;
 
+    protected $attributes = [
+        'channel_type' => 'audio',
+    ];
+
     protected $guarded = [];
 
     protected $casts = [
@@ -54,12 +58,32 @@ class BroadcastChannel extends Model
         return $query->whereHas('sessions', fn (Builder $q) => $q->where('status', 'live'));
     }
 
+    public function scopeAudio(Builder $query): Builder
+    {
+        return $query->where('channel_type', 'audio');
+    }
+
+    public function scopeVideo(Builder $query): Builder
+    {
+        return $query->where('channel_type', 'video');
+    }
+
+    public function isAudio(): bool
+    {
+        return $this->channel_type === 'audio';
+    }
+
+    public function isVideo(): bool
+    {
+        return $this->channel_type === 'video';
+    }
+
     /* ------------------------------ search ---------------------------- */
 
     /** Live-radio channels are searchable while the channel is active. */
     public function shouldBeSearchable(): bool
     {
-        return (bool) $this->is_active;
+        return $this->isAudio() && (bool) $this->is_active;
     }
 
     public function toSearchableArray(): array
@@ -71,7 +95,7 @@ class BroadcastChannel extends Model
             'title_bn' => $this->name_bn,
             'people' => [],
             'body' => $this->description,
-            'body_bn' => null,
+            'body_bn' => $this->description_bn,
             'transcript' => null,
             'popularity' => 0,
             'published_at' => null,

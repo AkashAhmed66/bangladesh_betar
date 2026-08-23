@@ -25,8 +25,12 @@
                                help="Only active channels can go live." />
             </div>
             <div class="sm:col-span-2">
-                <x-form.textarea label="Description" name="description" :value="$channel?->description" rows="3"
+                <x-form.textarea label="Description (English)" name="description" :value="$channel?->description" rows="3"
                                  help="Shown to listeners on the public app." />
+            </div>
+            <div class="sm:col-span-2">
+                <x-form.textarea label="Description (Bangla)" name="description_bn" :value="$channel?->description_bn" rows="3"
+                                 help="Shown to listeners when Bangla is selected." />
             </div>
             <x-form.artwork-upload class="sm:col-span-2" :current-path="$channel?->artwork_path" label="Live radio image" />
         </div>

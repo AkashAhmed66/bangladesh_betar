@@ -18,7 +18,10 @@
             <x-form.input label="Name" name="name" :value="$plan->name" required />
             <x-form.input label="Name (Bangla)" name="name_bn" :value="$plan->name_bn" />
             <div class="sm:col-span-2">
-                <x-form.textarea label="Description" name="description" :value="$plan->description" rows="2" />
+                <x-form.textarea label="Description (English)" name="description" :value="$plan->description" rows="2" />
+            </div>
+            <div class="sm:col-span-2">
+                <x-form.textarea label="Description (Bangla)" name="description_bn" :value="$plan->description_bn" rows="2" />
             </div>
             <x-form.input label="Monthly price (৳)" name="price_monthly" type="number" step="0.01" :value="$plan->price_monthly" required />
             <x-form.input label="Annual price (৳)" name="price_annual" type="number" step="0.01" :value="$plan->price_annual" required />

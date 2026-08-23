@@ -19,6 +19,7 @@ class ProgrammeResource extends JsonResource
             'slug' => $this->slug,
             'programme_type' => $this->programme_type,
             'description' => $this->description,
+            'description_bn' => $this->description_bn,
             'artwork_url' => $this->artwork_path ? asset('storage/'.$this->artwork_path) : null,
             'station' => $this->whenLoaded('station', fn () => $this->station?->name),
             'category' => $this->whenLoaded('category', fn () => $this->category?->name),

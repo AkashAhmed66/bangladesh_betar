@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Enums\NewsCategory;
-use App\Enums\WatchCategory;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\NewsArticleResource;
 use App\Http\Resources\WatchShowResource;
 use App\Models\NewsArticle;
+use App\Models\NewsCategory;
+use App\Models\WatchCategory;
 use App\Models\WatchShow;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -24,27 +24,25 @@ final class PortalContentController extends Controller
         $category = $this->newsCategory($request);
         $articlesQuery = NewsArticle::query()
             ->published()
-            ->when($category, fn (Builder $query, NewsCategory $selected): Builder => $query->where('category', $selected->value));
+            ->with('portalCategory')
+            ->when($category, fn (Builder $query, NewsCategory $selected): Builder => $query->where(
+                fn (Builder $match): Builder => $match->where('news_category_id', $selected->id)->orWhere('category', $selected->name),
+            ));
 
         if ($request->string('sort')->toString() === 'latest') {
             $articlesQuery->orderByDesc('published_at')->orderByDesc('id');
         } else {
-            $articlesQuery
-                ->orderByDesc('is_featured')
-                ->orderBy('position')
-                ->orderByDesc('published_at');
+            $articlesQuery->orderByDesc('is_featured')->orderBy('position')->orderByDesc('published_at');
         }
 
-        $articles = $articlesQuery->paginate($perPage)->withQueryString();
-
-        return NewsArticleResource::collection($articles);
+        return NewsArticleResource::collection($articlesQuery->paginate($perPage)->withQueryString());
     }
 
     public function newsArticle(string $slug): NewsArticleResource
     {
-        $article = NewsArticle::query()->published()->where('slug', $slug)->firstOrFail();
-
-        return new NewsArticleResource($article);
+        return new NewsArticleResource(
+            NewsArticle::query()->published()->with(['media', 'portalCategory'])->where('slug', $slug)->firstOrFail(),
+        );
     }
 
     public function watch(Request $request): AnonymousResourceCollection
@@ -53,9 +51,11 @@ final class PortalContentController extends Controller
         $category = $this->watchCategory($request);
         $shows = WatchShow::query()
             ->published()
-            ->with('publishedEpisodes')
+            ->with(['publishedEpisodes', 'portalCategory'])
             ->withCount('publishedEpisodes')
-            ->when($category, fn (Builder $query, WatchCategory $selected): Builder => $query->where('category', $selected->value))
+            ->when($category, fn (Builder $query, WatchCategory $selected): Builder => $query->where(
+                fn (Builder $match): Builder => $match->where('watch_category_id', $selected->id)->orWhere('category', $selected->name),
+            ))
             ->orderByDesc('is_featured')
             ->orderBy('position')
             ->orderByDesc('published_at')
@@ -67,24 +67,35 @@ final class PortalContentController extends Controller
 
     public function watchShow(string $slug): WatchShowResource
     {
-        $show = WatchShow::query()
-            ->published()
-            ->with('publishedEpisodes')
-            ->withCount('publishedEpisodes')
-            ->where('slug', $slug)
-            ->firstOrFail();
+        return new WatchShowResource(
+            WatchShow::query()
+                ->published()
+                ->with(['publishedEpisodes', 'portalCategory'])
+                ->withCount('publishedEpisodes')
+                ->where('slug', $slug)
+                ->firstOrFail(),
+        );
+    }
 
-        return new WatchShowResource($show);
+    /** Public metadata for social cards; episodes and video URLs are intentionally excluded. */
+    public function watchShowPreview(string $slug): WatchShowResource
+    {
+        return new WatchShowResource(
+            WatchShow::query()
+                ->published()
+                ->with('portalCategory')
+                ->withCount('publishedEpisodes')
+                ->where('slug', $slug)
+                ->firstOrFail(),
+        );
     }
 
     public function categories(): JsonResponse
     {
-        return response()->json([
-            'data' => [
-                'news' => NewsCategory::metadata(),
-                'watch' => WatchCategory::metadata(),
-            ],
-        ]);
+        return response()->json(['data' => [
+            'news' => NewsCategory::query()->active()->orderBy('position')->get()->map(fn (NewsCategory $category): array => $this->categoryMetadata($category))->all(),
+            'watch' => WatchCategory::query()->active()->orderBy('position')->get()->map(fn (WatchCategory $category): array => $this->categoryMetadata($category))->all(),
+        ]]);
     }
 
     private function newsCategory(Request $request): ?NewsCategory
@@ -92,8 +103,7 @@ final class PortalContentController extends Controller
         if (! $request->filled('category')) {
             return null;
         }
-
-        $category = NewsCategory::fromSlug($request->string('category')->toString());
+        $category = NewsCategory::query()->active()->where('slug', $request->string('category')->toString())->first();
         abort_if($category === null, 422, 'Unknown News category.');
 
         return $category;
@@ -104,10 +114,24 @@ final class PortalContentController extends Controller
         if (! $request->filled('category')) {
             return null;
         }
-
-        $category = WatchCategory::fromSlug($request->string('category')->toString());
+        $category = WatchCategory::query()->active()->where('slug', $request->string('category')->toString())->first();
         abort_if($category === null, 422, 'Unknown Watch category.');
 
         return $category;
+    }
+
+    /** @return array{id:int, value:string, label:string, label_bn:?string, slug:string, description:?string, description_bn:?string, show_in_header:bool} */
+    private function categoryMetadata(NewsCategory|WatchCategory $category): array
+    {
+        return [
+            'id' => $category->id,
+            'value' => $category->name,
+            'label' => $category->name,
+            'label_bn' => $category->name_bn,
+            'slug' => $category->slug,
+            'description' => $category->description,
+            'description_bn' => $category->description_bn,
+            'show_in_header' => $category->show_in_header,
+        ];
     }
 }

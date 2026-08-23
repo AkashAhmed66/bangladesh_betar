@@ -7,7 +7,6 @@ namespace Database\Seeders;
 use App\Models\BroadcastChannel;
 use App\Models\Station;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Str;
 
 /**
  * M27 — a couple of ready-to-use live broadcast channels. Idempotent (keyed by
@@ -25,12 +24,21 @@ class BroadcastChannelSeeder extends Seeder
                 'name_bn' => 'বেতার লাইভ জাতীয়',
                 'slug' => 'betar-live-national',
                 'description' => 'Live national radio broadcast from Bangladesh Betar.',
+                'channel_type' => 'audio',
             ],
             [
                 'name' => 'Dhaka FM Live',
                 'name_bn' => 'ঢাকা এফএম লাইভ',
                 'slug' => 'dhaka-fm-live',
                 'description' => 'Live music and talk from the Dhaka studios.',
+                'channel_type' => 'audio',
+            ],
+            [
+                'name' => 'Betar Watch Live',
+                'name_bn' => 'বাংলাদেশ বেতার সরাসরি',
+                'slug' => 'betar-watch-live',
+                'description' => 'Live video from Bangladesh Betar studios, national events and special programmes.',
+                'channel_type' => 'video',
             ],
         ];
 
@@ -41,6 +49,7 @@ class BroadcastChannelSeeder extends Seeder
                     'name' => $data['name'],
                     'name_bn' => $data['name_bn'],
                     'description' => $data['description'],
+                    'channel_type' => $data['channel_type'],
                     'station_id' => $stationId,
                     'room_name' => 'betar-'.$data['slug'],
                     'is_active' => true,

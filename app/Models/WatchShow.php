@@ -9,7 +9,9 @@ use App\Models\Concerns\HasRecordVisibility;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 final class WatchShow extends Model
@@ -40,6 +42,16 @@ final class WatchShow extends Model
             ->where('is_published', true)
             ->orderBy('position')
             ->orderBy('id');
+    }
+
+    public function approvals(): MorphMany
+    {
+        return $this->morphMany(Approval::class, 'approvable');
+    }
+
+    public function portalCategory(): BelongsTo
+    {
+        return $this->belongsTo(WatchCategory::class, 'watch_category_id');
     }
 
     public function scopePublished(Builder $query): Builder

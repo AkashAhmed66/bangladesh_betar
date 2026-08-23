@@ -62,6 +62,13 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
         Route::get('news/{slug}', [V1\PortalContentController::class, 'newsArticle'])->name('news.show');
         Route::get('watch', [V1\PortalContentController::class, 'watch'])->name('watch.index');
         Route::get('watch/{slug}', [V1\PortalContentController::class, 'watchShow'])->name('watch.show');
+        Route::get('watch/{slug}/preview', [V1\PortalContentController::class, 'watchShowPreview'])->name('watch.preview');
+        Route::get('watch-live-channels', [V1\WatchLiveController::class, 'index'])->name('watch-live-channels.index');
+        Route::get('watch-live-channels/{broadcastChannel}', [V1\WatchLiveController::class, 'show'])->name('watch-live-channels.show');
+
+        // Shared like/dislike totals for every individual public portal item.
+        Route::get('reactions/{type}/{id}', [V1\ContentReactionController::class, 'show'])
+            ->where('type', '[a-z_]+')->whereNumber('id')->name('reactions.show');
 
         // Search (M06)
         Route::get('search', [V1\SearchController::class, 'search'])->name('search');
@@ -105,6 +112,7 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
         // Audio Books (M31) — list is browsable; detail (text + streams) is
         // premium-gated inside the controller.
         Route::get('audiobooks', [V1\AudioBookController::class, 'index'])->name('audiobooks.index');
+        Route::get('audiobooks/{audioBook}/preview', [V1\AudioBookController::class, 'preview'])->name('audiobooks.preview');
         Route::get('audiobooks/{audioBook}', [V1\AudioBookController::class, 'show'])->name('audiobooks.show');
 
         // Subscriptions — plans are public (M18)
@@ -134,6 +142,10 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
     Route::get('audiobooks/{audioBook}/play/{voice}', [V1\AudioBookController::class, 'play'])
         ->name('audiobooks.play')->middleware('signed');
 
+    // Watch episode video — capability URL minted only for Premium members or admin previews.
+    Route::get('watch-episodes/{watchEpisode}/play', V1\WatchEpisodePlaybackController::class)
+        ->name('watch-episodes.play')->middleware('signed');
+
     // Ad creative audio for pre-roll slots (public — referenced by audio_url
     // in the ad descriptor returned by GET /assets/{asset}/stream)
     Route::get('ads/{adCampaign}/audio', [V1\PlaybackController::class, 'adAudio'])->name('ads.audio');
@@ -144,6 +156,11 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
      |--------------------------------------------------------------------
      */
     Route::middleware('auth:sanctum')->group(function (): void {
+
+        // Betar Watch / OTT — playable show details and live video are Premium-only.
+        Route::middleware('premium')->group(function (): void {
+            Route::post('watch-live-channels/{broadcastChannel}/token', [V1\WatchLiveController::class, 'token'])->name('watch-live-channels.token');
+        });
 
         // Library — playlists, favourites, follows, history, queue (M17)
         Route::get('me/playlists', [V1\LibraryController::class, 'playlists'])->name('playlists.index');
@@ -179,6 +196,8 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
         Route::delete('comments/{comment}', [V1\EngagementController::class, 'deleteComment'])->name('comments.destroy');
         Route::post('assets/{asset}/rate', [V1\EngagementController::class, 'rate'])->name('rate');
         Route::post('reports', [V1\EngagementController::class, 'report'])->name('reports.store');
+        Route::put('reactions/{type}/{id}', [V1\ContentReactionController::class, 'update'])
+            ->where('type', '[a-z_]+')->whereNumber('id')->name('reactions.update');
 
         // The listener's own Community Inbox — track status of what they sent (M26)
         Route::get('me/submissions', [V1\EngagementController::class, 'mySubmissions'])->name('submissions.index');

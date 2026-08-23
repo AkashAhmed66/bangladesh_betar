@@ -18,6 +18,7 @@ class PlaylistResource extends JsonResource
             'title_bn' => $this->title_bn,
             'slug' => $this->slug,
             'description' => $this->description,
+            'description_bn' => $this->description_bn,
             'artwork_url' => $this->artwork_path ? asset('storage/'.$this->artwork_path) : null,
             'is_editorial' => (bool) $this->is_editorial,
             'is_owner' => $this->when($request->user() !== null, fn () => $request->user()?->id === $this->user_id),

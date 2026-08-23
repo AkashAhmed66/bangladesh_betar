@@ -93,6 +93,7 @@ class AlbumController extends Controller
             'album_type' => ['required', Rule::in(['album', 'film', 'compilation', 'single'])],
             'year' => ['nullable', 'integer', 'min:1900', 'max:'.(date('Y') + 1)],
             'description' => ['nullable', 'string'],
+            'description_bn' => ['nullable', 'string'],
             'artwork' => ArtworkService::rules(),
             'remove_artwork' => ['boolean'],
             'is_published' => ['boolean'],

@@ -49,14 +49,18 @@ class LibraryController extends Controller
     {
         $data = $request->validate([
             'title' => ['required', 'string', 'max:255'],
+            'title_bn' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
+            'description_bn' => ['nullable', 'string'],
             'is_public' => ['boolean'],
         ]);
 
         $playlist = $request->user()->playlists()->create([
             'title' => $data['title'],
+            'title_bn' => $data['title_bn'] ?? null,
             'slug' => Str::slug($data['title']).'-'.Str::lower(Str::random(5)),
             'description' => $data['description'] ?? null,
+            'description_bn' => $data['description_bn'] ?? null,
             'is_public' => (bool) ($data['is_public'] ?? false),
             'is_published' => false,
             'is_editorial' => false,
@@ -71,7 +75,9 @@ class LibraryController extends Controller
 
         $playlist->update($request->validate([
             'title' => ['sometimes', 'string', 'max:255'],
+            'title_bn' => ['sometimes', 'nullable', 'string', 'max:255'],
             'description' => ['sometimes', 'nullable', 'string'],
+            'description_bn' => ['sometimes', 'nullable', 'string'],
             'is_public' => ['sometimes', 'boolean'],
         ]));
 

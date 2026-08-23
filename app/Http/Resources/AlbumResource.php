@@ -21,6 +21,7 @@ class AlbumResource extends JsonResource
             'year' => $this->year,
             'artwork_url' => $this->artwork_path ? asset('storage/'.$this->artwork_path) : null,
             'description' => $this->description,
+            'description_bn' => $this->description_bn,
             'artists' => ArtistResource::collection($this->whenLoaded('artists')),
             'tracks_count' => $this->when($this->songs_count !== null, $this->songs_count),
             'tracks' => SongResource::collection($this->whenLoaded('songs')),

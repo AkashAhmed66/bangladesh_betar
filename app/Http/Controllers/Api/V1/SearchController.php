@@ -122,7 +122,7 @@ class SearchController extends Controller
                 $this->ordered(PodcastEpisode::query()->published()->with('channel')->whereNotNull('audio_asset_id'), $ids),
             )]],
             'live_radio' => fn (array $ids) => ['live_radios' => ['data' => LiveChannelResource::collection(
-                $this->ordered(BroadcastChannel::query()->where('is_active', true)->with(['station', 'liveSession.broadcaster']), $ids),
+                $this->ordered(BroadcastChannel::query()->audio()->where('is_active', true)->with(['station', 'liveSession.broadcaster']), $ids),
             )]],
             'audio_book' => fn (array $ids) => ['audiobooks' => ['data' => AudioBookResource::collection(
                 $this->ordered(AudioBook::query()->published()->with('user'), $ids),
@@ -248,7 +248,7 @@ class SearchController extends Controller
 
         if ($wants('live_radio')) {
             $results['live_radios'] = ['data' => LiveChannelResource::collection(
-                BroadcastChannel::query()->where('is_active', true)->with(['station', 'liveSession.broadcaster'])
+                BroadcastChannel::query()->audio()->where('is_active', true)->with(['station', 'liveSession.broadcaster'])
                     ->where(fn ($w) => $w->where('name', 'like', $like)->orWhere('name_bn', 'like', $like)->orWhere('description', 'like', $like))
                     ->take(20)->get(),
             )];

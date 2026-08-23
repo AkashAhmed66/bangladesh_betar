@@ -98,6 +98,7 @@ class PodcastChannelController extends Controller
             'title' => ['required', 'string', 'max:255'],
             'title_bn' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
+            'description_bn' => ['nullable', 'string'],
             'artwork' => ArtworkService::rules(),
             'remove_artwork' => ['boolean'],
             'category_id' => ['nullable', 'exists:categories,id'],

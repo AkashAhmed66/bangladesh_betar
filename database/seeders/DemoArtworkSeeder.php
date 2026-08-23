@@ -44,7 +44,7 @@ class DemoArtworkSeeder extends Seeder
             'artist photos' => $this->fillMissing(Artist::query(), 'photo_path', self::ARTWORK['artists']),
             'artist covers' => $this->fillMissing(Artist::query(), 'cover_path', self::ARTWORK['artists']),
             'audiobooks' => $this->fillMissing(AudioBook::query(), 'artwork_path', self::ARTWORK['audiobooks']),
-            'live radio' => $this->fillMissing(BroadcastChannel::query(), 'artwork_path', self::ARTWORK['live-radio']),
+            'live radio' => $this->fillMissing(BroadcastChannel::query()->audio(), 'artwork_path', self::ARTWORK['live-radio']),
             'playlists' => $this->fillMissing(Playlist::query(), 'artwork_path', self::ARTWORK['playlists']),
             'podcasts' => $this->fillMissing(PodcastChannel::query(), 'artwork_path', self::ARTWORK['podcasts']),
             'programmes' => $this->fillMissing(Programme::query(), 'artwork_path', self::ARTWORK['programmes']),

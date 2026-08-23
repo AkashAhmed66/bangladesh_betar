@@ -7,32 +7,42 @@
     </button>
 
     {{-- Desktop collapse toggle --}}
-    <button @click="$store.ui.toggleSidebar()" class="btn-ghost hidden p-2 lg:inline-flex" title="Toggle sidebar">
+    <button @click="$store.ui.toggleSidebar()" class="btn-ghost hidden p-2 lg:inline-flex" title="{{ __('Toggle sidebar') }}">
         <x-icon name="menu" class="size-5" />
     </button>
 
     <div class="min-w-0 flex-1">
-        <h1 class="truncate text-sm font-semibold text-slate-900 dark:text-white sm:text-base">@yield('title', 'Dashboard')</h1>
+        <h1 class="truncate text-sm font-semibold text-slate-900 dark:text-white sm:text-base">{{ __($__env->yieldContent('title', 'Dashboard')) }}</h1>
     </div>
 
     {{-- Colour mode switch --}}
     <div x-data="{ open: false }" class="relative">
-        <button @click="open = !open" class="btn-ghost p-2" title="Colour mode">
+        <button @click="open = !open" class="btn-ghost p-2" title="{{ __('Colour mode') }}">
             <x-icon name="sun" class="size-5 dark:hidden" />
             <x-icon name="moon" class="size-5 hidden dark:block" />
         </button>
         <div x-show="open" @click.outside="open = false" x-transition.origin.top.right class="dropdown-panel w-40 max-w-[calc(100vw-1.5rem)]" x-cloak>
             <button @click="$store.ui.setMode('light'); open = false" class="dropdown-item" :class="$store.ui.mode === 'light' && 'text-primary-700 dark:text-primary-300'">
-                <x-icon name="sun" class="size-4" /> Light
+                <x-icon name="sun" class="size-4" /> {{ __('Light') }}
             </button>
             <button @click="$store.ui.setMode('dark'); open = false" class="dropdown-item" :class="$store.ui.mode === 'dark' && 'text-primary-700 dark:text-primary-300'">
-                <x-icon name="moon" class="size-4" /> Dark
+                <x-icon name="moon" class="size-4" /> {{ __('Dark') }}
             </button>
             <button @click="$store.ui.setMode('system'); open = false" class="dropdown-item" :class="$store.ui.mode === 'system' && 'text-primary-700 dark:text-primary-300'">
-                <x-icon name="computer" class="size-4" /> System
+                <x-icon name="computer" class="size-4" /> {{ __('System') }}
             </button>
         </div>
     </div>
+
+    {{-- Persistent language switch. The same user preference is used by profile and API responses. --}}
+    <form method="POST" action="{{ route('admin.locale.update') }}" class="shrink-0">
+        @csrf
+        <input type="hidden" name="locale" value="{{ app()->getLocale() === 'bn' ? 'en' : 'bn' }}">
+        <button type="submit" class="btn-ghost min-h-10 gap-1.5 px-2 text-xs font-bold sm:px-3" title="{{ __('Language') }}">
+            <x-icon name="globe" class="size-4" />
+            <span class="hidden sm:inline">{{ app()->getLocale() === 'bn' ? 'English' : 'বাংলা' }}</span>
+        </button>
+    </form>
 
     {{-- Notifications (M30) — approval stages, AI moderation and rights events --}}
     @php
@@ -40,7 +50,7 @@
         $recentNotifications = auth()->user()->notifications()->take(8)->get();
     @endphp
     <div x-data="{ open: false }" class="relative">
-        <button @click="open = !open" class="btn-ghost relative p-2" title="Notifications">
+        <button @click="open = !open" class="btn-ghost relative p-2" title="{{ __('Notifications') }}">
             <x-icon name="bell" class="size-5" />
             <span id="notif-badge"
                   class="absolute -top-0.5 -right-0.5 flex size-4.5 items-center justify-center rounded-full bg-accent-600 text-[10px] font-bold text-white {{ $unreadCount > 0 ? '' : 'hidden' }}">
@@ -49,10 +59,10 @@
         </button>
         <div x-show="open" @click.outside="open = false" x-transition.origin.top.right class="dropdown-panel w-96 max-w-[calc(100vw-1.5rem)] p-0" x-cloak>
             <div class="flex items-center justify-between border-b border-slate-100 px-4 py-2.5 dark:border-slate-700">
-                <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">Notifications</p>
+                <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">{{ __('Notifications') }}</p>
                 @if ($unreadCount > 0)
                     <form method="POST" action="{{ route('admin.notifications.read-all') }}">@csrf
-                        <button type="submit" class="text-xs font-medium text-primary-700 hover:underline dark:text-primary-300">Mark all read</button>
+                        <button type="submit" class="text-xs font-medium text-primary-700 hover:underline dark:text-primary-300">{{ __('Mark all read') }}</button>
                     </form>
                 @endif
             </div>
@@ -62,18 +72,18 @@
                        class="block border-b border-slate-50 px-4 py-2.5 transition hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/60 {{ $n->read_at ? 'opacity-60' : '' }}">
                         <p class="flex items-start gap-2 text-sm">
                             @unless ($n->read_at)<span class="mt-1.5 size-2 shrink-0 rounded-full bg-accent-600"></span>@endunless
-                            <span class="font-medium text-slate-800 dark:text-slate-100">{{ $n->data['title'] ?? 'Notification' }}</span>
+                            <span class="font-medium text-slate-800 dark:text-slate-100">{{ __($n->data['title'] ?? 'Notification') }}</span>
                         </p>
-                        <p class="clamp-2 mt-0.5 text-xs text-slate-500 dark:text-slate-400">{{ $n->data['message'] ?? '' }}</p>
+                        <p class="clamp-2 mt-0.5 text-xs text-slate-500 dark:text-slate-400">{{ __($n->data['message'] ?? '') }}</p>
                         <p class="mt-0.5 text-[11px] text-slate-400">{{ $n->created_at->diffForHumans() }}</p>
                     </a>
                 @empty
-                    <p class="px-4 py-6 text-center text-sm text-slate-400">No notifications yet.</p>
+                    <p class="px-4 py-6 text-center text-sm text-slate-400">{{ __('No notifications yet.') }}</p>
                 @endforelse
             </div>
             @can('notifications.view')
                 <a href="{{ route('admin.notifications.index') }}" class="block border-t border-slate-100 px-4 py-2.5 text-center text-sm font-medium text-primary-700 hover:bg-slate-50 dark:border-slate-700 dark:text-primary-300 dark:hover:bg-slate-800/60">
-                    View all notifications
+                    {{ __('View all notifications') }}
                 </a>
             @endcan
         </div>
@@ -102,12 +112,12 @@
                 <p class="truncate text-xs text-slate-500 dark:text-slate-400">{{ $me->email }}</p>
             </div>
             <a href="{{ route('admin.profile.edit') }}" class="dropdown-item mt-1 w-full">
-                <x-icon name="user-circle" class="size-4" /> My Profile
+                <x-icon name="user-circle" class="size-4" /> {{ __('My Profile') }}
             </a>
             <form method="POST" action="{{ route('admin.logout') }}">
                 @csrf
                 <button type="submit" class="dropdown-item w-full text-rose-600 dark:text-rose-400">
-                    <x-icon name="logout" class="size-4" /> Sign out
+                    <x-icon name="logout" class="size-4" /> {{ __('Sign out') }}
                 </button>
             </form>
         </div>

@@ -9,8 +9,12 @@ use App\Models\Approval;
 use App\Models\ApprovalAction;
 use App\Models\AudioAsset;
 use App\Models\AudioBook;
+use App\Models\NewsArticle;
 use App\Models\RightsRecord;
+use App\Models\WatchShow;
+use App\Services\EditorialApprovalService;
 use App\Support\Notify;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -21,6 +25,8 @@ use Illuminate\View\View;
  */
 class ApprovalController extends Controller
 {
+    public function __construct(private readonly EditorialApprovalService $editorialApprovals) {}
+
     public function index(Request $request): View
     {
         $user = $request->user();
@@ -40,8 +46,9 @@ class ApprovalController extends Controller
         }
 
         $approvals = Approval::query()
+            ->whereNotIn('approvable_type', ['news_article', 'watch_show'])
             ->when($scope === 'queue', fn ($q) => $q->where('submitted_by', $user->id))
-            ->when($scope === 'approvals', fn ($q) => $q->whereHas(
+            ->when($scope === 'approvals' && ! $user->hasRole('Super Administrator'), fn ($q) => $q->whereHas(
                 'currentStage',
                 fn ($s) => $s->whereIn('approver_role', $user->getRoleNames()->all()),
             ))
@@ -87,7 +94,28 @@ class ApprovalController extends Controller
             default => collect(),
         };
 
-        return view('admin.approvals.index', compact('approvals', 'scope', 'aiItems', 'rightsItems', 'bookItems'));
+        $editorialItems = function (string $type) use ($scope, $user) {
+            return Approval::query()
+                ->where('approvable_type', $type)
+                ->when($scope === 'queue', fn (Builder $query) => $query->where('submitted_by', $user->id))
+                ->when(
+                    $scope === 'approvals' && ! $user->hasRole('Super Administrator'),
+                    fn (Builder $query) => $query->whereHas(
+                        'currentStage',
+                        fn (Builder $stage) => $stage->whereIn('approver_role', $user->getRoleNames()->all()),
+                    ),
+                )
+                ->with(['approvable', 'workflow', 'currentStage', 'submitter'])
+                ->orderByRaw("(status in ('pending', 'changes_requested')) desc")
+                ->orderByDesc('submitted_at')
+                ->take(50)
+                ->get();
+        };
+
+        $newsItems = $editorialItems('news_article');
+        $watchItems = $editorialItems('watch_show');
+
+        return view('admin.approvals.index', compact('approvals', 'scope', 'aiItems', 'rightsItems', 'bookItems', 'newsItems', 'watchItems'));
     }
 
     public function show(Approval $approval): View
@@ -118,12 +146,21 @@ class ApprovalController extends Controller
                 'latestAiAnalysisJob.reviewer',
             ]);
         }
+        if ($approval->approvable instanceof WatchShow) {
+            $approval->approvable->load('episodes');
+        }
+        if ($approval->approvable instanceof NewsArticle) {
+            $approval->approvable->load('media');
+        }
 
         return view('admin.approvals.show', compact('approval'));
     }
 
     public function act(Request $request, Approval $approval): RedirectResponse
     {
+        $approval->loadMissing(['currentStage', 'workflow', 'submitter', 'approvable']);
+        abort_unless($approval->isActionableBy($request->user()), 403, 'This approval is not assigned to your role.');
+
         $data = $request->validate([
             'action' => ['required', Rule::in(['approve', 'reject', 'request_changes'])],
             'comments' => ['nullable', 'string', 'required_if:action,reject', 'required_if:action,request_changes'],
@@ -132,6 +169,12 @@ class ApprovalController extends Controller
 
         if (! in_array($approval->status, ['pending', 'changes_requested'], true)) {
             return back()->with('error', 'This approval has already been completed.');
+        }
+
+        if (($approval->approvable instanceof NewsArticle || $approval->approvable instanceof WatchShow)
+            && $approval->submitted_by === $request->user()->id
+            && ! $request->user()->hasRole('Super Administrator')) {
+            return back()->with('error', 'Editorial content must be approved by a different authorised reviewer.');
         }
 
         $stage = $approval->currentStage;
@@ -152,13 +195,20 @@ class ApprovalController extends Controller
 
         $actor = $request->user();
         $title = $asset?->title ?? 'Item #'.$approval->approvable_id;
+        if ($approval->approvable instanceof NewsArticle || $approval->approvable instanceof WatchShow) {
+            $title = $approval->approvable->title;
+        }
         $showUrl = route('admin.approvals.show', $approval);
+        $contentUrl = $asset
+            ? route('admin.assets.show', $asset)
+            : $this->editorialApprovals->reviewUrl($approval->approvable);
 
         if ($data['action'] === 'approve') {
             $next = $stage?->next();
 
             if ($next) {
                 $approval->update(['current_stage_id' => $next->id]);
+                $this->editorialApprovals->applyDecision($approval, 'approve', false);
                 $message = "Approved. Advanced to stage: {$next->name}.";
 
                 // Stage change: tell the submitter where it stands, and the
@@ -175,31 +225,37 @@ class ApprovalController extends Controller
             } else {
                 $approval->update(['status' => 'approved', 'completed_at' => now()]);
                 $asset?->update(['status' => 'approved']);
+                $this->editorialApprovals->applyDecision($approval, 'approve', true);
                 $message = 'Approved. Workflow complete.';
 
+                $completionMessage = $asset
+                    ? "\"{$title}\" is fully approved. Next: submit the copyright documents from the asset record."
+                    : "\"{$title}\" is fully approved and ready for an authorised publisher to publish.";
                 Notify::user($approval->submitter?->is($actor) ? null : $approval->submitter, 'approved',
                     'Approval complete',
-                    "“{$title}” is fully approved. Next: use “Submit for Rights” on the asset to file the copyright documents.",
-                    $asset ? route('admin.assets.show', $asset) : $showUrl);
+                    $completionMessage,
+                    $contentUrl);
             }
         } elseif ($data['action'] === 'reject') {
             $approval->update(['status' => 'rejected', 'completed_at' => now()]);
             $asset?->update(['status' => 'rejected']);
+            $this->editorialApprovals->applyDecision($approval, 'reject', true);
             $message = 'Approval rejected.';
 
             Notify::user($approval->submitter?->is($actor) ? null : $approval->submitter, 'rejected',
                 'Submission rejected',
                 "“{$title}” was rejected at stage “{$stage?->name}”".($data['comments'] ? ': '.$data['comments'] : '.'),
-                $showUrl);
+                $contentUrl);
         } else {
             $approval->update(['status' => 'changes_requested']);
             $asset?->update(['status' => 'draft']);
+            $this->editorialApprovals->applyDecision($approval, 'request_changes', false);
             $message = 'Changes requested from the submitter.';
 
             Notify::user($approval->submitter?->is($actor) ? null : $approval->submitter, 'changes_requested',
                 'Changes requested',
                 "“{$title}”: ".($data['comments'] ?: 'changes were requested')." — update it and resubmit for approval.",
-                $asset ? route('admin.assets.show', $asset) : $showUrl);
+                $contentUrl);
         }
 
         return back()->with('success', $message);

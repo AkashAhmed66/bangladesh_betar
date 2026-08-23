@@ -92,6 +92,7 @@ class PodcastEpisodeController extends Controller
             'title' => ['required', 'string', 'max:255'],
             'title_bn' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
+            'description_bn' => ['nullable', 'string'],
             'is_premium' => ['boolean'],
             'status' => ['required', Rule::in(['draft', 'scheduled', 'published', 'unpublished'])],
             'scheduled_at' => ['nullable', 'date'],

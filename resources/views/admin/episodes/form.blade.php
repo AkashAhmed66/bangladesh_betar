@@ -21,7 +21,8 @@
             <x-form.input label="Broadcast date" name="broadcast_date" type="date" :value="$episode?->broadcast_date?->format('Y-m-d')" />
             <x-form.input label="Duration (seconds)" name="duration_seconds" type="number" :value="$episode?->duration_seconds ?? 0" required />
             <div class="flex items-end pb-1"><x-form.toggle label="Published to public app" name="is_published" :checked="(bool) $episode?->is_published" /></div>
-            <div class="sm:col-span-2"><x-form.textarea label="Description" name="description" :value="$episode?->description" rows="3" /></div>
+            <div class="sm:col-span-2"><x-form.textarea label="Description (English)" name="description" :value="$episode?->description" rows="3" /></div>
+            <div class="sm:col-span-2"><x-form.textarea label="Description (Bangla)" name="description_bn" :value="$episode?->description_bn" rows="3" /></div>
         </div>
         <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-4 dark:border-slate-800">
             <a href="{{ route('admin.episodes.index') }}" class="btn-secondary">Cancel</a>

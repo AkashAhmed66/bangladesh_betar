@@ -61,4 +61,31 @@ class AudioBookSearchTest extends TestCase
         $this->assertSame($book->text, $book->toSearchableArray()['body']);
         $this->assertSame([$author->name], $book->toSearchableArray()['people']);
     }
+
+    public function test_social_preview_exposes_published_metadata_without_premium_content(): void
+    {
+        config(['scout.driver' => 'null']);
+
+        $author = User::factory()->create(['name' => 'Betar Narrator']);
+        $book = AudioBook::withoutSyncingToSearch(fn () => AudioBook::query()->create([
+            'user_id' => $author->id,
+            'title' => 'A Public Preview',
+            'language' => 'en',
+            'source_type' => 'text',
+            'text' => 'Premium read-along text must remain private.',
+            'characters' => 44,
+            'status' => 'published',
+            'published_at' => now(),
+        ]));
+
+        $this->getJson(route('api.v1.audiobooks.preview', $book))
+            ->assertOk()
+            ->assertJsonPath('data.title', 'A Public Preview')
+            ->assertJsonPath('data.author', 'Betar Narrator')
+            ->assertJsonMissingPath('data.text')
+            ->assertJsonMissingPath('data.streams');
+
+        $book->update(['status' => 'unpublished']);
+        $this->getJson(route('api.v1.audiobooks.preview', $book))->assertNotFound();
+    }
 }

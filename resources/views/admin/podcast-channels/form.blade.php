@@ -18,7 +18,8 @@
             <x-form.select label="Language" name="language_id" :value="$channel?->language_id" placeholder="—" :options="$languages->all()" />
             <x-form.select label="Owner" name="owner_id" :value="$channel?->owner_id" placeholder="—" :options="$owners->all()" help="Staff member responsible for this channel." />
             <x-form.artwork-upload class="sm:col-span-2" :current-path="$channel?->artwork_path" label="Podcast cover" />
-            <div class="sm:col-span-2"><x-form.textarea label="Description" name="description" :value="$channel?->description" rows="3" /></div>
+            <div class="sm:col-span-2"><x-form.textarea label="Description (English)" name="description" :value="$channel?->description" rows="3" /></div>
+            <div class="sm:col-span-2"><x-form.textarea label="Description (Bangla)" name="description_bn" :value="$channel?->description_bn" rows="3" /></div>
             <div class="sm:col-span-2 flex flex-wrap gap-6">
                 <x-form.toggle label="RSS feed enabled" name="rss_enabled" :checked="$channel ? (bool) $channel->rss_enabled : true" help="Expose this channel as a public RSS feed." />
                 <x-form.toggle label="Include premium episodes in RSS" name="rss_include_premium" :checked="(bool) $channel?->rss_include_premium" help="External feeds usually carry free episodes only." />

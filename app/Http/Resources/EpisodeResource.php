@@ -19,6 +19,7 @@ class EpisodeResource extends JsonResource
             'slug' => $this->slug,
             'number' => $this->number,
             'description' => $this->description,
+            'description_bn' => $this->description_bn,
             'programme' => $this->whenLoaded('programme', fn () => $this->programme?->title),
             'programme_id' => $this->programme_id,
             'audio_asset_id' => $this->audio_asset_id,

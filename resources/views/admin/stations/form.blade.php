@@ -17,7 +17,8 @@
             <x-form.input label="Frequency" name="frequency" :value="$station?->frequency" help="e.g. 693 kHz / 104.0 FM" />
             <x-form.input label="Location" name="location" :value="$station?->location" />
             <div class="flex items-end pb-1"><x-form.toggle label="Active" name="is_active" :checked="$station ? (bool) $station->is_active : true" /></div>
-            <div class="sm:col-span-2"><x-form.textarea label="Description" name="description" :value="$station?->description" rows="3" /></div>
+            <div class="sm:col-span-2"><x-form.textarea label="Description (English)" name="description" :value="$station?->description" rows="3" /></div>
+            <div class="sm:col-span-2"><x-form.textarea label="Description (Bangla)" name="description_bn" :value="$station?->description_bn" rows="3" /></div>
         </div>
         <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-4 dark:border-slate-800">
             <a href="{{ route('admin.stations.index') }}" class="btn-secondary">Cancel</a>

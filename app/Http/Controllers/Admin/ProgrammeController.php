@@ -99,6 +99,7 @@ class ProgrammeController extends Controller
             'station_id' => ['nullable', 'exists:stations,id'],
             'category_id' => ['nullable', 'exists:categories,id'],
             'description' => ['nullable', 'string'],
+            'description_bn' => ['nullable', 'string'],
             'artwork' => ArtworkService::rules(),
             'remove_artwork' => ['boolean'],
             'is_published' => ['boolean'],

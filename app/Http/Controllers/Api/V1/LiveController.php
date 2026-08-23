@@ -25,6 +25,7 @@ class LiveController extends Controller
     public function index(): JsonResponse
     {
         $channels = BroadcastChannel::query()
+            ->audio()
             ->live()
             ->where('is_active', true)
             ->with(['station', 'liveSession.broadcaster'])
@@ -38,6 +39,7 @@ class LiveController extends Controller
     /** A single channel (whether or not it is live). */
     public function show(BroadcastChannel $broadcastChannel): JsonResponse
     {
+        abort_unless($broadcastChannel->isAudio(), 404);
         $broadcastChannel->load(['station', 'liveSession.broadcaster']);
 
         return response()->json([
@@ -48,6 +50,7 @@ class LiveController extends Controller
     /** Issue a subscribe-only LiveKit token for a currently-live channel. */
     public function token(Request $request, BroadcastChannel $broadcastChannel): JsonResponse
     {
+        abort_unless($broadcastChannel->isAudio(), 404);
         if (! $broadcastChannel->isLive()) {
             return response()->json(['message' => 'This channel is not live right now.'], 404);
         }
@@ -64,6 +67,7 @@ class LiveController extends Controller
     /** Listener asks the broadcaster for permission to speak (raise hand). */
     public function raiseHand(Request $request, BroadcastChannel $broadcastChannel): JsonResponse
     {
+        abort_unless($broadcastChannel->isAudio(), 404);
         if (! $broadcastChannel->isLive()) {
             return response()->json(['message' => 'This channel is not live right now.'], 404);
         }
@@ -86,6 +90,7 @@ class LiveController extends Controller
     /** Listener withdraws a pending raise-hand request. */
     public function lowerHand(Request $request, BroadcastChannel $broadcastChannel): JsonResponse
     {
+        abort_unless($broadcastChannel->isAudio(), 404);
         $identity = $request->string('identity')->trim()->toString();
         if ($identity !== '') {
             SpeakRequestStore::remove($broadcastChannel->room_name, $identity);

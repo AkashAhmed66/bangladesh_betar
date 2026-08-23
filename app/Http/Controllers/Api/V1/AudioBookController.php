@@ -42,6 +42,16 @@ class AudioBookController extends Controller
         return response()->json(['data' => (new AudioBookResource($audioBook))->resolve()]);
     }
 
+    /** Public, metadata-only shape used by social link preview crawlers. */
+    public function preview(AudioBook $audioBook): JsonResponse
+    {
+        abort_unless($audioBook->status === 'published', 404);
+
+        $audioBook->load('user');
+
+        return response()->json(['data' => (new AudioBookResource($audioBook))->resolve()]);
+    }
+
     /** Signed, expiring stream — issued only to premium accounts via show(). */
     public function play(Request $request, AudioBook $audioBook, string $voice): BinaryFileResponse
     {

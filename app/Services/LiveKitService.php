@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
- * LiveKit integration for live audio broadcasting (M27).
+ * LiveKit integration for live audio and video broadcasting.
  *
  * LiveKit access tokens are plain HS256 JWTs whose `video` claim carries the
  * grant. We mint them by hand (hash_hmac) so no extra composer dependency is
@@ -58,7 +58,9 @@ class LiveKitService
     }
 
     /**
-     * Token allowing a broadcaster to publish (mic) into the channel's room.
+     * Token allowing a broadcaster to publish microphone, camera or screen
+     * tracks into the channel's room. The studio determines which tracks are
+     * created for an audio or video channel.
      *
      * @return array{ws_url:string, token:string, room:string}
      */

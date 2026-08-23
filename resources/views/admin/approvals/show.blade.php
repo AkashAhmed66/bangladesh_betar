@@ -11,11 +11,15 @@
         'correction_requested' => ['label' => 'Changes requested', 'icon' => 'arrow-path', 'color' => 'amber'],
         'escalated' => ['label' => 'Escalated', 'icon' => 'exclamation', 'color' => 'amber'],
     ];
-    $canAct = in_array($approval->status, ['pending', 'changes_requested'], true);
+    $canAct = $approval->isActionableBy(auth()->user());
 @endphp
 
 @section('content')
-@php $reviewAsset = $approval->approvable instanceof \App\Models\AudioAsset ? $approval->approvable : null; @endphp
+@php
+    $reviewAsset = $approval->approvable instanceof \App\Models\AudioAsset ? $approval->approvable : null;
+    $reviewNews = $approval->approvable instanceof \App\Models\NewsArticle ? $approval->approvable : null;
+    $reviewShow = $approval->approvable instanceof \App\Models\WatchShow ? $approval->approvable : null;
+@endphp
 <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
     <div class="min-w-0">
         <div class="flex flex-wrap items-center gap-2">
@@ -31,6 +35,11 @@
             @can('assets.view')
                 <a href="{{ route('admin.assets.show', $reviewAsset) }}" class="btn-accent"><x-icon name="archive" class="size-4" /> Open Asset Record</a>
             @endcan
+        @endif
+        @if ($reviewNews)
+            <a href="{{ route('admin.news-articles.edit', $reviewNews) }}" class="btn-accent"><x-icon name="document-text" class="size-4" /> Open Article</a>
+        @elseif ($reviewShow)
+            <a href="{{ route('admin.watch-shows.edit', $reviewShow) }}" class="btn-accent"><x-icon name="play" class="size-4" /> Open Show</a>
         @endif
         <a href="{{ route('admin.approvals.index') }}" class="btn-secondary"><x-icon name="chevron-left" class="size-4" /> Back to Queue</a>
     </div>
@@ -85,6 +94,43 @@
 
 <div class="grid grid-cols-1 gap-6 xl:grid-cols-3">
     <div class="space-y-6 xl:col-span-2">
+
+        @if ($reviewNews)
+            <article class="card overflow-hidden">
+                @if ($reviewNews->image_path)<img src="{{ asset('storage/'.$reviewNews->image_path) }}" alt="" class="aspect-video w-full object-cover">@endif
+                <div class="card-body">
+                    <div class="flex flex-wrap gap-2"><span class="badge-slate">{{ $reviewNews->category }}</span>@if($reviewNews->is_featured)<span class="badge-amber">Featured</span>@endif<span class="badge-slate">{{ $reviewNews->read_time_minutes }} min read</span></div>
+                    <h3 class="mt-4 text-2xl font-semibold text-slate-900 dark:text-white">{{ $reviewNews->title }}</h3>
+                    <p class="mt-2 text-sm font-medium text-slate-600 dark:text-slate-300">{{ $reviewNews->summary }}</p>
+                    @if ($reviewNews->media->isNotEmpty())
+                        <div class="mt-5 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+                            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Supporting media · {{ $reviewNews->media->count() }} files</p>
+                            <div class="mt-3 grid gap-2 sm:grid-cols-2">
+                                @foreach ($reviewNews->media as $media)
+                                    <a href="{{ $media->media_type === 'youtube' ? $media->path : asset('storage/'.$media->path) }}" target="_blank" rel="noopener" class="flex items-center gap-3 rounded-lg bg-slate-50 px-3 py-2 text-sm transition hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700">
+                                        <span class="badge-slate capitalize">{{ $media->media_type }}</span>
+                                        <span class="min-w-0 flex-1 truncate text-slate-600 dark:text-slate-300">{{ $media->original_name }}</span>
+                                    </a>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+                    <div class="mt-5 space-y-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300">@foreach($reviewNews->body ?? [] as $paragraph)<p>{{ $paragraph }}</p>@endforeach</div>
+                </div>
+            </article>
+        @elseif ($reviewShow)
+            <article class="card overflow-hidden">
+                @if ($reviewShow->image_path)<img src="{{ asset('storage/'.$reviewShow->image_path) }}" alt="" class="aspect-video w-full object-cover">@endif
+                <div class="card-body">
+                    <div class="flex flex-wrap gap-2"><span class="badge-slate">{{ $reviewShow->category }}</span>@if($reviewShow->is_featured)<span class="badge-amber">Featured</span>@endif<span class="badge-slate">{{ $reviewShow->year ?: 'Year unset' }}</span></div>
+                    <h3 class="mt-4 text-2xl font-semibold text-slate-900 dark:text-white">{{ $reviewShow->title }}</h3>
+                    <p class="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{{ $reviewShow->description }}</p>
+                    <div class="mt-5 divide-y divide-slate-100 border-y border-slate-100 dark:divide-slate-800 dark:border-slate-800">
+                        @forelse($reviewShow->episodes as $episode)<div class="flex items-center justify-between gap-4 py-3"><div><p class="text-sm font-medium text-slate-800 dark:text-slate-100">Episode {{ $episode->position }} · {{ $episode->title }}</p><p class="text-xs text-slate-400">{{ $episode->video_path ? 'Video uploaded' : 'No video' }}</p></div><span class="text-xs text-slate-500">{{ $episode->duration_minutes }} min</span></div>@empty<p class="py-4 text-sm text-slate-400">No episodes.</p>@endforelse
+                    </div>
+                </div>
+            </article>
+        @endif
 
         {{-- Summary --}}
         <div class="card">

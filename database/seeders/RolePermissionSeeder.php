@@ -34,8 +34,8 @@ class RolePermissionSeeder extends Seeder
         'programmes' => ['view', 'manage'],
         'episodes' => ['view', 'manage'],
         'podcasts' => ['view', 'manage'],
-        'news' => ['view', 'manage'],
-        'watch' => ['view', 'manage'],
+        'news' => ['view', 'manage', 'publish'],
+        'watch' => ['view', 'manage', 'publish', 'broadcast'],
         'editing' => ['view', 'use'],
         'workflows' => ['view', 'manage'],
         'approvals' => ['view', 'act'],
@@ -80,7 +80,7 @@ class RolePermissionSeeder extends Seeder
 
         'Broadcaster' => [ // Goes on air with live audio channels (M27)
             'dashboard.view', 'broadcasts.view', 'broadcasts.broadcast',
-            'assets.view', 'notifications.view',
+            'watch.view', 'watch.broadcast', 'assets.view', 'notifications.view',
         ],
 
         'Archivist' => [ // Audio Archivist / Digitization Operator
@@ -135,7 +135,7 @@ class RolePermissionSeeder extends Seeder
         'Approver' => [ // Management
             'dashboard.view', 'approvals.*', 'workflows.view', 'assets.view', 'assets.publish',
             'subscriptions.view', 'payments.view', 'ads.reports', 'notifications.view',
-            'audiobooks.*',
+            'audiobooks.*', 'news.view', 'news.publish', 'watch.view', 'watch.publish',
         ],
 
         'Researcher' => [

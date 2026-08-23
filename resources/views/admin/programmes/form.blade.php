@@ -19,7 +19,8 @@
             <x-form.select label="Category" name="category_id" :value="$programme?->category_id" placeholder="—" :options="$categories->all()" />
             <div class="flex items-end pb-1"><x-form.toggle label="Published to public app" name="is_published" :checked="(bool) $programme?->is_published" /></div>
             <x-form.artwork-upload class="sm:col-span-2" :current-path="$programme?->artwork_path" label="Programme image" />
-            <div class="sm:col-span-2"><x-form.textarea label="Description" name="description" :value="$programme?->description" rows="3" /></div>
+            <div class="sm:col-span-2"><x-form.textarea label="Description (English)" name="description" :value="$programme?->description" rows="3" /></div>
+            <div class="sm:col-span-2"><x-form.textarea label="Description (Bangla)" name="description_bn" :value="$programme?->description_bn" rows="3" /></div>
         </div>
         <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-4 dark:border-slate-800">
             <a href="{{ route('admin.programmes.index') }}" class="btn-secondary">Cancel</a>

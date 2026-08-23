@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'Dashboard') — {{ \App\Support\Theme::brand('name') }}</title>
+    <title>{{ __($__env->yieldContent('title', 'Dashboard')) }} — {{ \App\Support\Theme::brand('name') }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600&display=swap" rel="stylesheet">
@@ -60,11 +60,11 @@
             </div>
             <div class="brand-text min-w-0">
                 <p class="truncate text-sm font-semibold text-white">{{ \App\Support\Theme::brand('name') }}</p>
-                <p class="truncate text-[11px] text-slate-400">Admin Portal</p>
+                <p class="truncate text-[11px] text-slate-400">{{ __('Admin Portal') }}</p>
             </div>
             <button type="button" @click="$store.ui.sidebarOpenMobile = false"
                     class="ml-auto flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-white/10 hover:text-white lg:hidden"
-                    aria-label="Close navigation">
+                    aria-label="{{ __('Close navigation') }}">
                 <x-icon name="x" class="size-5" />
             </button>
         </div>
@@ -78,7 +78,7 @@
         <button @click="$store.ui.toggleSidebar()"
                 class="hidden h-11 shrink-0 items-center justify-center gap-2 border-t border-white/10 text-xs font-medium text-slate-400 hover:bg-white/5 hover:text-white lg:flex">
             <x-icon name="chevron-left" class="size-4 transition-transform" ::class="$store.ui.sidebarCollapsed ? 'rotate-180' : ''" />
-            <span class="nav-label">Collapse</span>
+            <span class="nav-label">{{ __('Collapse') }}</span>
         </button>
     </aside>
 
@@ -94,7 +94,7 @@
                      class="mb-5 flex items-start justify-between gap-3 rounded-(--radius-app) border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
                     <div class="flex items-start gap-2.5">
                         <x-icon name="check-badge" class="mt-0.5 size-4.5 shrink-0" />
-                        <span>{{ session('success') }}</span>
+                        <span>{{ __(session('success')) }}</span>
                     </div>
                     <button @click="open = false"><x-icon name="x" class="size-4" /></button>
                 </div>
@@ -105,7 +105,7 @@
                      class="mb-5 flex items-start justify-between gap-3 rounded-(--radius-app) border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
                     <div class="flex items-start gap-2.5">
                         <x-icon name="exclamation" class="mt-0.5 size-4.5 shrink-0" />
-                        <span>{{ session('error') }}</span>
+                        <span>{{ __(session('error')) }}</span>
                     </div>
                     <button @click="open = false"><x-icon name="x" class="size-4" /></button>
                 </div>
@@ -115,7 +115,7 @@
         </main>
 
         <footer class="border-t border-slate-200 px-4 py-4 text-center text-xs leading-relaxed text-slate-400 dark:border-slate-800 dark:text-slate-500 sm:px-6 sm:text-left">
-            {{ \App\Support\Theme::brand('full_name') }} · v1.1 · © {{ date('Y') }} Bangladesh Betar
+            {{ \App\Support\Theme::brand('full_name') }} · v1.1 · © {{ date('Y') }} {{ __('Bangladesh Betar') }}
         </footer>
     </div>
 </div>

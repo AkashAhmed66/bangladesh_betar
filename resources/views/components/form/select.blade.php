@@ -3,18 +3,18 @@
 <div>
     @if ($label)
         <label for="{{ $name }}" class="form-label">
-            {{ $label }} @if ($required)<span class="text-rose-500">*</span>@endif
+            {{ __($label) }} @if ($required)<span class="text-rose-500">*</span>@endif
         </label>
     @endif
     <select id="{{ $name }}" name="{{ $name }}" @if ($required) required @endif
             {{ $attributes->merge(['class' => 'form-input']) }}>
         @if ($placeholder !== null)
-            <option value="">{{ $placeholder }}</option>
+            <option value="">{{ __($placeholder) }}</option>
         @endif
         @foreach ($options as $optionValue => $optionLabel)
-            <option value="{{ $optionValue }}" @selected((string) old($name, $value) === (string) $optionValue)>{{ $optionLabel }}</option>
+            <option value="{{ $optionValue }}" @selected((string) old($name, $value) === (string) $optionValue)>{{ __($optionLabel) }}</option>
         @endforeach
     </select>
-    @if ($help)<p class="form-help">{{ $help }}</p>@endif
+    @if ($help)<p class="form-help">{{ __($help) }}</p>@endif
     @error($name)<p class="form-error">{{ $message }}</p>@enderror
 </div>

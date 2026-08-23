@@ -27,4 +27,4 @@
     $color = $map[$status] ?? 'slate';
 @endphp
 
-<span class="badge-{{ $color }}">{{ str_replace('_', ' ', ucfirst($status)) }}</span>
+<span class="badge-{{ $color }}">{{ __(str_replace('_', ' ', ucfirst($status))) }}</span>

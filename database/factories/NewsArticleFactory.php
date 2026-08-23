@@ -23,6 +23,7 @@ final class NewsArticleFactory extends Factory
             'summary' => fake()->paragraph(),
             'category' => fake()->randomElement(['Bangladesh', 'Economy', 'Climate']),
             'body' => fake()->paragraphs(3),
+            'image_path' => 'portal/demo/news-hero.png',
             'read_time_minutes' => 4,
             'is_published' => true,
             'published_at' => now(),

@@ -14,9 +14,9 @@ use RuntimeException;
 class ArtworkService
 {
     /** @return array<int, string> */
-    public static function rules(): array
+    public static function rules(bool $required = false): array
     {
-        return ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192'];
+        return [$required ? 'required' : 'nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192'];
     }
 
     public function sync(

@@ -69,7 +69,7 @@ class Episode extends Model
             'title_bn' => $this->title_bn,
             'people' => [],
             'body' => $this->description,
-            'body_bn' => null,
+            'body_bn' => $this->description_bn,
             'transcript' => $asset?->transcripts->pluck('full_text')->filter()->implode(' '),
             'popularity' => (int) ($this->play_count ?? 0),
             'published_at' => $this->published_at?->toIso8601String(),

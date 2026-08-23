@@ -83,6 +83,7 @@ class BannerController extends Controller
             'title' => ['required', 'string', 'max:255'],
             'title_bn' => ['nullable', 'string', 'max:255'],
             'subtitle' => ['nullable', 'string', 'max:255'],
+            'subtitle_bn' => ['nullable', 'string', 'max:255'],
             'image_path' => ['nullable', 'string', 'max:2048'],
             'target_type' => ['nullable', 'string', 'max:40'],
             'target_value' => ['nullable', 'string', 'max:2048'],

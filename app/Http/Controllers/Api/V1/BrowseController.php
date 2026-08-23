@@ -65,6 +65,7 @@ class BrowseController extends Controller
                 'title' => $b->title,
                 'title_bn' => $b->title_bn,
                 'subtitle' => $b->subtitle,
+                'subtitle_bn' => $b->subtitle_bn,
                 'image_url' => $b->image_path ? asset('storage/'.$b->image_path) : null,
                 'target_type' => $b->target_type,
                 'target_value' => $b->target_value,

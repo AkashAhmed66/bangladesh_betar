@@ -92,6 +92,7 @@ class EpisodeController extends Controller
             'title' => ['required', 'string', 'max:255'],
             'title_bn' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
+            'description_bn' => ['nullable', 'string'],
             'broadcast_date' => ['nullable', 'date'],
             'duration_seconds' => ['required', 'integer', 'min:0'],
             'is_published' => ['boolean'],

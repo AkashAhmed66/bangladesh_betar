@@ -17,7 +17,8 @@
                            :options="['album' => 'Album', 'film' => 'Film', 'compilation' => 'Compilation', 'single' => 'Single']" />
             <x-form.input label="Year" name="year" type="number" :value="$album?->year" />
             <x-form.artwork-upload class="sm:col-span-2" :current-path="$album?->artwork_path" label="Album cover" />
-            <div class="sm:col-span-2"><x-form.textarea label="Description" name="description" :value="$album?->description" rows="3" /></div>
+            <div class="sm:col-span-2"><x-form.textarea label="Description (English)" name="description" :value="$album?->description" rows="3" /></div>
+            <div class="sm:col-span-2"><x-form.textarea label="Description (Bangla)" name="description_bn" :value="$album?->description_bn" rows="3" /></div>
             <x-form.toggle label="Published" name="is_published" :checked="(bool) $album?->is_published" />
             <x-form.toggle label="Featured" name="is_featured" :checked="(bool) $album?->is_featured" />
         </div>

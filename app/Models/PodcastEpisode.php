@@ -89,7 +89,7 @@ class PodcastEpisode extends Model
             'title_bn' => $this->title_bn,
             'people' => $people,
             'body' => $this->description,
-            'body_bn' => null,
+            'body_bn' => $this->description_bn,
             'transcript' => $asset?->transcripts->pluck('full_text')->filter()->implode(' '),
             'popularity' => (int) ($this->play_count ?? 0),
             'published_at' => $this->published_at?->toIso8601String(),

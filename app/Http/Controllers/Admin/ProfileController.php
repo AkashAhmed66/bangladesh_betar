@@ -80,6 +80,7 @@ class ProfileController extends Controller
         }
 
         $user->save();
+        $request->session()->put('locale', $data['locale']);
 
         if ($user->isArtist()) {
             $this->updateArtistProfile($request, $user, $data, $photoPath);
