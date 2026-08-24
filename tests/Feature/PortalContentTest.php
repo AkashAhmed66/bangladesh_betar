@@ -115,6 +115,25 @@ final class PortalContentTest extends TestCase
             ->assertUnprocessable();
     }
 
+    public function test_public_portal_apis_search_their_own_published_content(): void
+    {
+        NewsArticle::factory()->create(['title' => 'River communities prepare for monsoon']);
+        NewsArticle::factory()->create(['title' => 'National budget briefing']);
+        NewsArticle::factory()->create(['title' => 'Hidden river draft', 'is_published' => false]);
+        WatchShow::factory()->create(['title' => 'River journeys']);
+        WatchShow::factory()->create(['title' => 'Children of the delta']);
+
+        $this->getJson(route('api.v1.news.index', ['q' => 'river']))
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.title', 'River communities prepare for monsoon');
+
+        $this->getJson(route('api.v1.watch.index', ['q' => 'river']))
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.title', 'River journeys');
+    }
+
     public function test_admin_category_fields_only_accept_portal_categories(): void
     {
         $user = $this->staffUser(['news.view', 'news.manage', 'watch.view', 'watch.manage', 'records.view-all']);

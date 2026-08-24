@@ -29,6 +29,8 @@ final class PortalContentController extends Controller
                 fn (Builder $match): Builder => $match->where('news_category_id', $selected->id)->orWhere('category', $selected->name),
             ));
 
+        $this->applySearch($articlesQuery, $request, ['title', 'title_bn', 'summary', 'summary_bn', 'category']);
+
         if ($request->string('sort')->toString() === 'latest') {
             $articlesQuery->orderByDesc('published_at')->orderByDesc('id');
         } else {
@@ -55,7 +57,11 @@ final class PortalContentController extends Controller
             ->withCount('publishedEpisodes')
             ->when($category, fn (Builder $query, WatchCategory $selected): Builder => $query->where(
                 fn (Builder $match): Builder => $match->where('watch_category_id', $selected->id)->orWhere('category', $selected->name),
-            ))
+            ));
+
+        $this->applySearch($shows, $request, ['title', 'title_bn', 'description', 'description_bn', 'category']);
+
+        $shows = $shows
             ->orderByDesc('is_featured')
             ->orderBy('position')
             ->orderByDesc('published_at')
@@ -118,6 +124,22 @@ final class PortalContentController extends Controller
         abort_if($category === null, 422, 'Unknown Watch category.');
 
         return $category;
+    }
+
+    /** @param array<int, string> $columns */
+    private function applySearch(Builder $query, Request $request, array $columns): void
+    {
+        $term = trim($request->string('q')->toString());
+        if ($term === '') {
+            return;
+        }
+
+        $query->where(function (Builder $match) use ($columns, $term): void {
+            foreach ($columns as $index => $column) {
+                $method = $index === 0 ? 'where' : 'orWhere';
+                $match->{$method}($column, 'like', '%'.$term.'%');
+            }
+        });
     }
 
     /** @return array{id:int, value:string, label:string, label_bn:?string, slug:string, description:?string, description_bn:?string, show_in_header:bool} */
