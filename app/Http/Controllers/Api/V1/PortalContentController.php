@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\Response;
 
 final class PortalContentController extends Controller
 {
@@ -31,7 +32,9 @@ final class PortalContentController extends Controller
 
         $this->applySearch($articlesQuery, $request, ['title', 'title_bn', 'summary', 'summary_bn', 'category']);
 
-        if ($request->string('sort')->toString() === 'latest') {
+        if ($request->string('sort')->toString() === 'popular') {
+            $articlesQuery->orderByDesc('views_count')->orderByDesc('published_at')->orderByDesc('id');
+        } elseif ($request->string('sort')->toString() === 'latest') {
             $articlesQuery->orderByDesc('published_at')->orderByDesc('id');
         } else {
             $articlesQuery->orderByDesc('is_featured')->orderBy('position')->orderByDesc('published_at');
@@ -45,6 +48,13 @@ final class PortalContentController extends Controller
         return new NewsArticleResource(
             NewsArticle::query()->published()->with(['media', 'portalCategory'])->where('slug', $slug)->firstOrFail(),
         );
+    }
+
+    public function recordNewsView(string $slug): Response
+    {
+        NewsArticle::query()->published()->where('slug', $slug)->firstOrFail()->increment('views_count');
+
+        return response()->noContent();
     }
 
     public function watch(Request $request): AnonymousResourceCollection

@@ -60,6 +60,7 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
         Route::get('portal-categories', [V1\PortalContentController::class, 'categories'])->name('portal-categories.index');
         Route::get('news', [V1\PortalContentController::class, 'news'])->name('news.index');
         Route::get('news/{slug}', [V1\PortalContentController::class, 'newsArticle'])->name('news.show');
+        Route::post('news/{slug}/view', [V1\PortalContentController::class, 'recordNewsView'])->name('news.view');
         Route::get('watch', [V1\PortalContentController::class, 'watch'])->name('watch.index');
         Route::get('watch/{slug}', [V1\PortalContentController::class, 'watchShow'])->name('watch.show');
         Route::get('watch/{slug}/preview', [V1\PortalContentController::class, 'watchShowPreview'])->name('watch.preview');

@@ -9,6 +9,14 @@ use Illuminate\Support\Str;
 enum NewsCategory: string
 {
     case Bangladesh = 'Bangladesh';
+    case Politics = 'Politics';
+    case World = 'World';
+    case Business = 'Business';
+    case Sports = 'Sports';
+    case Entertainment = 'Entertainment';
+    case Jobs = 'Jobs';
+    case Lifestyle = 'Lifestyle';
+    case Video = 'Video';
     case Economy = 'Economy';
     case Climate = 'Climate';
     case Culture = 'Culture';

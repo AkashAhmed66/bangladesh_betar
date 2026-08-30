@@ -21,7 +21,7 @@ final class NewsArticleFactory extends Factory
             'slug' => str($title)->slug(),
             'title' => $title,
             'summary' => fake()->paragraph(),
-            'category' => fake()->randomElement(['Bangladesh', 'Economy', 'Climate']),
+            'category' => fake()->randomElement(['Bangladesh', 'Politics', 'World', 'Business', 'Sports', 'Entertainment', 'Jobs', 'Lifestyle', 'Video']),
             'body' => fake()->paragraphs(3),
             'image_path' => 'portal/demo/news-hero.png',
             'read_time_minutes' => 4,

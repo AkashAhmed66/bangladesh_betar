@@ -27,27 +27,27 @@ final class PortalContentSeeder extends Seeder
                 'Transport planners say the service is designed to reduce road pressure while making education, healthcare and markets easier to reach. More services are expected to be added after the first operating review.',
                 'Local businesses welcomed the opening and said predictable journey times could make it easier to move fresh produce and small manufactured goods between districts.',
             ]],
-            ['aman-harvest-reaches-local-markets', 'Strong Aman harvest begins reaching local markets', 'Farmers across several northern districts report healthy yields after a season of careful water management.', 'Economy', 'news-rice.png', 3, 35, [
+            ['aman-harvest-reaches-local-markets', 'Strong Aman harvest begins reaching local markets', 'Farmers across several northern districts report healthy yields after a season of careful water management.', 'Business', 'news-rice.png', 3, 35, [
                 'Freshly harvested Aman rice is arriving at regional markets as growers complete work across the northern districts.',
                 'Agriculture officers said local irrigation planning and timely field advice helped many farmers protect their crops through changing weather conditions.',
                 'Market observers are monitoring transport and storage costs as the harvest moves from farms to mills and retail centres.',
             ]],
-            ['coastal-volunteers-complete-shelter-drill', 'Coastal volunteers complete early-season shelter drill', 'Community teams checked first-aid supplies, evacuation routes and communications before the next period of severe weather.', 'Climate', 'news-coast.png', 5, 48, [
+            ['coastal-volunteers-complete-shelter-drill', 'Coastal volunteers complete early-season shelter drill', 'Community teams checked first-aid supplies, evacuation routes and communications before the next period of severe weather.', 'Bangladesh', 'news-coast.png', 5, 48, [
                 'Volunteer groups in coastal communities have completed a coordinated readiness exercise focused on cyclone shelter access and household communication.',
                 'Teams inspected emergency supplies and practised supporting older residents, children and people with disabilities during an evacuation.',
                 'Organisers said the exercise will be repeated in remote areas where travel becomes difficult during heavy rain.',
             ]],
-            ['student-robotics-team-heads-to-regional-final', 'Student robotics team heads to regional innovation final', 'The university team built a low-cost inspection rover using locally available components and open-source tools.', 'Science', 'news-tech.png', 4, 60, [
+            ['student-robotics-team-heads-to-regional-final', 'Student robotics team heads to regional innovation final', 'The university team built a low-cost inspection rover using locally available components and open-source tools.', 'Lifestyle', 'news-tech.png', 4, 60, [
                 'A student engineering team has qualified for a regional innovation final with a compact rover designed to inspect difficult indoor spaces.',
                 'The prototype combines affordable sensors with locally sourced parts, allowing the students to repair and adapt it without specialist equipment.',
                 'The team hopes the project will encourage more schools and universities to create practical robotics clubs.',
             ]],
-            ['community-radio-expands-agriculture-bulletins', 'Community radio expands daily agriculture bulletins', 'New regional segments will share market prices, weather guidance and advice from agricultural extension officers.', 'Media', 'news-rice.png', 3, 120, [
+            ['community-radio-expands-agriculture-bulletins', 'Community radio expands daily agriculture bulletins', 'New regional segments will share market prices, weather guidance and advice from agricultural extension officers.', 'Video', 'news-rice.png', 3, 120, [
                 'Regional radio bulletins are expanding to provide farmers with more frequent weather, crop and market information.',
                 'The short programmes will be broadcast at times chosen with local listeners and repeated for people working away from home during the day.',
                 'Producers said listeners will also be able to submit questions for future episodes.',
             ]],
-            ['river-research-maps-seasonal-change', 'Researchers map how seasonal rivers are changing', 'A new public dataset combines satellite observations with reports from people living beside major waterways.', 'Environment', 'watch-river.png', 6, 180, [
+            ['river-research-maps-seasonal-change', 'Researchers map how seasonal rivers are changing', 'A new public dataset combines satellite observations with reports from people living beside major waterways.', 'World', 'watch-river.png', 6, 180, [
                 'Researchers have released an open dataset showing how river channels and nearby settlements change across the seasons.',
                 'The project combines satellite imagery with observations contributed by schools and community groups.',
                 'Planners hope the information can support safer local infrastructure and better decisions about erosion-prone areas.',

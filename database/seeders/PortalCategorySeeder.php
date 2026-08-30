@@ -13,10 +13,14 @@ final class PortalCategorySeeder extends Seeder
     public function run(): void
     {
         $news = [
-            ['Bangladesh', 'বাংলাদেশ', 'bangladesh'], ['Economy', 'অর্থনীতি', 'economy'],
-            ['Climate', 'জলবায়ু', 'climate'], ['Culture', 'সংস্কৃতি', 'culture'],
-            ['Science', 'বিজ্ঞান', 'science'], ['Environment', 'পরিবেশ', 'environment'],
-            ['Media', 'গণমাধ্যম', 'media'],
+            ['Bangladesh', 'বাংলাদেশ', 'bangladesh', true], ['Politics', 'রাজনীতি', 'politics', true],
+            ['World', 'বিশ্ব', 'world', true], ['Business', 'বাণিজ্য', 'business', true],
+            ['Sports', 'খেলা', 'sports', true], ['Entertainment', 'বিনোদন', 'entertainment', true],
+            ['Jobs', 'চাকরি', 'jobs', true], ['Lifestyle', 'জীবনযাপন', 'lifestyle', true],
+            ['Video', 'ভিডিও', 'video', true],
+            ['Economy', 'অর্থনীতি', 'economy', false], ['Climate', 'জলবায়ু', 'climate', false],
+            ['Culture', 'সংস্কৃতি', 'culture', false], ['Science', 'বিজ্ঞান', 'science', false],
+            ['Environment', 'পরিবেশ', 'environment', false], ['Media', 'গণমাধ্যম', 'media', false],
         ];
         $watch = [
             ['Live TV', 'সরাসরি টিভি', 'live-tv'], ['Drama', 'নাটক', 'drama'],
@@ -24,10 +28,11 @@ final class PortalCategorySeeder extends Seeder
             ['Kids', 'শিশু', 'kids'],
         ];
 
-        foreach ($news as $position => [$name, $nameBn, $slug]) {
+        NewsCategory::query()->update(['show_in_header' => false]);
+        foreach ($news as $position => [$name, $nameBn, $slug, $showInHeader]) {
             NewsCategory::query()->updateOrCreate(['slug' => $slug], [
                 'name' => $name, 'name_bn' => $nameBn, 'position' => $position, 'is_active' => true,
-                'show_in_header' => in_array($slug, ['bangladesh', 'economy', 'climate'], true),
+                'show_in_header' => $showInHeader,
             ]);
         }
         foreach ($watch as $position => [$name, $nameBn, $slug]) {

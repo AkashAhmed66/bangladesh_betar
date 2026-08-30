@@ -94,12 +94,25 @@ final class PortalContentTest extends TestCase
         WatchShow::factory()->create(['title' => 'Drama programme', 'category' => 'Drama']);
         WatchShow::factory()->create(['title' => 'Kids programme', 'category' => 'Kids']);
 
-        $this->getJson(route('api.v1.portal-categories.index'))
+        $categoriesResponse = $this->getJson(route('api.v1.portal-categories.index'))
             ->assertOk()
             ->assertJsonPath('data.news.0.slug', 'bangladesh')
             ->assertJsonPath('data.news.0.show_in_header', true)
-            ->assertJsonPath('data.news.3.show_in_header', false)
+            ->assertJsonPath('data.news.3.slug', 'business')
+            ->assertJsonPath('data.news.8.slug', 'video')
+            ->assertJsonPath('data.news.8.show_in_header', true)
             ->assertJsonPath('data.watch.0.slug', 'live-tv');
+
+        $newsCategories = collect($categoriesResponse->json('data.news'));
+        $this->assertSame(
+            ['bangladesh', 'politics', 'world', 'business', 'sports', 'entertainment', 'jobs', 'lifestyle', 'video'],
+            $newsCategories->where('show_in_header', true)->pluck('slug')->values()->all(),
+        );
+        $this->assertSame(
+            ['economy', 'climate', 'culture', 'science', 'environment', 'media'],
+            $newsCategories->where('show_in_header', false)->pluck('slug')->values()->all(),
+        );
+        $this->assertNotContains('motamot', $newsCategories->pluck('slug')->all());
 
         $this->getJson(route('api.v1.news.index', ['category' => 'bangladesh']))
             ->assertOk()
@@ -134,6 +147,20 @@ final class PortalContentTest extends TestCase
             ->assertJsonPath('data.0.title', 'River journeys');
     }
 
+    public function test_news_popularity_is_ranked_from_privacy_safe_view_counts(): void
+    {
+        $lessRead = NewsArticle::factory()->create(['slug' => 'less-read', 'views_count' => 4]);
+        $mostRead = NewsArticle::factory()->create(['slug' => 'most-read', 'views_count' => 18]);
+
+        $this->getJson(route('api.v1.news.index', ['sort' => 'popular']))
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $mostRead->id)
+            ->assertJsonPath('data.0.views_count', 18);
+
+        $this->postJson(route('api.v1.news.view', $lessRead->slug))->assertNoContent();
+        $this->assertSame(5, $lessRead->fresh()->views_count);
+    }
+
     public function test_admin_category_fields_only_accept_portal_categories(): void
     {
         $user = $this->staffUser(['news.view', 'news.manage', 'watch.view', 'watch.manage', 'records.view-all']);
@@ -142,13 +169,22 @@ final class PortalContentTest extends TestCase
             ->assertOk()
             ->assertSee('<select id="category"', false)
             ->assertSee('Bangladesh')
-            ->assertSee('Science');
+            ->assertSee('Politics')
+            ->assertSee('World')
+            ->assertSee('Business')
+            ->assertSee('Sports')
+            ->assertSee('Entertainment')
+            ->assertSee('Jobs')
+            ->assertSee('Lifestyle')
+            ->assertSee('Video')
+            ->assertSee('Economy')
+            ->assertDontSee('Motamot');
 
         $this->actingAs($user)->get(route('admin.news-categories.create'))
             ->assertOk()
             ->assertSee('name="show_in_header"', false)
-            ->assertSee('Show in heading')
-            ->assertSee('Show under More');
+            ->assertSee('New News categories are automatically placed under More.')
+            ->assertDontSee('Show in heading');
 
         $this->actingAs($user)->get(route('admin.watch-shows.create'))
             ->assertOk()
@@ -167,6 +203,73 @@ final class PortalContentTest extends TestCase
             'is_featured' => 0,
             'is_published' => 1,
         ])->assertSessionHasErrors('category');
+    }
+
+    public function test_fixed_news_header_categories_are_protected_and_new_categories_go_to_more(): void
+    {
+        $user = $this->staffUser(['news.view', 'news.manage', 'records.view-all']);
+        $fixed = NewsCategory::query()->where('slug', 'bangladesh')->firstOrFail();
+
+        $this->actingAs($user)->get(route('admin.news-categories.index'))
+            ->assertOk()
+            ->assertSee('Fixed heading')
+            ->assertDontSee('action="'.route('admin.news-categories.destroy', $fixed).'"', false);
+
+        $this->actingAs($user)->get(route('admin.news-categories.edit', $fixed))
+            ->assertOk()
+            ->assertSee('This protected category stays in the News header and cannot be deleted or moved.')
+            ->assertSee('name="slug"', false)
+            ->assertSee('readonly', false);
+
+        $this->actingAs($user)->put(route('admin.news-categories.update', $fixed), [
+            'name' => $fixed->name,
+            'name_bn' => $fixed->name_bn,
+            'slug' => $fixed->slug,
+            'description' => $fixed->description,
+            'description_bn' => $fixed->description_bn,
+            'position' => 99,
+            'is_active' => 0,
+            'show_in_header' => 0,
+        ])->assertRedirect(route('admin.news-categories.index'));
+
+        $fixed->refresh();
+        $this->assertSame(0, $fixed->position);
+        $this->assertTrue($fixed->is_active);
+        $this->assertTrue($fixed->show_in_header);
+
+        $this->actingAs($user)->delete(route('admin.news-categories.destroy', $fixed))
+            ->assertSessionHas('error', 'Fixed News header categories cannot be deleted.');
+        $this->assertModelExists($fixed);
+
+        $this->actingAs($user)->post(route('admin.news-categories.store'), [
+            'name' => 'Technology',
+            'name_bn' => 'প্রযুক্তি',
+            'slug' => 'technology',
+            'description' => 'Technology reporting.',
+            'description_bn' => 'প্রযুক্তি বিষয়ক প্রতিবেদন।',
+            'position' => 20,
+            'is_active' => 1,
+            'show_in_header' => 1,
+        ])->assertRedirect(route('admin.news-categories.index'));
+
+        $custom = NewsCategory::query()->where('slug', 'technology')->firstOrFail();
+        $this->assertFalse($custom->show_in_header);
+
+        $this->actingAs($user)->put(route('admin.news-categories.update', $custom), [
+            'name' => $custom->name,
+            'name_bn' => $custom->name_bn,
+            'slug' => $custom->slug,
+            'description' => $custom->description,
+            'description_bn' => $custom->description_bn,
+            'position' => $custom->position,
+            'is_active' => 1,
+            'show_in_header' => 1,
+        ])->assertRedirect(route('admin.news-categories.index'));
+        $this->assertFalse($custom->fresh()->show_in_header);
+
+        $this->actingAs($user)->delete(route('admin.news-categories.destroy', $custom))
+            ->assertSessionHas('success', 'News category deleted.');
+        $this->assertModelMissing($custom);
     }
 
     public function test_admin_managed_categories_drive_bilingual_content_and_public_filtering(): void

@@ -29,7 +29,9 @@ final class NewsCategoryController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        NewsCategory::query()->create($this->validated($request));
+        $data = $this->validated($request);
+        $data['show_in_header'] = false;
+        NewsCategory::query()->create($data);
 
         return redirect()->route('admin.news-categories.index')->with('success', 'News category created.');
     }
@@ -41,7 +43,16 @@ final class NewsCategoryController extends Controller
 
     public function update(Request $request, NewsCategory $newsCategory): RedirectResponse
     {
-        $newsCategory->update($this->validated($request, $newsCategory));
+        $data = $this->validated($request, $newsCategory);
+        $data['show_in_header'] = $newsCategory->isFixedHeader();
+
+        if ($newsCategory->isFixedHeader()) {
+            $data['slug'] = $newsCategory->getRawOriginal('slug');
+            $data['position'] = $newsCategory->fixedHeaderPosition();
+            $data['is_active'] = true;
+        }
+
+        $newsCategory->update($data);
         $newsCategory->articles()->update(['category' => $newsCategory->name]);
 
         return redirect()->route('admin.news-categories.index')->with('success', 'News category updated everywhere.');
@@ -49,6 +60,10 @@ final class NewsCategoryController extends Controller
 
     public function destroy(NewsCategory $newsCategory): RedirectResponse
     {
+        if ($newsCategory->isFixedHeader()) {
+            return back()->with('error', __('Fixed News header categories cannot be deleted.'));
+        }
+
         if ($newsCategory->articles()->exists()) {
             return back()->with('error', 'Move its articles to another category before deleting it.');
         }
@@ -68,7 +83,7 @@ final class NewsCategoryController extends Controller
             'description_bn' => ['nullable', 'string', 'max:1000'],
             'position' => ['required', 'integer', 'min:0', 'max:65535'],
             'is_active' => ['required', 'boolean'],
-            'show_in_header' => ['required', 'boolean'],
+            'show_in_header' => ['sometimes', 'boolean'],
         ]);
     }
 }

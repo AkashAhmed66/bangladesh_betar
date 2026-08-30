@@ -45,6 +45,7 @@ final class NewsArticleResource extends JsonResource
             }),
             'read_time_minutes' => $this->read_time_minutes,
             'read_time' => $this->read_time_minutes.' min read',
+            'views_count' => (int) $this->views_count,
             'is_featured' => $this->is_featured,
             'published_at' => $this->published_at?->toIso8601String(),
             'published' => $this->published_at?->diffForHumans() ?? 'Recently',
