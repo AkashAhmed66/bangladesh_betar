@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Models\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 final class NewsCategory extends Model
@@ -33,6 +34,7 @@ final class NewsCategory extends Model
             }
 
             $category->slug = $originalSlug;
+            $category->parent_id = null;
             $category->position = $fixedPosition;
             $category->is_active = true;
             $category->show_in_header = true;
@@ -42,6 +44,16 @@ final class NewsCategory extends Model
     public function articles(): HasMany
     {
         return $this->hasMany(NewsArticle::class);
+    }
+
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_id');
+    }
+
+    public function children(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_id')->orderBy('position')->orderBy('name');
     }
 
     public function scopeActive(Builder $query): Builder

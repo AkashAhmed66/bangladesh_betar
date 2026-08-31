@@ -16,11 +16,11 @@
                     @php($fixedHeader = $portal === 'news' && $category->isFixedHeader())
                     <tr>
                         <td>{{ $category->position }}</td>
-                        <td><p class="font-semibold text-slate-800 dark:text-slate-100">{{ $category->name }}</p><p class="mt-0.5 max-w-sm text-xs text-slate-400">{{ $category->description }}</p></td>
+                        <td><p class="font-semibold text-slate-800 dark:text-slate-100">@if ($category->parent_id)<span class="mr-1 text-slate-400">↳</span>@endif{{ $category->name }}</p>@if ($category->parent)<p class="mt-0.5 text-[11px] font-medium uppercase tracking-wide text-primary-600 dark:text-primary-400">{{ __('Under') }} {{ $category->parent->name }}</p>@endif<p class="mt-0.5 max-w-sm text-xs text-slate-400">{{ $category->description }}</p></td>
                         <td><p class="font-bangla font-semibold text-slate-800 dark:text-slate-100">{{ $category->name_bn ?: '—' }}</p><p class="mt-0.5 max-w-sm font-bangla text-xs text-slate-400">{{ $category->description_bn }}</p></td>
                         <td><code class="text-xs">{{ $category->slug }}</code></td>
                         <td>{{ $portal === 'news' ? $category->articles_count : $category->shows_count }}</td>
-                        <td><span class="{{ $category->show_in_header ? 'badge-blue' : 'badge-slate' }}">{{ __($fixedHeader ? 'Fixed heading' : ($category->show_in_header ? 'Heading' : 'More menu')) }}</span></td>
+                        <td><span class="{{ $category->show_in_header ? 'badge-blue' : ($category->parent_id ? 'badge-emerald' : 'badge-slate') }}">{{ __($fixedHeader ? 'Fixed heading' : ($category->parent_id ? 'Subcategory' : ($category->show_in_header ? 'Heading' : 'More menu'))) }}</span></td>
                         <td><span class="{{ $category->is_active ? 'badge-emerald' : 'badge-slate' }}">{{ __($category->is_active ? 'Active' : 'Hidden') }}</span></td>
                         <td>
                             <div class="flex items-center justify-end gap-1">

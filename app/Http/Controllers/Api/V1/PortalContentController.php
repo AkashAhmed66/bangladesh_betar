@@ -23,12 +23,20 @@ final class PortalContentController extends Controller
     {
         $perPage = min(max($request->integer('per_page', 24), 1), 50);
         $category = $this->newsCategory($request);
+        $categoryIds = $category === null
+            ? []
+            : ($category->parent_id === null ? $category->children()->pluck('id')->prepend($category->id)->all() : [$category->id]);
+        $categoryNames = $category === null
+            ? []
+            : ($category->parent_id === null ? $category->children()->pluck('name')->prepend($category->name)->all() : [$category->name]);
         $articlesQuery = NewsArticle::query()
             ->published()
             ->with('portalCategory')
-            ->when($category, fn (Builder $query, NewsCategory $selected): Builder => $query->where(
-                fn (Builder $match): Builder => $match->where('news_category_id', $selected->id)->orWhere('category', $selected->name),
-            ));
+            ->when($category, fn (Builder $query): Builder => $query->where(function (Builder $match) use ($categoryIds, $categoryNames): void {
+                $match->whereIn('news_category_id', $categoryIds)->orWhereIn('category', $categoryNames);
+            }))
+            ->when($request->boolean('featured'), fn (Builder $query): Builder => $query->where('is_featured', true))
+            ->when($request->boolean('exclude_featured'), fn (Builder $query): Builder => $query->where('is_featured', false));
 
         $this->applySearch($articlesQuery, $request, ['title', 'title_bn', 'summary', 'summary_bn', 'category']);
 
@@ -109,7 +117,10 @@ final class PortalContentController extends Controller
     public function categories(): JsonResponse
     {
         return response()->json(['data' => [
-            'news' => NewsCategory::query()->active()->orderBy('position')->get()->map(fn (NewsCategory $category): array => $this->categoryMetadata($category))->all(),
+            'news' => NewsCategory::query()->active()->whereNull('parent_id')
+                ->with(['children' => fn ($query) => $query->active()])
+                ->orderBy('position')->orderBy('name')->get()
+                ->map(fn (NewsCategory $category): array => $this->categoryMetadata($category, true))->all(),
             'watch' => WatchCategory::query()->active()->orderBy('position')->get()->map(fn (WatchCategory $category): array => $this->categoryMetadata($category))->all(),
         ]]);
     }
@@ -152,11 +163,12 @@ final class PortalContentController extends Controller
         });
     }
 
-    /** @return array{id:int, value:string, label:string, label_bn:?string, slug:string, description:?string, description_bn:?string, show_in_header:bool} */
-    private function categoryMetadata(NewsCategory|WatchCategory $category): array
+    /** @return array<string, mixed> */
+    private function categoryMetadata(NewsCategory|WatchCategory $category, bool $withChildren = false): array
     {
-        return [
+        $metadata = [
             'id' => $category->id,
+            'parent_id' => $category instanceof NewsCategory ? $category->parent_id : null,
             'value' => $category->name,
             'label' => $category->name,
             'label_bn' => $category->name_bn,
@@ -165,5 +177,12 @@ final class PortalContentController extends Controller
             'description_bn' => $category->description_bn,
             'show_in_header' => $category->show_in_header,
         ];
+
+        if ($withChildren && $category instanceof NewsCategory) {
+            $metadata['subcategories'] = $category->children
+                ->map(fn (NewsCategory $child): array => $this->categoryMetadata($child))->values()->all();
+        }
+
+        return $metadata;
     }
 }

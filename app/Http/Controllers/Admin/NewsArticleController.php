@@ -48,7 +48,7 @@ final class NewsArticleController extends Controller
 
         return view('admin.news-articles.form', [
             'article' => null,
-            'categories' => NewsCategory::query()->active()->orderBy('position')->pluck('name', 'name')->all(),
+            'categories' => $this->categoryOptions(),
         ]);
     }
 
@@ -81,7 +81,7 @@ final class NewsArticleController extends Controller
 
         return view('admin.news-articles.form', [
             'article' => $newsArticle,
-            'categories' => NewsCategory::query()->active()->orderBy('position')->pluck('name', 'name')->all(),
+            'categories' => $this->categoryOptions(),
         ]);
     }
 
@@ -199,5 +199,14 @@ final class NewsArticleController extends Controller
         );
 
         return $data;
+    }
+
+    /** @return array<string, string> */
+    private function categoryOptions(): array
+    {
+        return NewsCategory::query()->active()->with('parent')->orderByRaw('parent_id is not null')
+            ->orderBy('position')->orderBy('name')->get()->mapWithKeys(fn (NewsCategory $category): array => [
+                $category->name => $category->parent ? $category->parent->name.' — '.$category->name : $category->name,
+            ])->all();
     }
 }

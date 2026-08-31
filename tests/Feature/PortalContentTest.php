@@ -147,6 +147,52 @@ final class PortalContentTest extends TestCase
             ->assertJsonPath('data.0.title', 'River journeys');
     }
 
+    public function test_news_subcategories_are_nested_and_parent_pages_include_child_articles(): void
+    {
+        $parent = NewsCategory::query()->where('slug', 'bangladesh')->firstOrFail();
+        $child = NewsCategory::query()->where('slug', 'bangladesh-national')->firstOrFail();
+        $other = NewsCategory::query()->where('slug', 'world')->firstOrFail();
+
+        NewsArticle::factory()->create(['title' => 'Parent report', 'news_category_id' => $parent->id, 'category' => $parent->name]);
+        NewsArticle::factory()->create(['title' => 'National report', 'news_category_id' => $child->id, 'category' => $child->name]);
+        NewsArticle::factory()->create(['title' => 'World report', 'news_category_id' => $other->id, 'category' => $other->name]);
+
+        $categories = $this->getJson(route('api.v1.portal-categories.index'))->assertOk();
+        $bangladesh = collect($categories->json('data.news'))->firstWhere('slug', 'bangladesh');
+        $this->assertSame('bangladesh-national', data_get($bangladesh, 'subcategories.0.slug'));
+        $this->assertSame($parent->id, data_get($bangladesh, 'subcategories.0.parent_id'));
+        $this->assertNotContains('bangladesh-national', collect($categories->json('data.news'))->pluck('slug')->all());
+
+        $this->getJson(route('api.v1.news.index', ['category' => 'bangladesh']))
+            ->assertOk()->assertJsonCount(2, 'data')
+            ->assertJsonFragment(['title' => 'Parent report'])->assertJsonFragment(['title' => 'National report']);
+
+        $this->getJson(route('api.v1.news.index', ['category' => 'bangladesh-national']))
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.title', 'National report');
+    }
+
+    public function test_admin_can_create_one_level_news_subcategories(): void
+    {
+        $user = $this->staffUser(['news.view', 'news.manage', 'records.view-all']);
+        $parent = NewsCategory::query()->where('slug', 'bangladesh')->firstOrFail();
+
+        $this->actingAs($user)->post(route('admin.news-categories.store'), [
+            'name' => 'Rangpur', 'name_bn' => 'রংপুর', 'slug' => 'bangladesh-rangpur',
+            'description' => 'Rangpur news.', 'description_bn' => 'রংপুরের সংবাদ।',
+            'parent_id' => $parent->id, 'position' => 20, 'is_active' => 1, 'show_in_header' => 1,
+        ])->assertRedirect(route('admin.news-categories.index'));
+
+        $subcategory = NewsCategory::query()->where('slug', 'bangladesh-rangpur')->firstOrFail();
+        $this->assertSame($parent->id, $subcategory->parent_id);
+        $this->assertFalse($subcategory->show_in_header);
+
+        $this->actingAs($user)->put(route('admin.news-categories.update', $parent), [
+            'name' => $parent->name, 'name_bn' => $parent->name_bn, 'slug' => $parent->slug,
+            'description' => $parent->description, 'description_bn' => $parent->description_bn,
+            'parent_id' => $subcategory->id, 'position' => 0, 'is_active' => 1,
+        ])->assertSessionHasErrors('parent_id');
+    }
+
     public function test_news_popularity_is_ranked_from_privacy_safe_view_counts(): void
     {
         $lessRead = NewsArticle::factory()->create(['slug' => 'less-read', 'views_count' => 4]);
