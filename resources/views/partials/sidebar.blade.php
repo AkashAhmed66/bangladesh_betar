@@ -34,6 +34,7 @@
         'Watch Portal' => [
             ['watch.view', 'admin.watch-shows.index', 'play', 'Watch Shows', ['admin.watch-shows.', 'admin.watch-episodes.']],
             ['watch.manage', 'admin.watch-categories.index', 'funnel', 'Watch Categories', ['admin.watch-categories.']],
+            ['watch.manage', 'admin.watch-clips.index', 'sparkles', 'Watch Clips', ['admin.watch-clips.']],
             ['watch.view', 'admin.watch-live-channels.index', 'computer', 'Watch Live', ['admin.watch-live-channels.']],
         ],
         'Governance' => [

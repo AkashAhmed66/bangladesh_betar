@@ -654,58 +654,190 @@ final class PortalContentSeeder extends Seeder
         }
 
         $shows = [
-            ['the-last-transmission', 'The Last Transmission', 'New original drama', 'In a radio studio during the final weeks of 1971, a young broadcaster discovers that one carefully chosen message can travel farther than fear.', 'Drama', 'watch-hero.png', 2026, 'PG', [
+            // --- Featured / Drama / Series ---
+            ['the-last-transmission', 'The Last Transmission', 'New original drama', 'In a radio studio during the final weeks of 1971, a young broadcaster discovers that one carefully chosen message can travel farther than fear.', 'Drama', 'watch-hero.png', 2026, 'PG', true, [
                 ['The Signal', 46, 'Maya arrives for a night shift that will change the course of the station.'],
                 ['Between Frequencies', 44, 'A hidden message forces the team to decide who they can trust.'],
                 ['The Last Transmission', 52, 'The studio prepares one final broadcast as dawn approaches.'],
             ]],
-            ['rivers-that-remember', 'Rivers That Remember', 'Documentary series', 'Travel with the boat communities whose stories, livelihoods and songs follow the changing waterways of Bangladesh.', 'Documentary', 'watch-river.png', 2026, 'G', [
+            ['chhaya-shikari', 'Chhaya Shikari: The Shadow Hunter', 'Crime thriller series', 'A dedicated cyber-detective and a seasoned port inspector unravel a high-stakes smuggling syndicate operating along the coast.', 'Crime Drama', 'watch-hero.png', 2026, '16+', true, [
+                ['Midnight Cargo', 42, 'A suspicious container at the outer anchorage triggers a clandestine investigation.'],
+                ['Encrypted Waters', 45, 'Digital clues point to an offshore server farm masking vessel coordinates.'],
+                ['The Final Trap', 48, 'Law enforcement stages a coordinated multi-agency raid before dawn.'],
+            ]],
+            ['shukhi-shongshar', 'Shukhi Shongshar', 'Popular family drama', 'Generations navigate love, career ambitions and cherished rural traditions in a vibrant multi-generational riverside home.', 'Popular Programmes', 'watch-kids.png', 2026, 'G', true, [
+                ['The Family Feast', 32, 'Relatives gather for the annual harvest celebration with surprise announcements.'],
+                ['New Beginnings', 30, 'The youngest daughter receives a scholarship to study renewable energy.'],
+                ['Bridges of Understanding', 34, 'Elders and youth find common ground on modernizing the family craft studio.'],
+            ]],
+            ['bhoot-shonibar', 'Bhoot Shonibar: Midnight Radio Tales', 'Spine-chilling horror anthology', 'A late-night radio host reads verified listener encounters with the supernatural from remote corners of Bengal.', 'Horror', 'watch-hero.png', 2026, '18+', true, [
+                ['The Abandoned Zamindar Bari', 38, 'A group of college researchers spends a stormy night inside a haunted mansion.'],
+                ['Whispers in the Fog', 35, 'A lone boatman hears haunting melodies drifting from a submerged river island.'],
+                ['The Red Trunk', 40, 'An antique heirloom chest brings eerie premonitions to its new owners.'],
+            ]],
+
+            // --- Documentaries ---
+            ['rivers-that-remember', 'Rivers That Remember', 'Documentary series', 'Travel with the boat communities whose stories, livelihoods and songs follow the changing waterways of Bangladesh.', 'Documentary', 'watch-river.png', 2026, 'G', true, [
                 ['Morning Tide', 28, 'A fishing family reads the river before sunrise.'],
                 ['Moving Banks', 31, 'Communities adapt as familiar channels shift.'],
                 ['Songs Downstream', 29, 'Music carries memory from one generation to the next.'],
             ]],
-            ['songs-of-the-courtyard', 'Songs of the Courtyard', 'Live performance', 'An intimate evening of folk and classical traditions, recorded with artists from across the country.', 'Culture', 'watch-music.png', 2026, 'G', [
-                ['Folk Roads', 42, 'Songs shaped by travel, rivers and village life.'],
-                ['Poetry in Raga', 39, 'Voices and instruments meet in a new arrangement.'],
+            ['voices-of-betar', 'Voices of Betar', 'Archive documentary', 'Presenters, engineers and performers revisit the historic moments that made public radio part of everyday national life.', 'Documentary', 'watch-hero.png', 2025, 'G', false, [
+                ['Behind the Microphone', 48, 'The legendary people who gave a national broadcaster its timeless voice.'],
+                ['Frequencies of Freedom', 50, 'The clandestine broadcast relays of the 1971 Swadhin Bangla Betar Kendra.'],
             ]],
-            ['little-field-guides', 'Little Field Guides', 'New for young explorers', 'Curious children discover the plants, insects and wildlife living just beyond their classroom.', 'Kids', 'watch-kids.png', 2026, 'G', [
-                ['Life on a Lily Pad', 14, 'Meet the tiny neighbours of a village pond.'],
-                ['The Busy Banyan', 13, 'A single tree becomes a home for many species.'],
-                ['After the Rain', 15, 'Young explorers follow the clues left by monsoon weather.'],
+            ['tomorrows-builders', "Tomorrow's Builders", 'Factual science series', 'Young student inventors turn classroom ideas into practical agricultural and robotic tools for their communities.', 'Documentary', 'news-tech.png', 2026, 'G', false, [
+                ['Small Machines, Big Ideas', 26, 'A rural robotics club prepares for its first national showcase.'],
+                ['Solar on the Water', 28, 'Engineering undergraduates build floating solar pumps for irrigation.'],
             ]],
-            ['voices-of-betar', 'Voices of Betar', 'Archive documentary', 'Presenters, engineers and performers revisit the moments that made public radio part of everyday life.', 'Documentary', 'watch-hero.png', 2025, 'G', [
-                ['Behind the Microphone', 48, 'The people who gave a national service its voice.'],
+            ['ready-together', 'Ready Together', 'Community resilience stories', 'Meet the extraordinary coastal volunteers strengthening local disaster preparedness before severe monsoons arrive.', 'Documentary', 'news-coast.png', 2026, 'G', false, [
+                ['The Shelter Team', 27, 'Neighbours turn cyclone preparedness into an empowering shared routine.'],
+                ['After the Storm', 29, 'Community brigades restore drinking water tube-wells in record time.'],
             ]],
-            ['monsoon-kitchen', 'The Monsoon Kitchen', 'Food and culture', 'Home cooks share seasonal recipes and the family histories that travel with them.', 'Culture', 'news-rice.png', 2026, 'G', [
-                ['First Rain', 24, 'A menu built around the arrival of the monsoon.'],
+            ['archeology-of-mahasthangarh', 'Echoes of Mahasthangarh', 'Historical archaeology documentary', 'Excavations unveil two millennia of ancient urban civilisations along the banks of the Karatoya River.', 'Documentary', 'watch-river.png', 2026, 'G', false, [
+                ['Layers of Time', 34, 'Archaeologists unearth terracotta seals and ancient citadel fortifications.'],
             ]],
-            ['tomorrows-builders', "Tomorrow's Builders", 'Factual series', 'Young inventors turn classroom ideas into practical tools for their communities.', 'Documentary', 'news-tech.png', 2026, 'G', [
-                ['Small Machines, Big Ideas', 26, 'A robotics club prepares for its first national showcase.'],
+
+            // --- Living and Culture ---
+            ['monsoon-kitchen', 'The Monsoon Kitchen', 'Food and cultural journeys', 'Celebrated regional home cooks share seasonal monsoon recipes, culinary secrets, and family histories.', 'Living and Culture', 'news-rice.png', 2026, 'G', true, [
+                ['First Rain Delicacies', 24, 'A traditional feast built around the arrival of fresh monsoon rains.'],
+                ['Hilsa and Mustard Dreams', 26, 'Authentic riverbank cooking techniques passed down through generations.'],
             ]],
-            ['ready-together', 'Ready Together', 'Community stories', 'Meet the volunteers strengthening local resilience before severe weather arrives.', 'Documentary', 'news-coast.png', 2026, 'G', [
-                ['The Shelter Team', 27, 'Neighbours turn preparedness into a shared routine.'],
+            ['songs-of-the-courtyard', 'Songs of the Courtyard', 'Live musical performances', 'An intimate musical evening of classical ragas and soulful folk traditions recorded live with master instrumentalists.', 'Culture', 'watch-music.png', 2026, 'G', false, [
+                ['Folk Roads', 42, 'Timeless songs shaped by travel, rivers and village life.'],
+                ['Poetry in Raga', 39, 'Classical vocalists and sitar maestros meet in a spellbinding arrangement.'],
+            ]],
+            ['festivals-of-the-delta', 'Festivals of the Delta', 'Heritage cultural series', 'Experience the pulsating colours, sacred chants, boat races and carnivals that celebrate seasonal transitions.', 'Living and Culture', 'watch-music.png', 2026, 'G', false, [
+                ['The Great Boat Race', 30, 'Rowers sing rhythmic sari gaan as long racing boats slice through river waves.'],
+                ['Harvest Lanterns', 28, 'Villagers light thousand terracotta lamps during rural autumn celebrations.'],
+            ]],
+
+            // --- Comedy ---
+            ['bhalobashar-koutuk', 'Bhalobashar Koutuk', 'Classic comedy theatre', 'A witty village matchmaker gets entangled in his own comical misunderstandings during wedding preparations.', 'Comedy', 'watch-kids.png', 2026, 'G', false, [
+                ['The Letter Mix-up', 25, 'Two identical letters sent to different households spark hilarious confusion.'],
+                ['The Fake Astrologer', 28, 'A clever scheme to reveal true love leads to riotous village laughter.'],
+            ]],
+            ['gramer-hasir-golpo', 'Gramer Hasir Golpo', 'Rural satire and humour', 'Witty everyday encounters between clever tea-stall philosophers, eccentric headmasters, and village youth.', 'Comedy', 'news-rice.png', 2026, 'G', false, [
+                ['The Great Tea Debate', 22, 'A debate over football tactics consumes the entire village market.'],
+                ['The Modern Bicycle', 24, 'The postman buys a smart electric bicycle with unexpected talking features.'],
+            ]],
+
+            // --- Horror ---
+            ['raater-chhaya', 'Raater Chhaya: Shadows of Midnight', 'Supernatural thriller', 'An investigative paranormal journalist probes mysterious nocturnal sightings in the misty tea gardens of Sylhet.', 'Horror', 'watch-hero.png', 2026, '16+', false, [
+                ['The Ghost of Estate 7', 36, 'Strange occurrences baffle night guards in the oldest British-era tea estate.'],
+                ['The Vanishing Trail', 38, 'Footprints that lead into deep forest ravines and suddenly disappear.'],
+            ]],
+            ['nodi-kuler-pretopuri', 'Nodi Kuler Pretopuri', 'Haunted river folklore', 'A documentary crew investigating sunken shipwrecks discovers forgotten legends that refuse to stay submerged.', 'Horror', 'watch-river.png', 2026, '16+', false, [
+                ['Under the Dark Water', 32, 'Sonar scans reveal an ancient vessel not listed in any maritime archive.'],
+            ]],
+
+            // --- News and Current Affairs ---
+            ['betar-shongbad-bortika', 'Betar Shongbad Bortika', 'Weekly current affairs analysis', 'Senior journalists and economic policy experts dissect the biggest national and global headlines of the week.', 'News and Current Affairs', 'news-hero.png', 2026, 'G', false, [
+                ['The Economic Horizon', 40, 'Deep dive into national budget allocations and export diversification.'],
+                ['Diplomacy in Focus', 38, 'Analyzing South Asian trade pacts and climate financing accords.'],
+            ]],
+            ['mukhomukhi-bortoman', 'Mukhomukhi Bortoman', 'Hard-hitting interview series', 'Cabinet ministers, civic leaders, and innovators answer direct citizen questions on public accountability.', 'News and Current Affairs', 'news-tech.png', 2026, 'G', false, [
+                ['Digital Governance Dialogue', 42, 'The ICT Minister discusses citizen service automation and data privacy.'],
+            ]],
+
+            // --- Crime Drama ---
+            ['raater-shongket', 'Raater Shongket: Code of the Night', 'Procedural police drama', 'An elite CID homicide unit uses cutting-edge forensic science to solve complex locked-room mysteries in Dhaka.', 'Crime Drama', 'watch-hero.png', 2026, '16+', false, [
+                ['The Silent Witness', 44, 'A missing artist’s sketchbook holds the key to an elaborate art forgery heist.'],
+                ['Digital Shadows', 46, 'Cyber-forensics teams trace encrypted transactions behind high-profile extortion.'],
+            ]],
+            ['shongshoy-o-shotti', 'Shongshoy O Shotti', 'Courtroom suspense drama', 'A fearless public defender takes on a seemingly unwinnable case defending an honest civil engineer.', 'Crime Drama', 'watch-hero.png', 2026, '16+', false, [
+                ['The Blueprint', 45, 'Dam construction audit reports vanish right before crucial judicial proceedings.'],
+            ]],
+
+            // --- Movies & Short Films ---
+            ['shurjer-shondhane', 'Shurjer Shondhane: In Search of Sun', 'Critically acclaimed period film', 'A sweeping cinematic story of three resilient families rebuilding their lives after the Great 1970 Bhola Cyclone.', 'Movies', 'watch-river.png', 2026, 'PG', false, [
+                ['Full Feature Movie', 118, 'The complete remastered feature presentation in ultra-high-definition.'],
+            ]],
+            ['nodir-naam-madhumoti', 'Nodir Naam Madhumoti', 'Classic cinema masterpiece', 'An epic tale of love, patriotism and moral dilemmas during the Liberation War along the Madhumati River.', 'Movies', 'watch-hero.png', 2025, 'PG', false, [
+                ['Full Feature Presentation', 124, 'Remastered historical motion picture with crystal-clear audio.'],
+            ]],
+            ['ekti-notun-bhor', 'Ekti Notun Bhor', 'Award-winning short film', 'A mute village boy invents an acoustic flute that can mimic migratory bird calls, uniting feuding neighbours.', 'Short Films', 'watch-kids.png', 2026, 'G', false, [
+                ['Short Film', 22, 'Winner of Best Narrative Short at the Asian Youth Independent Film Festival.'],
+            ]],
+            ['stationer-chheleti', 'Stationer Chheleti: The Boy at the Station', 'Inspiring short film', 'A determined young newspaper vendor uses discarded textbooks to study for university admission exams.', 'Short Films', 'news-tech.png', 2026, 'G', false, [
+                ['Complete Short Film', 19, 'A heartwarming portrayal of persistence, self-education and community warmth.'],
+            ]],
+
+            // --- Songs & Music ---
+            ['desher-gaan-o-shur', 'Desher Gaan O Shur: Patriotic Melodies', 'Grand orchestral music specials', 'The Bangladesh Betar National Symphony Orchestra performs stirring renditions of timeless national anthems and folk tunes.', 'Songs', 'watch-music.png', 2026, 'G', false, [
+                ['Songs of the Motherland', 45, 'Celebrated vocalists and live symphony orchestra in a breathtaking performance.'],
+                ['Rhythms of Freedom', 40, 'Dynamic percussion and traditional folk instrumental ensemble.'],
+            ]],
+            ['baul-gaan-acoustic-sessions', 'Baul Gaan: Acoustic Riverbank Sessions', 'Unplugged musical recordings', 'Master folk minstrels perform mystical Lalon and Hason Raja lyrics beneath ancient banyan trees at sunset.', 'Songs', 'watch-music.png', 2026, 'G', false, [
+                ['Mon Amar Moner Moto', 34, 'Soulful ektara and dotara melodies recorded live in Kushtia.'],
+                ['Nodi Bhora Dheu', 36, 'Bhatiyali river songs celebrating the eternal cadence of the delta.'],
+            ]],
+
+            // --- Kids ---
+            ['little-field-guides', 'Little Field Guides', 'New for young explorers', 'Curious children discover the plants, insects and wildlife living just beyond their classroom windows.', 'Kids', 'watch-kids.png', 2026, 'G', false, [
+                ['Life on a Lily Pad', 14, 'Meet the tiny aquatic neighbours inhabiting a village pond.'],
+                ['The Busy Banyan', 13, 'A single ancient tree becomes a bustling haven for hundreds of species.'],
+                ['After the Rain', 15, 'Young nature explorers follow the clues left by fresh monsoon showers.'],
             ]],
         ];
 
         $showsBn = [
             'the-last-transmission' => ['শেষ সম্প্রচার', 'নতুন মৌলিক নাটক', '১৯৭১ সালের শেষ সপ্তাহে একটি বেতারকেন্দ্রে এক তরুণ সম্প্রচারক আবিষ্কার করে—সঠিকভাবে বেছে নেওয়া একটি বার্তা ভয়কেও অতিক্রম করতে পারে।'],
+            'chhaya-shikari' => ['ছায়া শিকারী', 'ক্রাইম থ্রিলার সিরিজ', 'এক মেধাবী সাইবার গোয়েন্দা ও বন্দর পরিদর্শক উপকূলীয় এলাকায় সক্রিয় আন্তর্জাতিক চোরাচালান চক্রের রহস্য উন্মোচন করেন।'],
+            'shukhi-shongshar' => ['সুখী সংসার', 'জনপ্রিয় পারিবারিক ধারাবাহিক', 'নদীমাতৃক এক যৌথ পরিবারের প্রজন্মের পর প্রজন্মের ভালোবাসা, মান-অভিমান ও সাংস্কৃতিক ঐতিহ্যের গল্প।'],
+            'bhoot-shonibar' => ['ভূত শনিবার', 'মধ্যরাতের ভৌতিক কাহিনী', 'মধ্যরাতে বেতারের স্টুডিও থেকে সরাসরি পঠিত সারা দেশের শ্রোতাদের পাঠানো সত্য ভৌতিক ও অলৌকিক অভিজ্ঞতার গল্প।'],
             'rivers-that-remember' => ['স্মৃতিবাহী নদী', 'প্রামাণ্যচিত্র সিরিজ', 'বাংলাদেশের পরিবর্তনশীল জলপথ ঘিরে নৌকা সম্প্রদায়ের গল্প, জীবিকা ও গানের সঙ্গে ভ্রমণ করুন।'],
-            'songs-of-the-courtyard' => ['উঠানের গান', 'সরাসরি পরিবেশনা', 'দেশের বিভিন্ন প্রান্তের শিল্পীদের লোক ও শাস্ত্রীয় ঐতিহ্যের অন্তরঙ্গ সন্ধ্যা।'],
+            'voices-of-betar' => ['বেতারের কণ্ঠ', 'আর্কাইভ প্রামাণ্যচিত্র', 'উপস্থাপক, প্রকৌশলী ও শিল্পীরা জনজীবনের অংশ হয়ে ওঠা বেতারের স্মরণীয় ঐতিহাসিক মুহূর্তগুলো ফিরে দেখেন।'],
+            'tomorrows-builders' => ['আগামীর নির্মাতা', 'তথ্যভিত্তিক সিরিজ', 'তরুণ শিক্ষার্থী উদ্ভাবকেরা শ্রেণিকক্ষের বিজ্ঞান ধারণাকে সমাজের ব্যবহারিক কৃষি ও রোবটিক্স সরঞ্জামে রূপ দেন।'],
+            'ready-together' => ['একসঙ্গে প্রস্তুত', 'মানুষের গল্প', 'দুর্যোগের আগে স্থানীয় সক্ষমতা ও সচেতনতা বাড়ানো স্বেচ্ছাসেবকদের অনুপ্রেরণাদায়ী গল্প।'],
+            'archeology-of-mahasthangarh' => ['মহাস্থানগড়ের প্রতিধ্বনি', 'ঐতিহাসিক প্রত্নতত্ত্ব প্রামাণ্যচিত্র', 'করতোয়া নদীর তীরে অবস্থিত আড়াই হাজার বছরের প্রাচীন নগর সভ্যতার দুর্লভ প্রত্নতাত্ত্বিক নিদর্শন।'],
+            'monsoon-kitchen' => ['বর্ষার রান্নাঘর', 'খাবার ও সংস্কৃতি', 'ঘরের রাঁধুনিরা মৌসুমি বর্ষার সুস্বাদু রেসিপি ও প্রজন্ম ধরে বহমান পারিবারিক রান্নার ঐতিহ্য ভাগ করে নেন।'],
+            'songs-of-the-courtyard' => ['উঠানের গান', 'সরাসরি পরিবেশনা', 'দেশের শীর্ষ শাস্ত্রীয় ও লোকশিল্পীদের পরিবেশনায় রাগসংগীত ও মাটির গানের অন্তরঙ্গ সন্ধ্যা।'],
+            'festivals-of-the-delta' => ['নদীমাতৃক বাংলার উৎসব', 'ঐতিহ্যবাহী সাংস্কৃতিক সিরিজ', 'নৌকাবাইচ, নবান্ন উৎসব ও মেলা নিয়ে বাংলার চিরন্তন আনন্দধারার অনন্য প্রামাণ্যচিত্র।'],
+            'bhalobashar-koutuk' => ['ভালোবাসার কৌতুক', 'হাস্যরসাত্মক নাটক', 'গ্রামের এক ঘটকের ভুল বোঝাবুঝি এবং বিয়ে নিয়ে তৈরি মজার নাট্য পরিবেশনা।'],
+            'gramer-hasir-golpo' => ['গ্রামের হাসির গল্প', 'গ্রামীণ রম্য ও নাটক', 'চায়ের দোকানের আড্ডা ও গ্রামের বুদ্ধিমান মানুষদের প্রতিদিনের মজার ঘটনার নাট্যরূপ।'],
+            'raater-chhaya' => ['রাতের ছায়া', 'রহস্য ও ভৌতিক ধারাবাহিক', 'সিলেটের চা বাগানের গভীর রাতে ঘটে যাওয়া অলৌকিক ঘটনা অনুসন্ধানে এক সাংবাদিকের অভিযান।'],
+            'nodi-kuler-pretopuri' => ['নদীকূলের প্রেতপুরী', 'ভৌতিক রহস্যগাথা', 'নদীতে ডুবে যাওয়া প্রাচীন জাহাজের রহস্য উদঘাটনে গিয়ে ঘটে যাওয়া ভুতুড়ে অভিজ্ঞতা।'],
+            'betar-shongbad-bortika' => ['বেতার সংবাদ বর্তিকা', 'সাপ্তাহিক রাজনৈতিক ও অর্থনৈতিক বিশ্লেষণ', 'সপ্তাহের প্রধান প্রধান জাতীয় ও আন্তর্জাতিক খবরের গভীর বিশ্লেষণ নিয়ে বিশেষ পর্যালোচনা।'],
+            'mukhomukhi-bortoman' => ['মুখোমুখি বর্তমান', 'অনুসন্ধানী সাক্ষাৎকার অনুষ্ঠান', 'জনগুরুত্বপূর্ণ নানা বিষয়ে মন্ত্রী ও নীতিনির্ধারকদের সাথে সরাসরি প্রশ্নোত্তর।'],
+            'raater-shongket' => ['রাতের সংকেত', 'গোয়েন্দা ধারাবাহিক নাটক', 'ফরেনসিক বিজ্ঞানের সহায়তায় সিআইডির বিশেষ দলের রোমহর্ষক মামলার সমাধান।'],
+            'shongshoy-o-shotti' => ['সংশয় ও সত্য', 'আদালতকেন্দ্রিক থ্রিলার', 'এক তরুণ সৎ প্রকৌশলীর বিরুদ্ধে আনা মিথ্যা অভিযোগের বিরুদ্ধে আইনজীবীর আইনি লড়াই।'],
+            'shurjer-shondhane' => ['সূর্যের সন্ধানে', 'পুরস্কারপ্রাপ্ত পূর্ণদৈর্ঘ্য চলচ্চিত্র', 'উপকূলের মানুষের প্রতিকূলতার বিরুদ্ধে লড়াই ও টিকে থাকার মহাকাব্যিক সিনেমা।'],
+            'nodir-naam-madhumoti' => ['নদীর নাম মধুমতী', 'কালজয়ী মুক্তিযুদ্ধভিত্তিক সিনেমা', 'মধুমতী নদীর তীরে দেশপ্রেম ও আত্মত্যাগের অবিস্মরণীয় মুক্তিযুদ্ধের কাহিনী।'],
+            'ekti-notun-bhor' => ['একটি নতুন ভোর', 'স্বল্পদৈর্ঘ্য চলচ্চিত্র', 'এক কিশোরের বাঁশির সুরে পাড়া-প্রতিবেশীর বিরোধ মিটে যাওয়ার মানবিক গল্প।'],
+            'stationer-chheleti' => ['স্টেশনের ছেলেটি', 'অনুপ্রেরণাদায়ী শর্ট ফিল্ম', 'অদম্য ইচ্ছাশক্তির জোরে রেলওয়ে স্টেশনের হকার থেকে বিশ্ববিদ্যালয়ে সুযোগ পাওয়া এক কিশোরের জীবনযুদ্ধ।'],
+            'desher-gaan-o-shur' => ['দেশের গান ও সুর', 'জাতীয় ঐকতান পরিবেশনা', 'বেতারের সিম্ফনি অর্কেস্ট্রা এবং দেশের শীর্ষ শিল্পীদের কালজয়ী দেশাত্মবোধক গান।'],
+            'baul-gaan-acoustic-sessions' => ['বাউল গান: নদীপারের সুর', 'অ্যাকোস্টিক লাইভ সেশন', 'কুষ্টিয়ার পদ্মাপারে লালন ও হাছন রাজার অমর বাণীর মরমী লাইভ পরিবেশনা।'],
             'little-field-guides' => ['ছোট্ট প্রকৃতি নির্দেশিকা', 'কিশোর অভিযাত্রীদের নতুন আয়োজন', 'কৌতূহলী শিশুরা শ্রেণিকক্ষের বাইরের গাছপালা, পোকামাকড় ও বন্যপ্রাণী আবিষ্কার করে।'],
-            'voices-of-betar' => ['বেতারের কণ্ঠ', 'আর্কাইভ প্রামাণ্যচিত্র', 'উপস্থাপক, প্রকৌশলী ও শিল্পীরা জনজীবনের অংশ হয়ে ওঠা বেতারের স্মরণীয় মুহূর্তগুলো ফিরে দেখেন।'],
-            'monsoon-kitchen' => ['বর্ষার রান্নাঘর', 'খাবার ও সংস্কৃতি', 'ঘরের রাঁধুনিরা মৌসুমি রেসিপি ও প্রজন্ম ধরে বহমান পারিবারিক ইতিহাস ভাগ করে নেন।'],
-            'tomorrows-builders' => ['আগামীর নির্মাতা', 'তথ্যভিত্তিক সিরিজ', 'তরুণ উদ্ভাবকেরা শ্রেণিকক্ষের ধারণাকে সমাজের ব্যবহারিক সরঞ্জামে রূপ দেন।'],
-            'ready-together' => ['একসঙ্গে প্রস্তুত', 'মানুষের গল্প', 'দুর্যোগের আগে স্থানীয় সক্ষমতা বাড়ানো স্বেচ্ছাসেবকদের সঙ্গে পরিচিত হোন।'],
-        ];
-        $episodeBn = [
-            'The Signal' => 'সংকেত', 'Between Frequencies' => 'তরঙ্গের মাঝে', 'The Last Transmission' => 'শেষ সম্প্রচার',
-            'Morning Tide' => 'সকালের জোয়ার', 'Moving Banks' => 'বদলে যাওয়া তীর', 'Songs Downstream' => 'ভাটির গান',
-            'Folk Roads' => 'লোকগানের পথ', 'Poetry in Raga' => 'রাগে কবিতা', 'Life on a Lily Pad' => 'শাপলা পাতার জীবন',
-            'The Busy Banyan' => 'ব্যস্ত বটগাছ', 'After the Rain' => 'বৃষ্টির পরে', 'Behind the Microphone' => 'মাইক্রোফোনের পেছনে',
-            'First Rain' => 'প্রথম বৃষ্টি', 'Small Machines, Big Ideas' => 'ছোট যন্ত্র, বড় ভাবনা', 'The Shelter Team' => 'আশ্রয়কেন্দ্র দল',
         ];
 
-        foreach ($shows as $position => [$slug, $title, $eyebrow, $description, $category, $image, $year, $rating, $episodes]) {
+        $episodeBn = [
+            'The Signal' => 'সংকেত', 'Between Frequencies' => 'তরঙ্গের মাঝে', 'The Last Transmission' => 'শেষ সম্প্রচার',
+            'Midnight Cargo' => 'মধ্যরাতের কার্গো', 'Encrypted Waters' => 'এনক্রিপ্টেড জলপথ', 'The Final Trap' => 'চূড়ান্ত ফাঁদ',
+            'The Family Feast' => 'পারিবারিক ভোজ', 'New Beginnings' => 'নতুন সূচনা', 'Bridges of Understanding' => 'বোঝাপড়ার মেলবন্ধন',
+            'The Abandoned Zamindar Bari' => 'পরিত্যক্ত জমিদার বাড়ি', 'Whispers in the Fog' => 'কুয়াশায় ফিসফিস', 'The Red Trunk' => 'লাল সিন্দুক',
+            'Morning Tide' => 'সকালের জোয়ার', 'Moving Banks' => 'বদলে যাওয়া তীর', 'Songs Downstream' => 'ভাটির গান',
+            'Behind the Microphone' => 'মাইক্রোফোনের পেছনে', 'Frequencies of Freedom' => 'স্বাধীনতার তরঙ্গ',
+            'Small Machines, Big Ideas' => 'ছোট যন্ত্র, বড় ভাবনা', 'Solar on the Water' => 'জলের ওপর সৌরশক্তি',
+            'The Shelter Team' => 'আশ্রয়কেন্দ্র দল', 'After the Storm' => 'ঝড়ের পরে', 'Layers of Time' => 'সময়ের স্তর',
+            'First Rain Delicacies' => 'প্রথম বৃষ্টির খাবার', 'Hilsa and Mustard Dreams' => 'সরিষা ইলিশের স্বাদ',
+            'Folk Roads' => 'লোকগানের পথ', 'Poetry in Raga' => 'রাগে কবিতা',
+            'The Great Boat Race' => 'ঐতিহাসিক নৌকাবাইচ', 'Harvest Lanterns' => 'নবান্নের প্রদীপ',
+            'The Letter Mix-up' => 'চিঠির গোলমাল', 'The Fake Astrologer' => 'ভুয়া জ্যোতিষী',
+            'The Great Tea Debate' => 'চায়ের কাপে ঝড়', 'The Modern Bicycle' => 'স্মার্ট সাইকেল',
+            'The Ghost of Estate 7' => 'সাত নম্বর এস্টেটের আত্মা', 'The Vanishing Trail' => 'অদৃশ্য পদচিহ্ন',
+            'Under the Dark Water' => 'কালো জলের নিচে', 'The Economic Horizon' => 'অর্থনীতির দিগন্ত',
+            'Diplomacy in Focus' => 'কূটনৈতিক পর্যালোচনা', 'Digital Governance Dialogue' => 'ডিজিটাল সুশাসন সংলাপ',
+            'The Silent Witness' => 'নীরব সাক্ষী', 'Digital Shadows' => 'ডিজিটাল ছায়া',
+            'The Blueprint' => 'ব্লুপ্রিন্ট রহস্য', 'Full Feature Movie' => 'সম্পূর্ণ পূর্ণদৈর্ঘ্য সিনেমা',
+            'Full Feature Presentation' => 'মূল চলচ্চিত্র পরিবেশনা', 'Short Film' => 'স্বল্পদৈর্ঘ্য চলচ্চিত্র',
+            'Complete Short Film' => 'পুরো শর্ট ফিল্ম', 'Songs of the Motherland' => 'মাতৃভূমির গান',
+            'Rhythms of Freedom' => 'স্বাধীনতার ছন্দ', 'Mon Amar Moner Moto' => 'মন আমার মনের মতো',
+            'Nodi Bhora Dheu' => 'নদী ভরা ঢেউ', 'Life on a Lily Pad' => 'শাপলা পাতার জীবন',
+            'The Busy Banyan' => 'ব্যস্ত বটগাছ', 'After the Rain' => 'বৃষ্টির পরে',
+        ];
+
+        foreach ($shows as $position => [$slug, $title, $eyebrow, $description, $category, $image, $year, $rating, $isFeatured, $episodes]) {
             [$titleBn, $eyebrowBn, $descriptionBn] = $showsBn[$slug];
             $categoryId = WatchCategory::query()->where('name', $category)->value('id');
             $show = WatchShow::query()->updateOrCreate(['slug' => $slug], [
@@ -722,7 +854,7 @@ final class PortalContentSeeder extends Seeder
                 'year' => $year,
                 'rating' => $rating,
                 'position' => $position,
-                'is_featured' => $position === 0,
+                'is_featured' => $isFeatured,
                 'is_published' => true,
                 'published_at' => now()->subDays($position + 1),
             ]);
@@ -731,12 +863,155 @@ final class PortalContentSeeder extends Seeder
                 $show->episodes()->updateOrCreate(['title' => $episodeTitle], [
                     'title_bn' => $episodeBn[$episodeTitle] ?? null,
                     'description' => $episodeDescription,
-                    'description_bn' => 'এই পর্বে '.$episodeBn[$episodeTitle].' বিষয়টি তুলে ধরা হয়েছে।',
+                    'description_bn' => 'এই পর্বে '.($episodeBn[$episodeTitle] ?? $episodeTitle).' বিষয়টি তুলে ধরা হয়েছে।',
                     'duration_minutes' => $duration,
                     'position' => $episodePosition + 1,
                     'is_published' => true,
                 ]);
             }
+        }
+
+        // --- Seed Watch Clips (Shorts feed) ---
+        $clips = [
+            [
+                'title' => 'Rare Historic Recording from Swadhin Bangla Betar Kendra Studio (1971)',
+                'title_bn' => 'স্বাধীন বাংলা বেতার কেন্দ্রের ঐতিহাসিক দুর্লভ স্টুডিও রেকর্ডিং (১৯৭১)',
+                'description' => 'Original wartime broadcast audio reel preserved at the national Betar sound archive.',
+                'description_bn' => 'জাতীয় বেতার শব্দ আর্কাইভে সংরক্ষিত মুক্তিযুদ্ধকালীন মূল সম্প্রচারিত অডিও রিল।',
+                'slug' => 'historic-swadhin-bangla-betar-1971',
+                'creator_name' => 'Bangladesh Betar Archive',
+                'creator_handle' => '@bangladeshbetar',
+                'thumbnail_path' => 'portal/demo/watch-hero.png',
+                'audio_track' => 'Original Radio Relay (1971) · Swadhin Bangla Betar',
+                'hashtags' => '#History, #1971, #BetarArchive, #Shorts',
+                'likes_count' => 14820,
+                'dislikes_count' => 42,
+                'position' => 1,
+            ],
+            [
+                'title' => 'Acoustic Bhatiyali River Song Live at Sunset on the Meghna',
+                'title_bn' => 'মেঘনার মোহনায় সূর্যাস্তের মনোরম ভাটিয়ালি গানের সুর',
+                'description' => 'Soulful river folk melody performed live by traditional Baul singers on a country boat.',
+                'description_bn' => 'গ্রামীণ নৌকায় ঐতিহ্যবাহী বাউল শিল্পীদের সরাসরি পরিবেশনায় মন জুড়ানো ভাটিয়ালি গান।',
+                'slug' => 'acoustic-bhatiyali-river-song',
+                'creator_name' => 'Betar Folk Hub',
+                'creator_handle' => '@betarfolk',
+                'thumbnail_path' => 'portal/demo/watch-river.png',
+                'audio_track' => 'Nodi Bhora Dheu · Baul Acoustic Live',
+                'hashtags' => '#FolkMusic, #RiverLife, #Baul, #Shorts',
+                'likes_count' => 8940,
+                'dislikes_count' => 19,
+                'position' => 2,
+            ],
+            [
+                'title' => 'Behind the Scenes: How Foley Voice Artists Create Thunder in Radio Drama',
+                'title_bn' => 'বেতার নাটকের নেপথ্যে: কীভাবে তৈরি হয় বজ্রপাত ও বৃষ্টির শব্দ?',
+                'description' => 'Foley artists at Studio 4 demonstrate live acoustic sound effect techniques using metal sheets and water tubs.',
+                'description_bn' => 'স্টুডিও ৪-এর শব্দশিল্পীরা টিনের পাত ও জলের পাত্র ব্যবহার করে নিখুঁত বৃষ্টির শব্দ তৈরির কৌশল দেখাচ্ছেন।',
+                'slug' => 'foley-voice-artists-thunder-radio-drama',
+                'creator_name' => 'Drama Studio 4',
+                'creator_handle' => '@betardrama',
+                'thumbnail_path' => 'portal/demo/news-tech.png',
+                'audio_track' => 'Original Studio Foley Sound Effects',
+                'hashtags' => '#BehindTheScenes, #Foley, #RadioDrama, #Shorts',
+                'likes_count' => 12350,
+                'dislikes_count' => 58,
+                'position' => 3,
+            ],
+            [
+                'title' => 'Midnight Bhoot Shonibar Listener Story Teaser: The Haunted Tea Estate',
+                'title_bn' => 'ভূত শনিবারের গা শিউরে ওঠা সত্য ঘটনা: চা বাগানের গভীর রাতে',
+                'description' => 'A chilling excerpt from midnight broadcast recounting an unexplained phenomenon in Sreemangal tea hills.',
+                'description_bn' => 'শ্রীমঙ্গলের চা বাগানের গভীর রাতের এক রহস্যময় ও রোমাঞ্চকর অলৌকিক অভিজ্ঞতার অংশবিশেষ।',
+                'slug' => 'bhoot-shonibar-haunted-tea-estate',
+                'creator_name' => 'Bhoot Shonibar Official',
+                'creator_handle' => '@bhootshonibar',
+                'thumbnail_path' => 'portal/demo/watch-hero.png',
+                'audio_track' => 'Midnight Radio Eerie Atmosphere Theme',
+                'hashtags' => '#BhootShonibar, #Horror, #Supernatural, #Shorts',
+                'likes_count' => 24700,
+                'dislikes_count' => 110,
+                'position' => 4,
+            ],
+            [
+                'title' => 'Young Student Inventors Build Floating Solar Pumps for Rural Farmers',
+                'title_bn' => 'তরুণ শিক্ষার্থীদের তৈরি জলের ওপর ভাসমান সৌরবিদ্যুৎ চালিত পাম্প',
+                'description' => 'BUET engineering students introduce low-cost eco-friendly agricultural irrigation solutions.',
+                'description_bn' => 'বুয়েটের প্রকৌশল শিক্ষার্থীদের উদ্ভাবিত সাশ্রয়ী ও পরিবেশবান্ধব কৃষি সেচ সমাধান।',
+                'slug' => 'floating-solar-pumps-rural-farmers',
+                'creator_name' => 'Innovators of Bangladesh',
+                'creator_handle' => '@innovatorsbd',
+                'thumbnail_path' => 'portal/demo/news-rice.png',
+                'audio_track' => "Tomorrow's Builders Tech Beat",
+                'hashtags' => '#Innovation, #Solar, #GreenTech, #Shorts',
+                'likes_count' => 6730,
+                'dislikes_count' => 15,
+                'position' => 5,
+            ],
+            [
+                'title' => 'Traditional Monsoon Ilish Cooking Secret in Under 60 Seconds',
+                'title_bn' => '৬০ সেকেন্ডে বর্ষার ঐতিহ্যবাহী সরিষা ইলিশ রান্নার গোপন রেসিপি',
+                'description' => 'Culinary masterclass exploring authentic mustard Hilsa preparations from Chandpur.',
+                'description_bn' => 'চাঁদপুরের ঐতিহ্যবাহী খাঁটি সরিষা ইলিশ রান্নার নিখুঁত রেসিপি।',
+                'slug' => 'monsoon-ilish-cooking-secret',
+                'creator_name' => 'The Monsoon Kitchen',
+                'creator_handle' => '@monsoonkitchen',
+                'thumbnail_path' => 'portal/demo/news-coast.png',
+                'audio_track' => 'Rustic Kitchen Beats · Folk Rhythms',
+                'hashtags' => '#Food, #Ilish, #BengaliCuisine, #Shorts',
+                'likes_count' => 18900,
+                'dislikes_count' => 84,
+                'position' => 6,
+            ],
+            [
+                'title' => 'Master Sitarist Performs Raga Megh with National Symphony',
+                'title_bn' => 'জাতীয় সিম্ফনির সাথে রাগ মেঘের অনবদ্য সেতার পরিবেশনা',
+                'description' => 'Hypnotic classical Indian instrumental rendition welcoming the arrival of monsoon rain.',
+                'description_bn' => 'বর্ষা বন্দনায় বাংলাদেশ বেতার জাতীয় সিম্ফনি অর্কেস্ট্রার সাথে রাগ মেঘের পরিবেশনা।',
+                'slug' => 'master-sitarist-raga-megh',
+                'creator_name' => 'Betar Classical Music',
+                'creator_handle' => '@betarclassical',
+                'thumbnail_path' => 'portal/demo/watch-music.png',
+                'audio_track' => 'Raga Megh · Classical Sitar Ensemble',
+                'hashtags' => '#ClassicalMusic, #Sitar, #Raga, #Shorts',
+                'likes_count' => 11240,
+                'dislikes_count' => 31,
+                'position' => 7,
+            ],
+            [
+                'title' => '2,500-Year-Old Terracotta Artifacts Unearthed at Mahasthangarh',
+                'title_bn' => 'মহাস্থানগড়ে উন্মোচিত আড়াই হাজার বছরের প্রাচীন পোড়ামাটির নিদর্শন',
+                'description' => 'Archaeologists unveil extraordinary ancient Maurya-era architectural terracotta seals in Bogura.',
+                'description_bn' => 'বগুড়ার মহাস্থানগড়ে আবিষ্কৃত মৌর্য যুগের বিরল পোড়ামাটির সিলমোহর ও প্রত্নসম্পদ।',
+                'slug' => 'terracotta-artifacts-mahasthangarh',
+                'creator_name' => 'Heritage Bangladesh',
+                'creator_handle' => '@heritagebd',
+                'thumbnail_path' => 'portal/demo/watch-river.png',
+                'audio_track' => 'Echoes of Antiquity · Historical Theme',
+                'hashtags' => '#Archaeology, #Heritage, #Mahasthangarh, #Shorts',
+                'likes_count' => 9540,
+                'dislikes_count' => 22,
+                'position' => 8,
+            ],
+        ];
+
+        foreach ($clips as $clipData) {
+            \App\Models\WatchClip::query()->updateOrCreate(['slug' => $clipData['slug']], [
+                'title' => $clipData['title'],
+                'title_bn' => $clipData['title_bn'],
+                'description' => $clipData['description'],
+                'description_bn' => $clipData['description_bn'],
+                'creator_name' => $clipData['creator_name'],
+                'creator_handle' => $clipData['creator_handle'],
+                'thumbnail_path' => $clipData['thumbnail_path'],
+                'audio_track' => $clipData['audio_track'],
+                'hashtags' => $clipData['hashtags'],
+                'likes_count' => $clipData['likes_count'],
+                'dislikes_count' => $clipData['dislikes_count'],
+                'position' => $clipData['position'],
+                'is_published' => true,
+                'published_at' => now()->subDays($clipData['position']),
+            ]);
         }
 
         $this->command?->info('News and Watch portal demo content seeded.');

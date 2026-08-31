@@ -488,8 +488,8 @@ final class PortalContentTest extends TestCase
         $this->seed(PortalContentSeeder::class);
 
         $this->assertSame(56, NewsArticle::query()->count());
-        $this->assertSame(8, WatchShow::query()->count());
-        $this->assertSame(15, WatchEpisode::query()->count());
+        $this->assertSame(27, WatchShow::query()->count());
+        $this->assertSame(52, WatchEpisode::query()->count());
         Storage::disk('public')->assertExists('portal/demo/news-hero.png');
         Storage::disk('public')->assertExists('portal/demo/watch-hero.png');
     }

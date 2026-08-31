@@ -64,6 +64,7 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
         Route::get('watch', [V1\PortalContentController::class, 'watch'])->name('watch.index');
         Route::get('watch/{slug}', [V1\PortalContentController::class, 'watchShow'])->name('watch.show');
         Route::get('watch/{slug}/preview', [V1\PortalContentController::class, 'watchShowPreview'])->name('watch.preview');
+        Route::get('watch-clips', [V1\PortalContentController::class, 'watchClips'])->name('watch-clips.index');
         Route::get('watch-live-channels', [V1\WatchLiveController::class, 'index'])->name('watch-live-channels.index');
         Route::get('watch-live-channels/{broadcastChannel}', [V1\WatchLiveController::class, 'show'])->name('watch-live-channels.show');
 

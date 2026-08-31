@@ -10,6 +10,7 @@ use App\Http\Resources\WatchShowResource;
 use App\Models\NewsArticle;
 use App\Models\NewsCategory;
 use App\Models\WatchCategory;
+use App\Models\WatchClip;
 use App\Models\WatchShow;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -123,6 +124,48 @@ final class PortalContentController extends Controller
                 ->map(fn (NewsCategory $category): array => $this->categoryMetadata($category, true))->all(),
             'watch' => WatchCategory::query()->active()->orderBy('position')->get()->map(fn (WatchCategory $category): array => $this->categoryMetadata($category))->all(),
         ]]);
+    }
+
+    /** Public feed of short vertical video clips. */
+    public function watchClips(Request $request): JsonResponse
+    {
+        $perPage = min(max($request->integer('per_page', 20), 1), 50);
+
+        $clips = WatchClip::query()
+            ->published()
+            ->orderBy('position')
+            ->orderByDesc('published_at')
+            ->paginate($perPage)
+            ->withQueryString();
+
+        $items = $clips->getCollection()->map(fn (WatchClip $clip): array => [
+            'id'                  => $clip->id,
+            'title'               => $clip->title,
+            'title_bn'            => $clip->title_bn,
+            'description'         => $clip->description,
+            'description_bn'      => $clip->description_bn,
+            'slug'                => $clip->slug,
+            'creator_name'        => $clip->creator_name,
+            'creator_handle'      => $clip->creator_handle,
+            'creator_avatar_url'  => $clip->creator_avatar_url,
+            'video_url'           => $clip->video_url,
+            'thumbnail_url'       => $clip->thumbnail_url,
+            'audio_track'         => $clip->audio_track,
+            'hashtags'            => $clip->hashtag_array,
+            'likes_count'         => $clip->likes_count,
+            'dislikes_count'      => $clip->dislikes_count,
+            'published_at'        => $clip->published_at?->toIso8601String(),
+        ])->all();
+
+        return response()->json([
+            'data' => $items,
+            'meta' => [
+                'current_page' => $clips->currentPage(),
+                'last_page'    => $clips->lastPage(),
+                'per_page'     => $clips->perPage(),
+                'total'        => $clips->total(),
+            ],
+        ]);
     }
 
     private function newsCategory(Request $request): ?NewsCategory

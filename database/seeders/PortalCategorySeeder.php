@@ -97,10 +97,30 @@ final class PortalCategorySeeder extends Seeder
             }
         }
 
+        $watch = [
+            ['Live TV', 'সরাসরি টিভি', 'live-tv'],
+            ['Movies', 'চলচ্চিত্র', 'movies'],
+            ['Series', 'ধারাবাহিক', 'series'],
+            ['Short Films', 'স্বল্পদৈর্ঘ্য চলচ্চিত্র', 'short-films'],
+            ['Songs', 'গান ও সংগীত', 'songs'],
+            ['Drama', 'নাটক', 'drama'],
+            ['Documentary', 'প্রামাণ্যচিত্র', 'documentary'],
+            ['Culture', 'সংস্কৃতি ও ঐতিহ্য', 'culture'],
+            ['Kids', 'শিশু', 'kids'],
+            ['Comedy', 'কৌতুক ও রম্য', 'comedy'],
+            ['Living and Culture', 'জীবনধারা ও সংস্কৃতি', 'living-and-culture'],
+            ['Horror', 'ভৌতিক ও রহস্য', 'horror'],
+            ['News and Current Affairs', 'সংবাদ ও সমসাময়িক', 'news-and-current-affairs'],
+            ['Popular Programmes', 'জনপ্রিয় অনুষ্ঠান', 'popular-programmes'],
+            ['Crime Drama', 'ক্রাইম ড্রামা', 'crime-drama'],
+            ['Trending', 'ট্রেন্ডিং', 'trending'],
+            ['New Release', 'নতুন মুক্তি', 'new-release'],
+        ];
+
         foreach ($watch as $position => [$name, $nameBn, $slug]) {
             WatchCategory::query()->updateOrCreate(['slug' => $slug], [
                 'name' => $name, 'name_bn' => $nameBn, 'position' => $position, 'is_active' => true,
-                'show_in_header' => in_array($slug, ['live-tv', 'drama', 'documentary'], true),
+                'show_in_header' => in_array($slug, ['live-tv', 'movies', 'series', 'short-films', 'songs', 'drama', 'documentary'], true),
             ]);
         }
 

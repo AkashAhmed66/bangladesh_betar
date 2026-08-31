@@ -205,6 +205,10 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
         Route::delete('watch-episodes/{watchEpisode}', [Admin\WatchEpisodeController::class, 'destroy'])
             ->middleware('permission:watch.view')->name('watch-episodes.destroy');
 
+        // ---- Watch Clips (vertical short-form video feed) ----
+        Route::resource('watch-clips', Admin\WatchClipController::class)->except('show')
+            ->middleware('permission:watch.manage');
+
         // ---- Watch Live: camera + microphone video broadcasting ----
         Route::get('watch-live-channels/{watchLiveChannel}/studio', [Admin\WatchLiveChannelController::class, 'studio'])
             ->middleware('permission:watch.broadcast')->name('watch-live-channels.studio');

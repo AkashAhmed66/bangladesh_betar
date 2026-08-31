@@ -41,6 +41,7 @@ final class ContentReactionService
             'audio_book' => AudioBook::query()->published()->findOrFail($id),
             'playlist' => Playlist::query()->where('is_public', true)->findOrFail($id),
             'broadcast_channel' => BroadcastChannel::query()->where('is_active', true)->findOrFail($id),
+            'watch_clip' => \App\Models\WatchClip::query()->published()->findOrFail($id),
             default => abort(404),
         };
     }
