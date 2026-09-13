@@ -15,6 +15,8 @@
             <x-form.input label="Title" name="title" :value="old('title')" required
                           placeholder="e.g. ইতিহাসের গল্প — প্রথম অধ্যায়" />
 
+            <x-form.artwork-upload label="Audio book cover" />
+
             <div>
                 <label class="form-label">Source</label>
                 <div class="flex max-w-sm gap-1 rounded-lg border border-slate-200 p-0.5 dark:border-slate-700">

@@ -79,7 +79,7 @@ class PodcastChannel extends Model
             'title_bn' => $this->title_bn,
             'people' => [],
             'body' => $this->description,
-            'body_bn' => null,
+            'body_bn' => $this->description_bn,
             'transcript' => null,
             'popularity' => (int) ($this->followers_count ?? 0),
             'published_at' => null,

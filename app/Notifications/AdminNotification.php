@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Notifications;
 
+use App\Support\AdminUrl;
 use Illuminate\Notifications\Notification;
 
 /**
@@ -34,7 +35,9 @@ class AdminNotification extends Notification
             'event' => $this->event,
             'title' => $this->title,
             'message' => $this->message,
-            'url' => $this->url,
+            // Store only an origin-relative admin URL. Queue workers generate
+            // routes from APP_URL, whose host/port can differ from the browser.
+            'url' => AdminUrl::relative($this->url),
         ];
     }
 }

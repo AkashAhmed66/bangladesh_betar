@@ -34,6 +34,8 @@
     <div class="mb-4 flex flex-wrap gap-2">
         @foreach ([
             'workflow' => ['clipboard-check', 'Workflow Approvals', $approvals->total()],
+            'news' => ['document-text', 'News Articles', $newsItems->count()],
+            'watch' => ['play', 'Watch Shows', $watchItems->count()],
             'ai' => ['shield', 'AI Moderation', $aiItems->count()],
             'books' => ['megaphone', 'Audio Books', $bookItems->count()],
             'rights' => ['scale', 'Rights Records', $rightsItems->count()],
@@ -149,6 +151,14 @@
     @if ($approvals->hasPages())
         <div class="border-t border-slate-200 px-5 py-3 dark:border-slate-800">{{ $approvals->links() }}</div>
     @endif
+</div>
+
+<div x-show="section === 'news'" x-cloak>
+    @include('admin.approvals._editorial-table', ['items' => $newsItems, 'kind' => 'news'])
+</div>
+
+<div x-show="section === 'watch'" x-cloak>
+    @include('admin.approvals._editorial-table', ['items' => $watchItems, 'kind' => 'watch'])
 </div>
 
 {{-- ---- AI moderation reviews ---- --}}

@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\BroadcastSession;
+use App\Services\BroadcastRecordingService;
 use App\Services\LiveKitService;
 use App\Services\SpeakRequestStore;
 use Illuminate\Http\Request;
@@ -27,7 +28,10 @@ use Illuminate\Http\Response;
  */
 class LiveKitWebhookController extends Controller
 {
-    public function __construct(private readonly LiveKitService $liveKit) {}
+    public function __construct(
+        private readonly LiveKitService $liveKit,
+        private readonly BroadcastRecordingService $recordings,
+    ) {}
 
     public function handle(Request $request): Response
     {
@@ -39,6 +43,13 @@ class LiveKitWebhookController extends Controller
 
         $data = json_decode($raw, true) ?: [];
         $event = $data['event'] ?? null;
+
+        if (is_string($event) && str_starts_with($event, 'egress_')) {
+            $this->recordings->handleWebhook($event, (array) ($data['egressInfo'] ?? $data['egress_info'] ?? []));
+
+            return response('ok');
+        }
+
         $roomName = $data['room']['name'] ?? null;
 
         if (! $roomName) {
@@ -95,7 +106,11 @@ class LiveKitWebhookController extends Controller
     private function isListener(array $data): bool
     {
         $identity = $data['participant']['identity'] ?? '';
+        $kind = $data['participant']['kind'] ?? null;
 
-        return $identity !== '' && ! str_starts_with($identity, 'broadcaster-');
+        return $identity !== ''
+            && ! str_starts_with($identity, 'broadcaster-')
+            && ! str_starts_with($identity, 'EG_')
+            && $kind !== 'EGRESS';
     }
 }

@@ -38,7 +38,8 @@
         <div class="card-body grid grid-cols-1 gap-5 sm:grid-cols-2">
             <x-form.input label="Title (English)" name="title" :value="$asset?->title" required />
             <x-form.input label="Title (বাংলা)" name="title_bn" :value="$asset?->title_bn" />
-            <div class="sm:col-span-2"><x-form.textarea label="Description" name="description" :value="$asset?->description" rows="3" /></div>
+            <div class="sm:col-span-2"><x-form.textarea label="Description (English)" name="description" :value="$asset?->description" rows="3" /></div>
+            <div class="sm:col-span-2"><x-form.textarea label="Description (Bangla)" name="description_bn" :value="$asset?->description_bn" rows="3" /></div>
             <x-form.select label="Content type" name="content_type" :value="$asset?->content_type ?? 'programme'" required
                            :options="$contentTypes"
                            help="Song / Programme / Podcast reach the public app through their catalogue module after approval; the other types stay archive-only." />

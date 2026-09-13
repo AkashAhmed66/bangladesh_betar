@@ -77,6 +77,13 @@
                                 <a href="{{ route('admin.assets.show', $asset) }}" class="btn-ghost btn-sm" title="Details"><x-icon name="eye" class="size-4" /></a>
                                 @can('assets.edit')
                                     <a href="{{ route('admin.assets.edit', $asset) }}" class="btn-ghost btn-sm" title="Edit"><x-icon name="pencil" class="size-4" /></a>
+                                    <form method="POST" action="{{ route('admin.assets.archive', $asset) }}"
+                                          onsubmit="return confirm('Move asset {{ $asset->archive_no }} to Archive? It will no longer appear in the public catalogue until restored.');">
+                                        @csrf
+                                        <button type="submit" class="btn-ghost btn-sm text-amber-600 hover:text-amber-700 dark:text-amber-400" title="Archive asset" aria-label="Archive {{ $asset->title }}">
+                                            <x-icon name="archive" class="size-4" />
+                                        </button>
+                                    </form>
                                 @endcan
                                 @can('assets.delete')
                                     <x-confirm-delete :action="route('admin.assets.destroy', $asset)" confirm="Delete asset {{ $asset->archive_no }}? Requires Super Administrator." />

@@ -18,6 +18,7 @@ class PodcastEpisodeResource extends JsonResource
             'title_bn' => $this->title_bn,
             'slug' => $this->slug,
             'description' => $this->description,
+            'description_bn' => $this->description_bn,
             'channel' => new PodcastChannelResource($this->whenLoaded('channel')),
             'channel_id' => $this->podcast_channel_id,
             'audio_asset_id' => $this->audio_asset_id,

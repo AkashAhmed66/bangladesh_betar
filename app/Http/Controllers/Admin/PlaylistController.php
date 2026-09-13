@@ -6,6 +6,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Playlist;
+use App\Services\ArtworkService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -16,6 +18,8 @@ use Illuminate\View\View;
  */
 class PlaylistController extends Controller
 {
+    public function __construct(private readonly ArtworkService $artwork) {}
+
     public function index(Request $request): View
     {
         $playlists = Playlist::query()
@@ -39,5 +43,25 @@ class PlaylistController extends Controller
         $playlist->load(['user', 'items.playable']);
 
         return view('admin.playlists.show', compact('playlist'));
+    }
+
+    public function updateArtwork(Request $request, Playlist $playlist): RedirectResponse
+    {
+        abort_unless(! $playlist->is_editorial, 404);
+
+        $request->validate([
+            'artwork' => ArtworkService::rules(),
+            'remove_artwork' => ['boolean'],
+        ]);
+
+        $playlist->update([
+            'artwork_path' => $this->artwork->sync(
+                $request,
+                'artwork/playlists',
+                $playlist->artwork_path,
+            ),
+        ]);
+
+        return back()->with('success', 'Playlist image updated.');
     }
 }

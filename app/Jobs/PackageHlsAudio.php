@@ -6,6 +6,7 @@ namespace App\Jobs;
 
 use App\Models\AudioBook;
 use App\Models\AudioVersion;
+use App\Models\BroadcastRecording;
 use App\Support\Hls;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -40,6 +41,7 @@ class PackageHlsAudio implements ShouldQueue
         $source = match ($this->group) {
             'version' => $this->versionSource(),
             'audiobook' => $this->audiobookSource(),
+            'broadcast' => $this->broadcastSource(),
             default => null,
         };
 
@@ -70,5 +72,14 @@ class PackageHlsAudio implements ShouldQueue
         $disk = Storage::disk('local');
 
         return $path && $disk->exists($path) ? $disk->path($path) : null;
+    }
+
+    private function broadcastSource(): ?string
+    {
+        $recording = BroadcastRecording::query()->find($this->id);
+
+        return $recording?->isPlayable()
+            ? Hls::sourceForBroadcastRecording($recording)
+            : null;
     }
 }

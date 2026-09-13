@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Programme;
 use App\Models\Station;
+use App\Services\ArtworkService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -16,12 +17,17 @@ use Illuminate\View\View;
 
 class ProgrammeController extends Controller
 {
+    public function __construct(private readonly ArtworkService $artwork) {}
+
     public function index(Request $request): View
     {
         $programmes = Programme::query()
             ->visibleTo($request->user())
             ->with(['station', 'category'])
-            ->withCount(['episodes', 'audioAssets'])
+            ->withCount([
+                'episodes' => fn ($episodes) => $episodes->withoutArchivedAudioAsset(),
+                'audioAssets' => fn ($assets) => $assets->notArchived(),
+            ])
             ->when($request->filled('q'), fn ($q) => $q->where('title', 'like', '%'.$request->string('q').'%'))
             ->orderBy('title')
             ->paginate(15)
@@ -43,6 +49,8 @@ class ProgrammeController extends Controller
 
         $data = $this->validated($request);
         $data['slug'] = Str::slug($data['title']);
+        $data['artwork_path'] = $this->artwork->sync($request, 'artwork/programmes', null);
+        unset($data['artwork'], $data['remove_artwork']);
 
         Programme::query()->create($data);
 
@@ -62,7 +70,11 @@ class ProgrammeController extends Controller
         $this->authorize('programmes.manage');
         $this->authorizeRecordVisibility($programme);
 
-        $programme->update($this->validated($request));
+        $data = $this->validated($request);
+        $data['artwork_path'] = $this->artwork->sync($request, 'artwork/programmes', $programme->artwork_path);
+        unset($data['artwork'], $data['remove_artwork']);
+
+        $programme->update($data);
 
         return redirect()->route('admin.programmes.index')->with('success', 'Programme updated.');
     }
@@ -73,6 +85,7 @@ class ProgrammeController extends Controller
         $this->authorizeRecordVisibility($programme);
 
         $programme->delete();
+        $this->artwork->delete($programme->artwork_path);
 
         return redirect()->route('admin.programmes.index')->with('success', 'Programme removed.');
     }
@@ -86,6 +99,9 @@ class ProgrammeController extends Controller
             'station_id' => ['nullable', 'exists:stations,id'],
             'category_id' => ['nullable', 'exists:categories,id'],
             'description' => ['nullable', 'string'],
+            'description_bn' => ['nullable', 'string'],
+            'artwork' => ArtworkService::rules(),
+            'remove_artwork' => ['boolean'],
             'is_published' => ['boolean'],
         ]);
     }

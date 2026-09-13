@@ -7,6 +7,8 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ArtistResource;
 use App\Http\Resources\AudioAssetResource;
+use App\Http\Resources\AudioBookResource;
+use App\Http\Resources\BroadcastRecordingResource;
 use App\Http\Resources\EpisodeResource;
 use App\Http\Resources\LiveChannelResource;
 use App\Http\Resources\PodcastChannelResource;
@@ -15,7 +17,9 @@ use App\Http\Resources\ProgrammeResource;
 use App\Http\Resources\SongResource;
 use App\Models\Artist;
 use App\Models\AudioAsset;
+use App\Models\AudioBook;
 use App\Models\BroadcastChannel;
+use App\Models\BroadcastRecording;
 use App\Models\Episode;
 use App\Models\PodcastChannel;
 use App\Models\PodcastEpisode;
@@ -105,7 +109,8 @@ class SearchController extends Controller
                 $this->ordered(Artist::query()->published(), $ids),
             )]],
             'programme' => fn (array $ids) => ['programmes' => ['data' => ProgrammeResource::collection(
-                $this->ordered(Programme::query()->published()->withCount('episodes'), $ids),
+                $this->ordered(Programme::query()->published()
+                    ->withCount(['episodes' => fn ($episodes) => $episodes->withoutArchivedAudioAsset()]), $ids),
             )]],
             'episode' => fn (array $ids) => ['episodes' => ['data' => EpisodeResource::collection(
                 $this->ordered(Episode::query()->published()->with('programme')->whereNotNull('audio_asset_id'), $ids),
@@ -117,7 +122,13 @@ class SearchController extends Controller
                 $this->ordered(PodcastEpisode::query()->published()->with('channel')->whereNotNull('audio_asset_id'), $ids),
             )]],
             'live_radio' => fn (array $ids) => ['live_radios' => ['data' => LiveChannelResource::collection(
-                $this->ordered(BroadcastChannel::query()->where('is_active', true)->with(['station', 'liveSession.broadcaster']), $ids),
+                $this->ordered(BroadcastChannel::query()->audio()->where('is_active', true)->with(['station', 'liveSession.broadcaster']), $ids),
+            )]],
+            'audio_book' => fn (array $ids) => ['audiobooks' => ['data' => AudioBookResource::collection(
+                $this->ordered(AudioBook::query()->published()->with('user'), $ids),
+            )]],
+            'broadcast_recording' => fn (array $ids) => ['broadcast_recordings' => ['data' => BroadcastRecordingResource::collection(
+                $this->ordered(BroadcastRecording::query()->published()->with(['session.channel.station', 'session.broadcaster']), $ids),
             )]],
         ];
 
@@ -192,7 +203,8 @@ class SearchController extends Controller
 
         if ($wants('programme')) {
             $results['programmes'] = ['data' => ProgrammeResource::collection(
-                Programme::query()->published()->withCount('episodes')
+                Programme::query()->published()
+                    ->withCount(['episodes' => fn ($episodes) => $episodes->withoutArchivedAudioAsset()])
                     ->where(function ($w) use ($like, $txt) {
                         $w->where('title', 'like', $like)->orWhere('title_bn', 'like', $like)
                             ->orWhereHas('audioAssets.transcripts', $txt);
@@ -236,8 +248,25 @@ class SearchController extends Controller
 
         if ($wants('live_radio')) {
             $results['live_radios'] = ['data' => LiveChannelResource::collection(
-                BroadcastChannel::query()->where('is_active', true)->with(['station', 'liveSession.broadcaster'])
+                BroadcastChannel::query()->audio()->where('is_active', true)->with(['station', 'liveSession.broadcaster'])
                     ->where(fn ($w) => $w->where('name', 'like', $like)->orWhere('name_bn', 'like', $like)->orWhere('description', 'like', $like))
+                    ->take(20)->get(),
+            )];
+        }
+
+        if ($wants('audio_book')) {
+            $results['audiobooks'] = ['data' => AudioBookResource::collection(
+                AudioBook::query()->published()->with('user')
+                    ->where(fn ($w) => $w->where('title', 'like', $like)->orWhere('text', 'like', $like))
+                    ->take(20)->get(),
+            )];
+        }
+
+        if ($wants('broadcast_recording')) {
+            $results['broadcast_recordings'] = ['data' => BroadcastRecordingResource::collection(
+                BroadcastRecording::query()->published()
+                    ->with(['session.channel.station', 'session.broadcaster'])
+                    ->whereHas('session', fn (Builder $w) => $w->where('title', 'like', $like))
                     ->take(20)->get(),
             )];
         }
@@ -268,6 +297,17 @@ class SearchController extends Controller
                 ->where(fn ($w) => $w->where('title', 'like', $like)->orWhere('title_bn', 'like', $like))
                 ->take(2)->get(['title', 'title_bn'])
                 ->map(fn ($p) => ['text' => $bnQuery && $p->title_bn ? $p->title_bn : $p->title, 'type' => 'podcast']))
+            ->merge(AudioBook::query()->published()
+                ->where('title', 'like', $like)
+                ->take(3)->get(['title'])
+                ->map(fn ($book) => ['text' => $book->title, 'type' => 'audio_book']))
+            ->merge(BroadcastRecording::query()->published()->with('session')
+                ->whereHas('session', fn (Builder $w) => $w->where('title', 'like', $like))
+                ->take(3)->get()
+                ->map(fn (BroadcastRecording $recording) => [
+                    'text' => $recording->session?->title,
+                    'type' => 'broadcast_recording',
+                ]))
             ->filter(fn ($s) => ! empty($s['text']))
             ->unique('text')
             ->take(10)->values()

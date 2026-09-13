@@ -5,7 +5,7 @@
 @section('content')
 <x-page-header :title="$album ? 'Edit Album: '.$album->title : 'Create Album'" />
 
-<form method="POST" action="{{ $album ? route('admin.albums.update', $album) : route('admin.albums.store') }}" class="max-w-2xl">
+<form method="POST" action="{{ $album ? route('admin.albums.update', $album) : route('admin.albums.store') }}" enctype="multipart/form-data" class="max-w-2xl">
     @csrf
     @if ($album) @method('PUT') @endif
 
@@ -16,7 +16,9 @@
             <x-form.select label="Type" name="album_type" :value="$album?->album_type ?? 'album'" required
                            :options="['album' => 'Album', 'film' => 'Film', 'compilation' => 'Compilation', 'single' => 'Single']" />
             <x-form.input label="Year" name="year" type="number" :value="$album?->year" />
-            <div class="sm:col-span-2"><x-form.textarea label="Description" name="description" :value="$album?->description" rows="3" /></div>
+            <x-form.artwork-upload class="sm:col-span-2" :current-path="$album?->artwork_path" label="Album cover" />
+            <div class="sm:col-span-2"><x-form.textarea label="Description (English)" name="description" :value="$album?->description" rows="3" /></div>
+            <div class="sm:col-span-2"><x-form.textarea label="Description (Bangla)" name="description_bn" :value="$album?->description_bn" rows="3" /></div>
             <x-form.toggle label="Published" name="is_published" :checked="(bool) $album?->is_published" />
             <x-form.toggle label="Featured" name="is_featured" :checked="(bool) $album?->is_featured" />
         </div>

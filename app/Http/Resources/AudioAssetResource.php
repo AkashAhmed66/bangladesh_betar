@@ -20,6 +20,7 @@ class AudioAssetResource extends JsonResource
             'title_bn' => $this->title_bn,
             'slug' => $this->slug,
             'description' => $this->description,
+            'description_bn' => $this->description_bn,
             'duration_seconds' => $this->duration_seconds,
             'artwork_url' => $this->artwork_path ? asset('storage/'.$this->artwork_path) : null,
             'category' => $this->whenLoaded('category', fn () => $this->category?->name),

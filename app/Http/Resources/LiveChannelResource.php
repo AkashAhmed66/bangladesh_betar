@@ -20,6 +20,7 @@ class LiveChannelResource extends JsonResource
             'title_bn' => $this->name_bn,
             'slug' => $this->slug,
             'description' => $this->description,
+            'description_bn' => $this->description_bn,
             'artwork_url' => $this->artwork_path ? asset('storage/'.$this->artwork_path) : null,
             'station' => $this->whenLoaded('station', fn () => $this->station?->name),
             'is_live' => $live !== null,

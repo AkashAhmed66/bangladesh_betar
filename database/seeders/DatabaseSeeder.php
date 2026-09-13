@@ -27,10 +27,12 @@ class DatabaseSeeder extends Seeder
             MusicSeeder::class,            // albums, songs, artist links
             EpisodeStorySeeder::class,     // Bhoot FM programme episodes
             PodcastSeeder::class,          // podcast channels & episodes
+            PortalCategorySeeder::class,   // editable News + Watch category navigation
+            PortalContentSeeder::class,    // seeded News + Watch portal content and images
             BroadcastChannelSeeder::class, // M27 live broadcast channels
             WorkflowSeeder::class,         // approval workflows + live instances
             RightsSeeder::class,           // rights holders & records
-            QcAndDigitizationSeeder::class,// media items + QC reports
+            QcAndDigitizationSeeder::class, // media items + QC reports
             TranscriptAiSeeder::class,     // transcripts + AI suggestions
             AudioMarkerSeeder::class,      // studio content markers & chapters
             PlanSeeder::class,             // Free/Premium plans + promo codes
@@ -40,6 +42,7 @@ class DatabaseSeeder extends Seeder
             AdvertisementSeeder::class,    // advertisers, campaigns (audio-asset creatives), impressions
             AnalyticsSeeder::class,        // play events + daily stats/heat maps
             SystemSeeder::class,           // backups + integrity checks
+            DemoArtworkSeeder::class,      // fill missing artwork without replacing uploads
         ]);
     }
 }

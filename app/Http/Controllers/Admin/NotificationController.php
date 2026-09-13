@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Support\AdminUrl;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -52,7 +53,7 @@ class NotificationController extends Controller
                 'id' => $n->id,
                 'title' => $n->data['title'] ?? 'Notification',
                 'message' => $n->data['message'] ?? '',
-                'url' => route('admin.notifications.open', $n->id),
+                'url' => route('admin.notifications.open', $n->id, absolute: false),
             ])->values(),
         ]);
     }
@@ -63,7 +64,11 @@ class NotificationController extends Controller
         $notification = $request->user()->notifications()->findOrFail($id);
         $notification->markAsRead();
 
-        $url = $notification->data['url'] ?? null;
+        // Legacy notifications may contain an absolute :8080 URL. Strip its
+        // origin at click time so redirects always reuse the current request's
+        // scheme, host and port (for production, :15000).
+        $storedUrl = $notification->data['url'] ?? null;
+        $url = is_string($storedUrl) ? AdminUrl::relative($storedUrl) : null;
 
         return $url ? redirect($url) : redirect()->route('admin.notifications.index');
     }

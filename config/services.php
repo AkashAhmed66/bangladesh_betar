@@ -72,6 +72,11 @@ return [
         'api_secret' => env('LIVEKIT_API_SECRET'),
         'publisher_ttl_minutes' => (int) env('LIVEKIT_PUBLISHER_TTL', 360), // 6h broadcast max
         'listener_ttl_minutes' => (int) env('LIVEKIT_LISTENER_TTL', 180),   // 3h listen session
+        'recording_enabled' => filter_var(env('LIVEKIT_RECORDING_ENABLED', true), FILTER_VALIDATE_BOOL),
+        'recording_disk' => env('LIVEKIT_RECORDING_DISK', 'broadcast_recordings'),
+        // Absolute path inside the Egress container. Docker maps this to the
+        // private Laravel recording disk.
+        'recording_output_directory' => env('LIVEKIT_RECORDING_OUTPUT_DIRECTORY', '/out'),
         // Where the public Next.js app lives — used to link broadcasters to the
         // listener-facing live page from the studio. Empty => derive from the
         // request host (http://<host>:<public_app_port>).

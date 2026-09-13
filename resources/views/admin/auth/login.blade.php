@@ -58,10 +58,10 @@
     </div>
 
     {{-- Form panel --}}
-    <div class="flex w-full items-center justify-center bg-slate-100 px-6 py-12 dark:bg-slate-950 lg:w-1/2">
+    <div class="flex w-full items-center justify-center bg-slate-100 px-4 py-8 dark:bg-slate-950 sm:px-6 sm:py-12 lg:w-1/2">
         <div class="w-full max-w-sm">
 
-            <div class="mb-8 flex items-center gap-3 lg:hidden">
+            <div class="mb-6 flex items-center gap-3 sm:mb-8 lg:hidden">
                 <div class="flex size-11 items-center justify-center rounded-xl bg-primary-700">
                     <x-icon name="radio" class="size-6 text-white" />
                 </div>
@@ -71,7 +71,7 @@
                 </div>
             </div>
 
-            <h2 class="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">Sign in to the Admin Portal</h2>
+            <h2 class="text-xl font-semibold tracking-tight text-slate-900 dark:text-white sm:text-2xl">Sign in to the Admin Portal</h2>
             <p class="mt-1.5 text-sm text-slate-500 dark:text-slate-400">Staff access only. Use your Bangladesh Betar account.</p>
 
             @if ($errors->any())
@@ -102,7 +102,7 @@
                     </div>
                 </div>
 
-                <div class="flex items-center justify-between">
+                <div class="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <label class="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
                         <input type="checkbox" name="remember"
                                class="size-4 rounded border-slate-300 text-primary-700 focus:ring-primary-600 dark:border-slate-600 dark:bg-slate-800">

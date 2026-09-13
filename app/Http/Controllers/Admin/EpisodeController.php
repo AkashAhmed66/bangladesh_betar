@@ -11,6 +11,7 @@ use App\Models\Programme;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 /**
@@ -22,6 +23,7 @@ class EpisodeController extends Controller
     {
         $episodes = Episode::query()
             ->visibleTo($request->user())
+            ->withoutArchivedAudioAsset()
             ->with(['programme', 'audioAsset'])
             ->when($request->filled('q'), fn ($q) => $q->where('title', 'like', '%'.$request->string('q').'%'))
             ->when($request->filled('programme'), fn ($q) => $q->where('programme_id', $request->integer('programme')))
@@ -85,11 +87,12 @@ class EpisodeController extends Controller
         return $request->validate([
             'programme_id' => ['required', 'exists:programmes,id'],
             'season_number' => ['required', 'integer', 'min:1'],
-            'audio_asset_id' => ['nullable', 'exists:audio_assets,id'],
+            'audio_asset_id' => ['nullable', Rule::exists('audio_assets', 'id')->whereNull('archived_at')],
             'number' => ['nullable', 'integer', 'min:0'],
             'title' => ['required', 'string', 'max:255'],
             'title_bn' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
+            'description_bn' => ['nullable', 'string'],
             'broadcast_date' => ['nullable', 'date'],
             'duration_seconds' => ['required', 'integer', 'min:0'],
             'is_published' => ['boolean'],
@@ -101,7 +104,7 @@ class EpisodeController extends Controller
         return [
             'programmes' => Programme::query()->orderBy('title')->pluck('title', 'id'),
             // Asset picker honours record visibility for restricted users.
-            'assets' => AudioAsset::query()->visibleTo(auth()->user())->orderByDesc('id')->take(200)->pluck('title', 'id'),
+            'assets' => AudioAsset::query()->visibleTo(auth()->user())->notArchived()->orderByDesc('id')->take(200)->pluck('title', 'id'),
         ];
     }
 }

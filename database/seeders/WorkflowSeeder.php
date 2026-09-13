@@ -48,6 +48,12 @@ class WorkflowSeeder extends Seeder
                 ['Rights Verification', 'Copyright Officer'],
                 ['Management Approval', 'Approver'],
             ]],
+            'news_article' => ['News Article Publication Workflow', [
+                ['Management Approval', 'Approver'],
+            ]],
+            'watch_show' => ['Watch Publication Workflow', [
+                ['Management Approval', 'Approver'],
+            ]],
         ];
 
         foreach ($definitions as $contentType => [$name, $stages]) {

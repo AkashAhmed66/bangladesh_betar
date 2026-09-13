@@ -16,7 +16,10 @@
             <x-form.input label="Title (Bangla)" name="title_bn" :value="$banner?->title_bn" />
 
             <div class="sm:col-span-2">
-                <x-form.input label="Subtitle" name="subtitle" :value="$banner?->subtitle" help="Short supporting line shown under the title." />
+                <x-form.input label="Subtitle (English)" name="subtitle" :value="$banner?->subtitle" help="Short supporting line shown under the title." />
+            </div>
+            <div class="sm:col-span-2">
+                <x-form.input label="Subtitle (Bangla)" name="subtitle_bn" :value="$banner?->subtitle_bn" help="Shown when Bangla is selected." />
             </div>
 
             <div class="sm:col-span-2">

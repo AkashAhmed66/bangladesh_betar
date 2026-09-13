@@ -8,6 +8,8 @@ use App\Http\Controllers\Controller;
 use App\Jobs\GenerateAudioBook;
 use App\Models\AudioBook;
 use App\Models\AuditLog;
+use App\Services\ArtworkService;
+use App\Support\Hls;
 use App\Support\Notify;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,6 +26,8 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  */
 class AudioBookController extends Controller
 {
+    public function __construct(private readonly ArtworkService $artwork) {}
+
     public function index(Request $request): View
     {
         $user = $request->user();
@@ -53,11 +57,13 @@ class AudioBookController extends Controller
             'language' => ['required', Rule::in(['auto', 'en', 'bn'])],
             'pdf' => ['nullable', 'required_without:text', 'file', 'mimes:pdf', 'max:51200'],
             'text' => ['nullable', 'required_without:pdf', 'string', 'max:120000'],
+            'artwork' => ArtworkService::rules(),
         ]);
 
         $book = AudioBook::query()->create([
             'user_id' => $request->user()->id,
             'title' => $data['title'],
+            'artwork_path' => $this->artwork->sync($request, 'artwork/audiobooks', null),
             'language' => $data['language'],
             'source_type' => $request->hasFile('pdf') ? 'pdf' : 'text',
             'text' => $data['text'] ?? null,
@@ -74,6 +80,27 @@ class AudioBookController extends Controller
 
         return redirect()->route('admin.audiobooks.index')
             ->with('success', 'Audio book queued — both narrations are being generated. You will get a notification when it is ready to review and submit.');
+    }
+
+    /** Update the cover without regenerating narration or changing publication. */
+    public function updateArtwork(Request $request, AudioBook $audiobook): RedirectResponse
+    {
+        $this->authorizeBookAccess($request, $audiobook);
+
+        $request->validate([
+            'artwork' => ArtworkService::rules(),
+            'remove_artwork' => ['boolean'],
+        ]);
+
+        $audiobook->update([
+            'artwork_path' => $this->artwork->sync(
+                $request,
+                'artwork/audiobooks',
+                $audiobook->artwork_path,
+            ),
+        ]);
+
+        return back()->with('success', 'Audio book cover updated.');
     }
 
     /** Review page: full details, both players, the text, and the decision. */
@@ -266,8 +293,9 @@ class AudioBookController extends Controller
                 Storage::disk('local')->delete($path);
             }
         }
-        \App\Support\Hls::delete('audiobook', $audiobook->id);
+        Hls::delete('audiobook', $audiobook->id);
         $audiobook->delete();
+        $this->artwork->delete($audiobook->artwork_path);
 
         return redirect()->route('admin.audiobooks.index')->with('success', 'Audio book removed.');
     }

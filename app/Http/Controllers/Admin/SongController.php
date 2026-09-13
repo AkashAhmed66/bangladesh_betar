@@ -11,6 +11,7 @@ use App\Models\AudioAsset;
 use App\Models\Genre;
 use App\Models\Mood;
 use App\Models\Song;
+use App\Services\ArtworkService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -18,10 +19,13 @@ use Illuminate\View\View;
 
 class SongController extends Controller
 {
+    public function __construct(private readonly ArtworkService $artwork) {}
+
     public function index(Request $request): View
     {
         $songs = Song::query()
             ->visibleTo($request->user())
+            ->withoutArchivedAudioAsset()
             ->with(['audioAsset', 'album', 'genre', 'mood', 'artists'])
             ->when($request->filled('q'), fn ($q) => $q->whereHas('audioAsset', fn ($a) => $a
                 ->where('title', 'like', '%'.$request->string('q').'%')
@@ -52,6 +56,7 @@ class SongController extends Controller
 
         $data = $this->validated($request);
         $artists = $this->pullArtists($data);
+        $this->syncArtwork($request, $data);
 
         $song = Song::query()->create($data);
         $this->syncArtists($song, $artists);
@@ -76,6 +81,7 @@ class SongController extends Controller
 
         $data = $this->validated($request);
         $artists = $this->pullArtists($data);
+        $this->syncArtwork($request, $data);
 
         $song->update($data);
         $this->syncArtists($song, $artists);
@@ -96,7 +102,7 @@ class SongController extends Controller
     private function validated(Request $request): array
     {
         return $request->validate([
-            'audio_asset_id' => ['required', 'exists:audio_assets,id'],
+            'audio_asset_id' => ['required', Rule::exists('audio_assets', 'id')->whereNull('archived_at')],
             'album_id' => ['nullable', 'exists:albums,id'],
             'track_number' => ['nullable', 'integer', 'min:1'],
             'genre_id' => ['nullable', 'exists:genres,id'],
@@ -108,10 +114,25 @@ class SongController extends Controller
             'lyrics_bn' => ['nullable', 'string'],
             'mood_genre_verified' => ['boolean'],
             'is_featured' => ['boolean'],
+            'artwork' => ArtworkService::rules(),
+            'remove_artwork' => ['boolean'],
             'singer_id' => ['nullable', 'exists:artists,id'],
             'composer_id' => ['nullable', 'exists:artists,id'],
             'lyricist_id' => ['nullable', 'exists:artists,id'],
         ]);
+    }
+
+    private function syncArtwork(Request $request, array &$data): void
+    {
+        $asset = AudioAsset::query()->findOrFail($data['audio_asset_id']);
+
+        if ($request->hasFile('artwork') || $request->boolean('remove_artwork')) {
+            $asset->update([
+                'artwork_path' => $this->artwork->sync($request, 'artwork/songs', $asset->artwork_path),
+            ]);
+        }
+
+        unset($data['artwork'], $data['remove_artwork']);
     }
 
     /** @return array{singer: ?int, composer: ?int, lyricist: ?int} */
@@ -143,14 +164,14 @@ class SongController extends Controller
         return [
             // The asset picker honours record visibility: restricted users may
             // only attach assets they can see.
-            'assets' => AudioAsset::query()->visibleTo(auth()->user())->where('content_type', 'song')->orderBy('title')->pluck('title', 'id'),
+            'assets' => AudioAsset::query()->visibleTo(auth()->user())->notArchived()->where('content_type', 'song')->orderBy('title')->pluck('title', 'id'),
             'albums' => Album::query()->orderBy('title')->pluck('title', 'id'),
             'genres' => Genre::query()->orderBy('name')->pluck('name', 'id'),
             'moods' => Mood::query()->orderBy('name')->pluck('name', 'id'),
             'singers' => Artist::query()->whereIn('artist_type', ['singer', 'band'])->orderBy('name')->pluck('name', 'id'),
             'composers' => Artist::query()->where('artist_type', 'composer')->orderBy('name')->pluck('name', 'id'),
             'lyricists' => Artist::query()->where('artist_type', 'lyricist')->orderBy('name')->pluck('name', 'id'),
-            'masterSongs' => Song::query()->with('audioAsset')->whereNull('master_song_id')->get()
+            'masterSongs' => Song::query()->withoutArchivedAudioAsset()->with('audioAsset')->whereNull('master_song_id')->get()
                 ->mapWithKeys(fn (Song $s) => [$s->id => $s->audioAsset?->title ?? "Song #{$s->id}"]),
         ];
     }

@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'Dashboard') — {{ \App\Support\Theme::brand('name') }}</title>
+    <title>{{ __($__env->yieldContent('title', 'Dashboard')) }} — {{ \App\Support\Theme::brand('name') }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600&display=swap" rel="stylesheet">
@@ -42,16 +42,16 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="h-full" x-data :class="$store.ui.sidebarCollapsed ? 'sidebar-collapsed' : ''">
-<div class="flex h-full">
+<div class="flex h-full min-w-0 overflow-hidden">
 
     {{-- Mobile overlay --}}
     <div x-show="$store.ui.sidebarOpenMobile" x-transition.opacity @click="$store.ui.sidebarOpenMobile = false"
          class="fixed inset-0 z-30 bg-slate-950/60 lg:hidden" x-cloak></div>
 
     {{-- Sidebar --}}
-    <aside class="fixed inset-y-0 left-0 z-40 flex flex-col bg-slate-900 transition-all duration-200 dark:border-r dark:border-slate-800
+    <aside class="fixed inset-y-0 left-0 z-40 flex w-[min(18rem,calc(100vw-3rem))] flex-col bg-slate-900 transition-all duration-200 dark:border-r dark:border-slate-800
                   -translate-x-full lg:translate-x-0"
-           :class="[$store.ui.sidebarCollapsed ? 'lg:w-[68px]' : 'lg:w-64', $store.ui.sidebarOpenMobile ? 'translate-x-0 w-64' : '']">
+           :class="[$store.ui.sidebarCollapsed ? 'lg:w-[68px]' : 'lg:w-64', $store.ui.sidebarOpenMobile ? 'translate-x-0' : '']">
 
         {{-- Brand --}}
         <div class="flex h-16 shrink-0 items-center gap-3 border-b border-white/10 px-4">
@@ -60,8 +60,13 @@
             </div>
             <div class="brand-text min-w-0">
                 <p class="truncate text-sm font-semibold text-white">{{ \App\Support\Theme::brand('name') }}</p>
-                <p class="truncate text-[11px] text-slate-400">Admin Portal</p>
+                <p class="truncate text-[11px] text-slate-400">{{ __('Admin Portal') }}</p>
             </div>
+            <button type="button" @click="$store.ui.sidebarOpenMobile = false"
+                    class="ml-auto flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-white/10 hover:text-white lg:hidden"
+                    aria-label="{{ __('Close navigation') }}">
+                <x-icon name="x" class="size-5" />
+            </button>
         </div>
 
         {{-- Navigation --}}
@@ -73,23 +78,23 @@
         <button @click="$store.ui.toggleSidebar()"
                 class="hidden h-11 shrink-0 items-center justify-center gap-2 border-t border-white/10 text-xs font-medium text-slate-400 hover:bg-white/5 hover:text-white lg:flex">
             <x-icon name="chevron-left" class="size-4 transition-transform" ::class="$store.ui.sidebarCollapsed ? 'rotate-180' : ''" />
-            <span class="nav-label">Collapse</span>
+            <span class="nav-label">{{ __('Collapse') }}</span>
         </button>
     </aside>
 
     {{-- Main column --}}
-    <div class="flex min-w-0 flex-1 flex-col transition-all duration-200"
+    <div class="flex min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden transition-all duration-200"
          :class="$store.ui.sidebarCollapsed ? 'lg:pl-[68px]' : 'lg:pl-64'">
 
         @include('partials.topbar')
 
-        <main class="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+        <main class="min-w-0 flex-1 px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
             @if (session('success'))
                 <div x-data="{ open: true }" x-show="open" x-transition
                      class="mb-5 flex items-start justify-between gap-3 rounded-(--radius-app) border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
                     <div class="flex items-start gap-2.5">
                         <x-icon name="check-badge" class="mt-0.5 size-4.5 shrink-0" />
-                        <span>{{ session('success') }}</span>
+                        <span>{{ __(session('success')) }}</span>
                     </div>
                     <button @click="open = false"><x-icon name="x" class="size-4" /></button>
                 </div>
@@ -100,7 +105,7 @@
                      class="mb-5 flex items-start justify-between gap-3 rounded-(--radius-app) border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
                     <div class="flex items-start gap-2.5">
                         <x-icon name="exclamation" class="mt-0.5 size-4.5 shrink-0" />
-                        <span>{{ session('error') }}</span>
+                        <span>{{ __(session('error')) }}</span>
                     </div>
                     <button @click="open = false"><x-icon name="x" class="size-4" /></button>
                 </div>
@@ -109,8 +114,8 @@
             @yield('content')
         </main>
 
-        <footer class="border-t border-slate-200 px-6 py-4 text-xs text-slate-400 dark:border-slate-800 dark:text-slate-500">
-            {{ \App\Support\Theme::brand('full_name') }} · v1.1 · © {{ date('Y') }} Bangladesh Betar
+        <footer class="border-t border-slate-200 px-4 py-4 text-center text-xs leading-relaxed text-slate-400 dark:border-slate-800 dark:text-slate-500 sm:px-6 sm:text-left">
+            {{ \App\Support\Theme::brand('full_name') }} · v1.1 · © {{ date('Y') }} {{ __('Bangladesh Betar') }}
         </footer>
     </div>
 </div>

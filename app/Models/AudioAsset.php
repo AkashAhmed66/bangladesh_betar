@@ -54,6 +54,7 @@ class AudioAsset extends Model
         'recorded_on' => 'date',
         'first_broadcast_on' => 'date',
         'published_at' => 'datetime',
+        'archived_at' => 'datetime',
         'loudness_lufs' => 'float',
         'peak_db' => 'float',
         'silence_percent' => 'float',
@@ -95,6 +96,11 @@ class AudioAsset extends Model
     public function uploader(): BelongsTo
     {
         return $this->belongsTo(User::class, 'uploaded_by');
+    }
+
+    public function archivedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'archived_by');
     }
 
     public function versions(): HasMany
@@ -176,7 +182,7 @@ class AudioAsset extends Model
     }
 
     /** The most recent AI postmortem submission for this asset, if any. */
-    public function latestAiAnalysisJob(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function latestAiAnalysisJob(): HasOne
     {
         return $this->hasOne(AiAnalysisJob::class)->latestOfMany();
     }
@@ -225,9 +231,20 @@ class AudioAsset extends Model
 
     public function scopePublished(Builder $query): Builder
     {
-        return $query->where('status', 'published')
+        return $query->whereNull('archived_at')
+            ->where('status', 'published')
             ->where('access_level', 'public')
             ->whereIn('rights_status', ['approved']);
+    }
+
+    public function scopeNotArchived(Builder $query): Builder
+    {
+        return $query->whereNull('archived_at');
+    }
+
+    public function scopeArchived(Builder $query): Builder
+    {
+        return $query->whereNotNull('archived_at');
     }
 
     public function scopeStreamable(Builder $query): Builder
@@ -239,9 +256,15 @@ class AudioAsset extends Model
 
     public function isPublished(): bool
     {
-        return $this->status === 'published'
+        return ! $this->isArchived()
+            && $this->status === 'published'
             && $this->access_level === 'public'
             && $this->rights_status === 'approved';
+    }
+
+    public function isArchived(): bool
+    {
+        return $this->archived_at !== null;
     }
 
     /** The rights submission currently under review (or already approved). */

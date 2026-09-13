@@ -70,6 +70,12 @@ class Song extends Model
         return $query->whereHas('audioAsset', fn (Builder $q) => $q->published());
     }
 
+    /** Hide catalogue rows whose source recording has been archived. */
+    public function scopeWithoutArchivedAudioAsset(Builder $query): Builder
+    {
+        return $query->whereHas('audioAsset', fn (Builder $asset) => $asset->notArchived());
+    }
+
     /* ------------------------------ search ---------------------------- */
 
     /** Only songs whose underlying asset is publicly published get indexed. */

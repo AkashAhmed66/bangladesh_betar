@@ -9,6 +9,7 @@ use App\Http\Resources\AlbumResource;
 use App\Http\Resources\ArtistResource;
 use App\Http\Resources\AudioAssetResource;
 use App\Http\Resources\EpisodeResource;
+use App\Http\Resources\PlaylistResource;
 use App\Http\Resources\PodcastChannelResource;
 use App\Http\Resources\PodcastEpisodeResource;
 use App\Http\Resources\ProgrammeResource;
@@ -19,12 +20,18 @@ use App\Models\AudioAsset;
 use App\Models\Episode;
 use App\Models\Favorite;
 use App\Models\Follow;
+use App\Models\Playlist;
 use App\Models\PodcastChannel;
+use App\Models\PodcastEpisode;
 use App\Models\Programme;
+use App\Models\Rating;
 use App\Models\Song;
+use App\Models\User;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * M17 — read-only catalogue browsing of published content:
@@ -138,12 +145,12 @@ class CatalogueController extends Controller
             return 0;
         }
 
-        return (int) \Illuminate\Support\Facades\DB::table('play_events')
+        return (int) DB::table('play_events')
             ->whereIn('audio_asset_id', $assetIds)
             ->whereIn('event_type', ['play', 'replay'])
             ->where('created_at', '>=', now()->startOfMonth())
             ->distinct()
-            ->count(\Illuminate\Support\Facades\DB::raw('COALESCE(CAST(user_id AS CHAR), anonymous_id)'));
+            ->count(DB::raw('COALESCE(CAST(user_id AS CHAR), anonymous_id)'));
     }
 
     /**
@@ -176,7 +183,8 @@ class CatalogueController extends Controller
 
     public function programmes(Request $request): JsonResponse
     {
-        $programmes = Programme::query()->published()->with(['station', 'category'])->withCount('episodes')
+        $programmes = Programme::query()->published()->with(['station', 'category'])
+            ->withCount(['episodes' => fn ($episodes) => $episodes->withoutArchivedAudioAsset()])
             ->when($request->filled('type'), fn ($q) => $q->where('programme_type', $request->string('type')))
             ->orderBy('title')->paginate($request->integer('per_page', 20));
 
@@ -200,8 +208,8 @@ class CatalogueController extends Controller
 
     public function episode(Episode $episode): JsonResponse
     {
-        abort_unless($episode->is_published, 404);
-        $episode->load(['programme']);
+        abort_unless($episode->is_published && ($episode->audioAsset?->isPublished() ?? false), 404);
+        $episode->load(['programme', 'audioAsset']);
 
         return (new EpisodeResource($episode))->response();
     }
@@ -210,7 +218,8 @@ class CatalogueController extends Controller
 
     public function podcasts(Request $request): JsonResponse
     {
-        $channels = PodcastChannel::query()->published()->with('category')->withCount('episodes')
+        $channels = PodcastChannel::query()->published()->with('category')
+            ->withCount(['episodes' => fn ($episodes) => $episodes->withoutArchivedAudioAsset()])
             ->orderByDesc('followers_count')->paginate($request->integer('per_page', 20));
 
         return PodcastChannelResource::collection($channels)->response();
@@ -229,23 +238,23 @@ class CatalogueController extends Controller
         ]);
     }
 
-    public function podcastEpisode(\App\Models\PodcastEpisode $podcastEpisode): JsonResponse
+    public function podcastEpisode(PodcastEpisode $podcastEpisode): JsonResponse
     {
-        abort_unless($podcastEpisode->status === 'published', 404);
-        $podcastEpisode->load(['channel', 'artists']);
+        abort_unless($podcastEpisode->status === 'published' && ($podcastEpisode->audioAsset?->isPublished() ?? false), 404);
+        $podcastEpisode->load(['channel', 'artists', 'audioAsset']);
 
         return (new PodcastEpisodeResource($podcastEpisode))->response();
     }
 
     // ---- Playlists (public view — editorial & shared user playlists) ----
 
-    public function playlist(Request $request, \App\Models\Playlist $playlist): JsonResponse
+    public function playlist(Request $request, Playlist $playlist): JsonResponse
     {
         abort_unless($playlist->is_public, 404);
         $playlist->load(['items.playable', 'user'])->loadCount('items');
         $this->markFollowing($playlist, $request->user());
 
-        return (new \App\Http\Resources\PlaylistResource($playlist))->response();
+        return (new PlaylistResource($playlist))->response();
     }
 
     // ---- Generic asset ----
@@ -266,7 +275,7 @@ class CatalogueController extends Controller
 
     /* ------------------------------------------------------------------ */
 
-    private function markFavorited(?AudioAsset $asset, ?\App\Models\User $user): void
+    private function markFavorited(?AudioAsset $asset, ?User $user): void
     {
         if ($asset && $user) {
             $asset->is_favorited = Favorite::query()->where('user_id', $user->id)
@@ -275,15 +284,15 @@ class CatalogueController extends Controller
     }
 
     /** Attaches the signed-in listener's own rating for this asset, if any. */
-    private function markMyRating(?AudioAsset $asset, ?\App\Models\User $user): void
+    private function markMyRating(?AudioAsset $asset, ?User $user): void
     {
         if ($asset && $user) {
-            $asset->my_rating = \App\Models\Rating::query()->where('user_id', $user->id)
+            $asset->my_rating = Rating::query()->where('user_id', $user->id)
                 ->where('ratable_type', 'audio_asset')->where('ratable_id', $asset->id)->value('rating');
         }
     }
 
-    private function markFollowing(\Illuminate\Database\Eloquent\Model $model, ?\App\Models\User $user): void
+    private function markFollowing(Model $model, ?User $user): void
     {
         if ($user) {
             $model->is_following = Follow::query()->where('user_id', $user->id)

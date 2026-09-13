@@ -73,6 +73,7 @@ class StationController extends Controller
             'location' => ['nullable', 'string', 'max:255'],
             'frequency' => ['nullable', 'string', 'max:50'],
             'description' => ['nullable', 'string'],
+            'description_bn' => ['nullable', 'string'],
             'is_active' => ['boolean'],
         ]);
     }

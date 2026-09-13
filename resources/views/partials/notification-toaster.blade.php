@@ -93,7 +93,7 @@
     async function poll() {
         try {
             const since = localStorage.getItem(KEY);
-            const url = '{{ route('admin.notifications.poll') }}' + (since ? '?since=' + encodeURIComponent(since) : '');
+            const url = '{{ route('admin.notifications.poll', absolute: false) }}' + (since ? '?since=' + encodeURIComponent(since) : '');
             const res = await fetch(url, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' });
             if (!res.ok) return;
             const data = await res.json();

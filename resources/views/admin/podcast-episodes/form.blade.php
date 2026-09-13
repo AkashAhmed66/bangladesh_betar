@@ -23,7 +23,8 @@
             <x-form.input label="Scheduled at" name="scheduled_at" type="datetime-local" :value="$episode?->scheduled_at?->format('Y-m-d\TH:i')" help="Used when status is Scheduled (FR-POD-03)." />
             <x-form.input label="Duration (seconds)" name="duration_seconds" type="number" :value="$episode?->duration_seconds ?? 0" required />
             <div class="flex items-end pb-1"><x-form.toggle label="Premium episode" name="is_premium" :checked="(bool) $episode?->is_premium" help="Requires an active subscription." /></div>
-            <div class="sm:col-span-2"><x-form.textarea label="Description" name="description" :value="$episode?->description" rows="3" /></div>
+            <div class="sm:col-span-2"><x-form.textarea label="Description (English)" name="description" :value="$episode?->description" rows="3" /></div>
+            <div class="sm:col-span-2"><x-form.textarea label="Description (Bangla)" name="description_bn" :value="$episode?->description_bn" rows="3" /></div>
         </div>
         <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-4 dark:border-slate-800">
             <a href="{{ route('admin.podcast-episodes.index') }}" class="btn-secondary">Cancel</a>

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\BroadcastRecording;
 use App\Support\Hls;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -29,7 +30,7 @@ class HlsController extends Controller
      */
     public function playlist(Request $request, string $group, int $id, string $variant): Response
     {
-        $this->validatePath($group, $variant);
+        $this->validatePath($request, $group, $id, $variant);
 
         $disk = Storage::disk('local');
         $rel = Hls::dir($group, $id, $variant).'/index.m3u8';
@@ -42,16 +43,17 @@ class HlsController extends Controller
         $keyTtl = now()->addMinutes(30);
 
         $out = [];
+        $access = $request->query('access') === 'admin' ? ['access' => 'admin'] : [];
         foreach ($lines as $line) {
             if (str_starts_with($line, '#EXT-X-KEY')) {
-                $keyUrl = URL::temporarySignedRoute('api.v1.hls.key', $keyTtl, [
+                $keyUrl = URL::temporarySignedRoute('api.v1.hls.key', $keyTtl, array_merge([
                     'group' => $group, 'id' => $id, 'variant' => $variant,
-                ]);
+                ], $access));
                 $out[] = str_replace('__KEY_URI__', $keyUrl, $line);
             } elseif ($line !== '' && ! str_starts_with($line, '#')) {
-                $out[] = URL::temporarySignedRoute('api.v1.hls.segment', $segmentTtl, [
+                $out[] = URL::temporarySignedRoute('api.v1.hls.segment', $segmentTtl, array_merge([
                     'group' => $group, 'id' => $id, 'variant' => $variant, 'file' => trim($line),
-                ]);
+                ], $access));
             } else {
                 $out[] = $line;
             }
@@ -66,7 +68,7 @@ class HlsController extends Controller
     /** The 16-byte AES key — signed, short-lived, never cached. */
     public function key(Request $request, string $group, int $id, string $variant): Response
     {
-        $this->validatePath($group, $variant);
+        $this->validatePath($request, $group, $id, $variant);
 
         $disk = Storage::disk('local');
         $rel = Hls::dir($group, $id, $variant).'/key.bin';
@@ -81,7 +83,7 @@ class HlsController extends Controller
     /** One encrypted ~10s chunk. Throttled: bulk ripping is rate-capped. */
     public function segment(Request $request, string $group, int $id, string $variant, string $file): BinaryFileResponse
     {
-        $this->validatePath($group, $variant);
+        $this->validatePath($request, $group, $id, $variant);
         abort_unless(preg_match('/^seg\d+\.ts$/', $file) === 1, 404);
 
         $disk = Storage::disk('local');
@@ -95,9 +97,15 @@ class HlsController extends Controller
         ]);
     }
 
-    private function validatePath(string $group, string $variant): void
+    private function validatePath(Request $request, string $group, int $id, string $variant): void
     {
         abort_unless(in_array($group, Hls::GROUPS, true), 404);
         abort_unless(preg_match('/^[a-z]+$/', $variant) === 1, 404);
+
+        if ($group === 'broadcast') {
+            $recording = BroadcastRecording::query()->find($id);
+            abort_unless($recording?->isPlayable(), 404);
+            abort_unless($request->query('access') === 'admin' || $recording->isPublished(), 404);
+        }
     }
 }

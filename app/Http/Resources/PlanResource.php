@@ -17,6 +17,7 @@ class PlanResource extends JsonResource
             'name' => $this->name,
             'name_bn' => $this->name_bn,
             'description' => $this->description,
+            'description_bn' => $this->description_bn,
             'price_monthly' => (float) $this->price_monthly,
             'price_annual' => (float) $this->price_annual,
             'currency' => $this->currency,

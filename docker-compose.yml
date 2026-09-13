@@ -18,6 +18,8 @@ services:
         condition: service_healthy
       livekit:
         condition: service_started
+      egress:
+        condition: service_started
       # service_started (not _healthy): a slow or unhealthy ES must never block
       # the app from booting — search degrades to a SQL LIKE fallback.
       elasticsearch:
@@ -58,6 +60,9 @@ services:
       LIVEKIT_WS_URL: ${LIVEKIT_WS_URL:-}
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-betar_livekit_dev_secret_please_change_in_prod_0001}
+      LIVEKIT_RECORDING_ENABLED: ${LIVEKIT_RECORDING_ENABLED:-true}
+      LIVEKIT_RECORDING_DISK: broadcast_recordings
+      LIVEKIT_RECORDING_OUTPUT_DIRECTORY: /out
       PUBLIC_APP_URL: ${PUBLIC_APP_URL:-}
       # First boot (empty DB): migrate + seed. Later boots: apply only NEW
       # pending migrations and DO NOT re-seed, so restarts never wipe/duplicate
@@ -73,13 +78,17 @@ services:
       - "${APP_PORT:-15000}:80"
     volumes:
       - app_storage:/var/www/html/storage
+      - broadcast_recordings:/var/www/html/storage/app/broadcast-recordings
     networks:
       - betar
 
   livekit:
-    image: livekit/livekit-server:latest
+    image: livekit/livekit-server:v1.13.4
     container_name: betar_livekit
     restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
     # --node-ip advertises 127.0.0.1 in ICE candidates so host browsers reach
     # the published RTC ports (local-dev networking; override for production).
     command: --config /etc/livekit/livekit.yaml --node-ip ${LIVEKIT_NODE_IP:-127.0.0.1}
@@ -91,6 +100,37 @@ services:
       - ./docker/livekit.yaml:/etc/livekit/livekit.yaml:ro
     networks:
       - betar
+
+  # Server-side mixed audio recording. Egress joins each live room as a hidden
+  # participant and writes finalized OGG files to a private shared volume.
+  egress:
+    image: livekit/egress:v1.13.0
+    container_name: betar_egress
+    restart: unless-stopped
+    user: "1001:0"
+    cap_add:
+      - SYS_ADMIN
+    depends_on:
+      livekit:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      recordings-init:
+        condition: service_completed_successfully
+    environment:
+      EGRESS_CONFIG_FILE: /etc/livekit/egress.yaml
+    volumes:
+      - ./docker/egress.yaml:/etc/livekit/egress.yaml:ro
+      - broadcast_recordings:/out
+    networks:
+      - betar
+
+  recordings-init:
+    image: alpine:3.22
+    restart: "no"
+    command: ["sh", "-c", "mkdir -p /out/failed && chmod -R 0777 /out"]
+    volumes:
+      - broadcast_recordings:/out
 
   db:
     image: mysql:8.0
@@ -121,8 +161,12 @@ services:
     image: redis:7-alpine
     container_name: betar_redis
     restart: unless-stopped
-    ports:
-      - "${REDIS_PORT_HOST:-63791}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
     networks:
       - betar
 
@@ -164,6 +208,7 @@ services:
 volumes:
   db_data:
   app_storage:
+  broadcast_recordings:
   es_data:
 
 networks:

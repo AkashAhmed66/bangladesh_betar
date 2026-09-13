@@ -23,6 +23,7 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
 
     Route::middleware(['auth', 'staff'])->group(function (): void {
         Route::post('logout', [Admin\AuthController::class, 'logout'])->name('logout');
+        Route::post('locale', Admin\LocaleController::class)->name('locale.update');
 
         // ---- Self-service profile (every portal user, incl. artists) ----
         // Not permission-gated: a user may always manage their own account.
@@ -59,15 +60,22 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
         // ---- M02/M04: Audio assets & versions ----
         Route::middleware('permission:assets.view')->group(function (): void {
             Route::get('assets', [Admin\AudioAssetController::class, 'index'])->name('assets.index');
+            Route::get('archive', [Admin\AudioAssetController::class, 'archiveIndex'])->name('archive.index');
             Route::get('assets/create', [Admin\AudioAssetController::class, 'create'])
                 ->middleware('permission:assets.upload')->name('assets.create');
             Route::post('assets', [Admin\AudioAssetController::class, 'store'])
                 ->middleware('permission:assets.upload')->name('assets.store');
+            Route::get('assets/{asset}/analysis-status', [Admin\AudioAssetController::class, 'analysisStatus'])
+                ->name('assets.analysis-status');
             Route::get('assets/{asset}', [Admin\AudioAssetController::class, 'show'])->name('assets.show');
             Route::get('assets/{asset}/edit', [Admin\AudioAssetController::class, 'edit'])
                 ->middleware('permission:assets.edit')->name('assets.edit');
             Route::put('assets/{asset}', [Admin\AudioAssetController::class, 'update'])
                 ->middleware('permission:assets.edit')->name('assets.update');
+            Route::post('assets/{asset}/archive', [Admin\AudioAssetController::class, 'archive'])
+                ->middleware('permission:assets.edit')->name('assets.archive');
+            Route::post('assets/{asset}/unarchive', [Admin\AudioAssetController::class, 'unarchive'])
+                ->middleware('permission:assets.edit')->name('assets.unarchive');
             Route::delete('assets/{asset}', [Admin\AudioAssetController::class, 'destroy'])
                 ->middleware('permission:assets.delete')->name('assets.destroy');
             Route::post('assets/{asset}/publish', [Admin\AudioAssetController::class, 'publish'])
@@ -134,6 +142,7 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
             Route::get('audiobooks/{audiobook}', [Admin\AudioBookController::class, 'show'])->name('audiobooks.show');
             Route::post('audiobooks/{audiobook}/submit', [Admin\AudioBookController::class, 'submit'])->name('audiobooks.submit');
             Route::post('audiobooks/{audiobook}/text', [Admin\AudioBookController::class, 'updateText'])->name('audiobooks.update-text');
+            Route::post('audiobooks/{audiobook}/artwork', [Admin\AudioBookController::class, 'updateArtwork'])->name('audiobooks.update-artwork');
             Route::post('audiobooks/{audiobook}/review', [Admin\AudioBookController::class, 'review'])
                 ->middleware('permission:audiobooks.approve')->name('audiobooks.review');
             Route::post('audiobooks/{audiobook}/unpublish', [Admin\AudioBookController::class, 'unpublish'])
@@ -153,12 +162,64 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
             ->middleware('permission:songs.view');
         Route::resource('playlists', Admin\PlaylistController::class)->only(['index', 'show'])
             ->middleware('permission:playlists.view');
+        Route::post('playlists/{playlist}/artwork', [Admin\PlaylistController::class, 'updateArtwork'])
+            ->middleware('permission:playlists.view')->name('playlists.update-artwork');
 
         // ---- M09: Podcasts ----
         Route::resource('podcast-channels', Admin\PodcastChannelController::class)->except('show')
             ->middleware('permission:podcasts.view');
         Route::resource('podcast-episodes', Admin\PodcastEpisodeController::class)->except('show')
             ->middleware('permission:podcasts.view');
+
+        // ---- Public News portal editorial management ----
+        Route::resource('news-categories', Admin\NewsCategoryController::class)->except('show')
+            ->middleware('permission:news.manage');
+        Route::resource('news-articles', Admin\NewsArticleController::class)->except('show')
+            ->middleware('permission:news.view');
+        Route::post('news-articles/{newsArticle}/submit', [Admin\NewsArticleController::class, 'submit'])
+            ->middleware('permission:news.manage')->name('news-articles.submit');
+        Route::post('news-articles/{newsArticle}/publish', [Admin\NewsArticleController::class, 'publish'])
+            ->middleware('permission:news.publish')->name('news-articles.publish');
+        Route::post('news-articles/{newsArticle}/unpublish', [Admin\NewsArticleController::class, 'unpublish'])
+            ->middleware('permission:news.publish')->name('news-articles.unpublish');
+
+        // ---- Public Watch/OTT portal catalogue + episode uploads ----
+        Route::resource('watch-categories', Admin\WatchCategoryController::class)->except('show')
+            ->middleware('permission:watch.manage');
+        Route::resource('watch-shows', Admin\WatchShowController::class)->except('show')
+            ->middleware('permission:watch.view');
+        Route::post('watch-shows/{watchShow}/submit', [Admin\WatchShowController::class, 'submit'])
+            ->middleware('permission:watch.manage')->name('watch-shows.submit');
+        Route::post('watch-shows/{watchShow}/publish', [Admin\WatchShowController::class, 'publish'])
+            ->middleware('permission:watch.publish')->name('watch-shows.publish');
+        Route::post('watch-shows/{watchShow}/unpublish', [Admin\WatchShowController::class, 'unpublish'])
+            ->middleware('permission:watch.publish')->name('watch-shows.unpublish');
+        Route::get('watch-shows/{watchShow}/episodes/create', [Admin\WatchEpisodeController::class, 'create'])
+            ->middleware('permission:watch.view')->name('watch-shows.episodes.create');
+        Route::post('watch-shows/{watchShow}/episodes', [Admin\WatchEpisodeController::class, 'store'])
+            ->middleware('permission:watch.view')->name('watch-shows.episodes.store');
+        Route::get('watch-episodes/{watchEpisode}/edit', [Admin\WatchEpisodeController::class, 'edit'])
+            ->middleware('permission:watch.view')->name('watch-episodes.edit');
+        Route::put('watch-episodes/{watchEpisode}', [Admin\WatchEpisodeController::class, 'update'])
+            ->middleware('permission:watch.view')->name('watch-episodes.update');
+        Route::delete('watch-episodes/{watchEpisode}', [Admin\WatchEpisodeController::class, 'destroy'])
+            ->middleware('permission:watch.view')->name('watch-episodes.destroy');
+
+        // ---- Watch Clips (vertical short-form video feed) ----
+        Route::resource('watch-clips', Admin\WatchClipController::class)->except('show')
+            ->middleware('permission:watch.manage');
+
+        // ---- Watch Live: camera + microphone video broadcasting ----
+        Route::get('watch-live-channels/{watchLiveChannel}/studio', [Admin\WatchLiveChannelController::class, 'studio'])
+            ->middleware('permission:watch.broadcast')->name('watch-live-channels.studio');
+        Route::get('watch-live-channels/{watchLiveChannel}/status', [Admin\WatchLiveChannelController::class, 'status'])
+            ->middleware('permission:watch.view')->name('watch-live-channels.status');
+        Route::post('watch-live-channels/{watchLiveChannel}/go-live', [Admin\WatchLiveChannelController::class, 'goLive'])
+            ->middleware('permission:watch.broadcast')->name('watch-live-channels.go-live');
+        Route::post('watch-live-channels/{watchLiveChannel}/stop', [Admin\WatchLiveChannelController::class, 'stop'])
+            ->middleware('permission:watch.broadcast')->name('watch-live-channels.stop');
+        Route::resource('watch-live-channels', Admin\WatchLiveChannelController::class)->except('show')
+            ->middleware('permission:watch.view');
 
         // ---- M27: Live broadcasting ----
         // Custom routes are declared before the resource so /studio, /status etc.
@@ -177,6 +238,12 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
             ->middleware('permission:broadcasts.broadcast')->name('broadcast-channels.grant-speak');
         Route::post('broadcast-channels/{broadcastChannel}/revoke-speak', [Admin\BroadcastChannelController::class, 'revokeSpeak'])
             ->middleware('permission:broadcasts.broadcast')->name('broadcast-channels.revoke-speak');
+        Route::post('broadcast-recordings/{recording}/publish', [Admin\BroadcastRecordingController::class, 'publish'])
+            ->middleware('permission:broadcasts.manage')->name('broadcast-recordings.publish');
+        Route::post('broadcast-recordings/{recording}/unpublish', [Admin\BroadcastRecordingController::class, 'unpublish'])
+            ->middleware('permission:broadcasts.manage')->name('broadcast-recordings.unpublish');
+        Route::delete('broadcast-recordings/{recording}', [Admin\BroadcastRecordingController::class, 'destroy'])
+            ->middleware('permission:broadcasts.manage')->name('broadcast-recordings.destroy');
         Route::resource('broadcast-channels', Admin\BroadcastChannelController::class)->except('show')
             ->middleware('permission:broadcasts.view');
 

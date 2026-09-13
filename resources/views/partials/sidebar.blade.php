@@ -7,6 +7,7 @@
         ],
         'Archive' => [
             ['assets.view', 'admin.assets.index', 'archive', 'Audio Assets', ['admin.assets.']],
+            ['assets.view', 'admin.archive.index', 'server', 'Archive', ['admin.archive.']],
             ['digitization.view', 'admin.media-items.index', 'disc', 'Digitization', ['admin.media-items.']],
             ['stations.view', 'admin.stations.index', 'radio', 'Stations', ['admin.stations.']],
             ['editing.view', 'admin.edit-sessions.index', 'scissors', 'Edit Sessions', ['admin.edit-sessions.']],
@@ -25,6 +26,16 @@
             ['broadcasts.view', 'admin.broadcast-channels.index', 'radio', 'Live Broadcasting', ['admin.broadcast-channels.']],
             ['programmes.view', 'admin.programmes.index', 'squares', 'Programmes', ['admin.programmes.']],
             ['episodes.view', 'admin.episodes.index', 'ghost', 'Programme Episodes', ['admin.episodes.']],
+        ],
+        'News Portal' => [
+            ['news.view', 'admin.news-articles.index', 'document-text', 'News Articles', ['admin.news-articles.']],
+            ['news.manage', 'admin.news-categories.index', 'funnel', 'News Categories', ['admin.news-categories.']],
+        ],
+        'Watch Portal' => [
+            ['watch.view', 'admin.watch-shows.index', 'play', 'Watch Shows', ['admin.watch-shows.', 'admin.watch-episodes.']],
+            ['watch.manage', 'admin.watch-categories.index', 'funnel', 'Watch Categories', ['admin.watch-categories.']],
+            ['watch.manage', 'admin.watch-clips.index', 'sparkles', 'Watch Clips', ['admin.watch-clips.']],
+            ['watch.view', 'admin.watch-live-channels.index', 'computer', 'Watch Live', ['admin.watch-live-channels.']],
         ],
         'Governance' => [
             ['workflows.view', 'admin.workflows.index', 'workflow', 'Workflows', ['admin.workflows.']],
@@ -71,7 +82,7 @@
     @endphp
     @if ($visible !== [])
         @if ($section !== '')
-            <p class="nav-section">{{ $section }}</p>
+            <p class="nav-section">{{ __($section) }}</p>
         @else
             <div class="pt-3"></div>
         @endif
@@ -83,9 +94,9 @@
                     $params = $item[5] ?? ($route === 'admin.vocabularies.index' ? ['type' => 'categories'] : []);
                     $active = collect($prefixes)->contains(fn ($p) => request()->routeIs($p.'*') || request()->routeIs(rtrim($p, '.')));
                 @endphp
-                <a href="{{ route($route, $params) }}" class="nav-item {{ $active ? 'active' : '' }}" title="{{ $label }}">
+                <a href="{{ route($route, $params) }}" class="nav-item {{ $active ? 'active' : '' }}" title="{{ __($label) }}">
                     <x-icon :name="$icon" class="size-[18px] shrink-0" />
-                    <span class="nav-label truncate">{{ $label }}</span>
+                    <span class="nav-label truncate">{{ __($label) }}</span>
                 </a>
             @endforeach
         </div>
