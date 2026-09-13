@@ -23,6 +23,7 @@ use App\Models\Programme;
 use App\Models\Song;
 use App\Models\User;
 use Database\Seeders\DemoArtworkSeeder;
+use Database\Seeders\ListenArtworkExpansionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -261,6 +262,50 @@ class ModuleArtworkTest extends TestCase
             'playlists', 'podcasts', 'programmes', 'songs',
         ] as $module) {
             Storage::disk('public')->assertExists("demo-artwork/{$module}.png");
+        }
+    }
+
+    public function test_modern_listen_artwork_replaces_only_legacy_demo_images_with_varied_covers(): void
+    {
+        Storage::fake('public');
+
+        $legacySongs = collect(range(1, 6))->map(function (int $number): AudioAsset {
+            $asset = AudioAsset::query()->create([
+                'archive_no' => "BB-2026-ART{$number}",
+                'title' => "Modern artwork song {$number}",
+                'slug' => "modern-artwork-song-{$number}",
+                'content_type' => 'song',
+                'artwork_path' => 'demo-artwork/songs.png',
+            ]);
+            Song::query()->create(['audio_asset_id' => $asset->id]);
+
+            return $asset;
+        });
+
+        $legacyAlbum = Album::query()->create([
+            'title' => 'Legacy Album',
+            'slug' => 'legacy-album',
+            'artwork_path' => 'demo-artwork/albums.png',
+        ]);
+        $uploadedAlbum = Album::query()->create([
+            'title' => 'Uploaded Album',
+            'slug' => 'uploaded-album',
+            'artwork_path' => 'artwork/albums/uploaded.png',
+        ]);
+
+        $this->seed(ListenArtworkExpansionSeeder::class);
+
+        $songPaths = $legacySongs->map(fn (AudioAsset $asset): ?string => $asset->fresh()->artwork_path);
+
+        $this->assertTrue($songPaths->every(
+            fn (?string $path): bool => str_starts_with((string) $path, 'listen-artwork/'),
+        ));
+        $this->assertGreaterThan(1, $songPaths->unique()->count());
+        $this->assertStringStartsWith('listen-artwork/', (string) $legacyAlbum->fresh()->artwork_path);
+        $this->assertSame('artwork/albums/uploaded.png', $uploadedAlbum->fresh()->artwork_path);
+
+        foreach ($songPaths->push($legacyAlbum->fresh()->artwork_path) as $path) {
+            Storage::disk('public')->assertExists((string) $path);
         }
     }
 

@@ -29,6 +29,7 @@ class DatabaseSeeder extends Seeder
             PodcastSeeder::class,          // podcast channels & episodes
             PortalCategorySeeder::class,   // editable News + Watch category navigation
             PortalContentSeeder::class,    // seeded News + Watch portal content and images
+            WatchDemoExpansionSeeder::class, // additional Watch catalogue, posters and demo videos
             BroadcastChannelSeeder::class, // M27 live broadcast channels
             WorkflowSeeder::class,         // approval workflows + live instances
             RightsSeeder::class,           // rights holders & records
@@ -43,6 +44,8 @@ class DatabaseSeeder extends Seeder
             AnalyticsSeeder::class,        // play events + daily stats/heat maps
             SystemSeeder::class,           // backups + integrity checks
             DemoArtworkSeeder::class,      // fill missing artwork without replacing uploads
+            ListenArtworkExpansionSeeder::class, // modern, varied Listen catalogue artwork
+            NewsArtworkExpansionSeeder::class, // modern, varied News lead artwork
         ]);
     }
 }
