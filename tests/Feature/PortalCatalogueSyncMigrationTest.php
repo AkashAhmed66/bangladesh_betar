@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Models\BroadcastChannel;
 use App\Models\NewsArticle;
 use App\Models\NewsCategory;
 use App\Models\User;
@@ -28,13 +29,21 @@ final class PortalCatalogueSyncMigrationTest extends TestCase
 
         $migration = require database_path('migrations/2026_09_13_000000_sync_portal_catalogue_for_existing_installs.php');
         $migration->up();
+        $repairMigration = require database_path('migrations/2026_09_14_000000_sync_listen_artwork_and_watch_live.php');
+        $repairMigration->up();
 
         $this->assertGreaterThan(0, NewsCategory::query()->count());
         $this->assertGreaterThan(0, WatchCategory::query()->count());
         $this->assertGreaterThan(0, NewsArticle::query()->count());
         $this->assertGreaterThan(0, WatchShow::query()->count());
+        $this->assertTrue(BroadcastChannel::query()
+            ->where('slug', 'betar-watch-live')
+            ->where('channel_type', 'video')
+            ->where('artwork_path', 'portal/demo/watch-studio.png')
+            ->exists());
         Storage::disk('public')->assertExists('portal/demo/news-hero.png');
         Storage::disk('public')->assertExists('portal/demo/watch-innovation.png');
+        Storage::disk('public')->assertExists('portal/demo/watch-studio.png');
         Storage::disk('public')->assertExists('news-artwork/train.webp');
     }
 }

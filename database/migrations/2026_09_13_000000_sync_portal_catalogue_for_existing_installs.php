@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use Database\Seeders\BroadcastChannelSeeder;
+use Database\Seeders\ListenArtworkExpansionSeeder;
 use Database\Seeders\NewsArtworkExpansionSeeder;
 use Database\Seeders\PortalCategorySeeder;
 use Database\Seeders\PortalContentSeeder;
@@ -33,7 +35,9 @@ return new class extends Migration
         $this->runSeeder(PortalCategorySeeder::class);
         $this->runSeeder(PortalContentSeeder::class);
         $this->runSeeder(WatchDemoExpansionSeeder::class);
+        $this->runSeeder(BroadcastChannelSeeder::class);
         $this->runSeeder(NewsArtworkExpansionSeeder::class);
+        $this->runSeeder(ListenArtworkExpansionSeeder::class);
     }
 
     public function down(): void
