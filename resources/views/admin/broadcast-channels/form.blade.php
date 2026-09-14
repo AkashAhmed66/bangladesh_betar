@@ -17,8 +17,8 @@
             <x-form.input label="Channel name" name="name" :value="$channel?->name" required />
             <x-form.input label="Channel name (Bangla)" name="name_bn" :value="$channel?->name_bn" />
             <x-form.select label="Station" name="station_id" :value="$channel?->station_id"
-                           placeholder="— None —" :options="$stations->all()"
-                           help="Optionally link this channel to a Bangladesh Betar station." />
+                           placeholder="Select a station" :options="$stations->all()" required
+                           help="Choose the Bangladesh Betar station listeners can use to find this channel." />
             <div class="flex items-end">
                 <x-form.toggle label="Active" name="is_active"
                                :checked="$channel ? (bool) $channel->is_active : true"

@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use App\Models\BroadcastChannel;
 use App\Models\BroadcastSession;
 use App\Models\Plan;
+use App\Models\Station;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Services\LiveKitService;
@@ -22,11 +23,14 @@ final class WatchLiveBroadcastTest extends TestCase
 
     public function test_watch_manager_can_create_a_video_channel(): void
     {
+        $station = $this->station();
+
         $this->actingAs($this->staff(['watch.view', 'watch.manage']))
             ->post(route('admin.watch-live-channels.store'), [
                 'name' => 'Parliament Live',
                 'name_bn' => 'সংসদ সরাসরি',
                 'description' => 'National parliamentary coverage.',
+                'station_id' => $station->id,
                 'is_active' => 1,
             ])
             ->assertRedirect(route('admin.watch-live-channels.index'));
@@ -36,6 +40,63 @@ final class WatchLiveBroadcastTest extends TestCase
             'channel_type' => 'video',
             'is_active' => true,
         ]);
+    }
+
+    public function test_watch_channel_station_is_required_and_must_exist(): void
+    {
+        $user = $this->staff(['watch.view', 'watch.manage']);
+
+        $this->actingAs($user)
+            ->from(route('admin.watch-live-channels.create'))
+            ->post(route('admin.watch-live-channels.store'), ['name' => 'Missing station'])
+            ->assertRedirect(route('admin.watch-live-channels.create'))
+            ->assertSessionHasErrors('station_id');
+
+        $this->actingAs($user)
+            ->from(route('admin.watch-live-channels.create'))
+            ->post(route('admin.watch-live-channels.store'), [
+                'name' => 'Unknown station',
+                'station_id' => 999999,
+            ])
+            ->assertRedirect(route('admin.watch-live-channels.create'))
+            ->assertSessionHasErrors('station_id');
+    }
+
+    public function test_watch_channel_exposes_station_metadata(): void
+    {
+        $station = $this->station();
+        $channel = $this->channel('video', 'station-watch-room');
+        $channel->update(['station_id' => $station->id]);
+
+        $this->getJson(route('api.v1.watch-live-channels.show', $channel))
+            ->assertOk()
+            ->assertJsonPath('data.station_id', $station->id)
+            ->assertJsonPath('data.station', $station->name)
+            ->assertJsonPath('data.station_bn', $station->name_bn);
+    }
+
+    public function test_audio_channel_station_is_required(): void
+    {
+        $user = $this->staff(['broadcasts.view', 'broadcasts.manage']);
+
+        $this->actingAs($user)
+            ->from(route('admin.broadcast-channels.create'))
+            ->post(route('admin.broadcast-channels.store'), ['name' => 'Missing station'])
+            ->assertRedirect(route('admin.broadcast-channels.create'))
+            ->assertSessionHasErrors('station_id');
+    }
+
+    public function test_audio_channel_exposes_station_metadata(): void
+    {
+        $station = $this->station();
+        $channel = $this->channel('audio', 'station-audio-room');
+        $channel->update(['station_id' => $station->id]);
+
+        $this->getJson(route('api.v1.live-channels.show', $channel))
+            ->assertOk()
+            ->assertJsonPath('data.station_id', $station->id)
+            ->assertJsonPath('data.station', $station->name)
+            ->assertJsonPath('data.station_bn', $station->name_bn);
     }
 
     public function test_broadcaster_can_start_and_completely_stop_watch_live_video(): void
@@ -160,5 +221,14 @@ final class WatchLiveBroadcastTest extends TestCase
         ]);
 
         return $user;
+    }
+
+    private function station(): Station
+    {
+        return Station::query()->create([
+            'name' => 'Dhaka Betar',
+            'name_bn' => 'ঢাকা বেতার',
+            'code' => 'DHK-'.uniqid(),
+        ]);
     }
 }

@@ -197,11 +197,11 @@ final class WatchLiveChannelController extends Controller
             'name_bn' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:2000'],
             'description_bn' => ['nullable', 'string', 'max:2000'],
-            'station_id' => ['nullable', 'integer', 'exists:stations,id'],
+            'station_id' => ['required', 'integer', 'exists:stations,id'],
             'artwork' => ArtworkService::rules(),
             'remove_artwork' => ['boolean'],
             'is_active' => ['boolean'],
-        ]);
+        ], [], ['station_id' => 'station']);
     }
 
     /** @return array<string, mixed> */

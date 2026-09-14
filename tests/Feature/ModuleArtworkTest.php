@@ -21,6 +21,7 @@ use App\Models\Playlist;
 use App\Models\PodcastChannel;
 use App\Models\Programme;
 use App\Models\Song;
+use App\Models\Station;
 use App\Models\User;
 use Database\Seeders\DemoArtworkSeeder;
 use Database\Seeders\ListenArtworkExpansionSeeder;
@@ -114,6 +115,11 @@ class ModuleArtworkTest extends TestCase
         Storage::fake('public');
         Queue::fake();
         config(['scout.driver' => 'null']);
+        $station = Station::query()->create([
+            'name' => 'Dhaka Betar',
+            'name_bn' => 'ঢাকা বেতার',
+            'code' => 'DHK-'.uniqid(),
+        ]);
 
         $user = $this->staffUser([
             'programmes.view', 'programmes.manage',
@@ -138,6 +144,7 @@ class ModuleArtworkTest extends TestCase
 
         $this->actingAs($user)->post(route('admin.broadcast-channels.store'), [
             'name' => 'Image Radio',
+            'station_id' => $station->id,
             'artwork' => $this->image('radio.png'),
         ])->assertRedirect(route('admin.broadcast-channels.index'));
 

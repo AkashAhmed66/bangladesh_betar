@@ -12,7 +12,9 @@
         <div class="card-body grid gap-5 sm:grid-cols-2">
             <x-form.input label="Channel name" name="name" :value="$channel?->name" required />
             <x-form.input label="Channel name (Bangla)" name="name_bn" :value="$channel?->name_bn" />
-            <x-form.select label="Station" name="station_id" :value="$channel?->station_id" placeholder="— None —" :options="$stations->all()" help="Optionally associate this feed with a Betar station." />
+            <x-form.select label="Station" name="station_id" :value="$channel?->station_id"
+                           placeholder="Select a station" :options="$stations->all()" required
+                           help="Choose the Bangladesh Betar station viewers can use to find this channel." />
             <div class="flex items-end"><x-form.toggle label="Broadcasting enabled" name="is_active" :checked="$channel ? (bool) $channel->is_active : true" help="Disabled channels cannot go live and disappear from the public Watch page." /></div>
             <div class="sm:col-span-2"><x-form.textarea label="Description (English)" name="description" :value="$channel?->description" rows="4" help="Explain the programmes, events or coverage viewers can expect." /></div>
             <div class="sm:col-span-2"><x-form.textarea label="Description (Bangla)" name="description_bn" :value="$channel?->description_bn" rows="4" help="Shown to viewers when Bangla is selected." /></div>

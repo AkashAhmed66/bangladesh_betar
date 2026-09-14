@@ -40,6 +40,22 @@ class BroadcastChannelSeeder extends Seeder
                 'description' => 'Live video from Bangladesh Betar studios, national events and special programmes.',
                 'channel_type' => 'video',
             ],
+            [
+                'name' => 'Chattogram Cultural Live',
+                'name_bn' => 'চট্টগ্রাম সাংস্কৃতিক লাইভ',
+                'slug' => 'chattogram-cultural-live',
+                'description' => 'Cultural performances and regional programmes from Chattogram.',
+                'channel_type' => 'video',
+                'station_code' => 'BBC',
+            ],
+            [
+                'name' => 'Newsroom 24 Live',
+                'name_bn' => 'নিউজরুম ২৪ লাইভ',
+                'slug' => 'newsroom-24-live',
+                'description' => 'Continuous news and public service coverage from the Betar newsroom.',
+                'channel_type' => 'video',
+                'station_code' => 'BBR',
+            ],
         ];
 
         foreach ($channels as $data) {
@@ -50,7 +66,7 @@ class BroadcastChannelSeeder extends Seeder
                     'name_bn' => $data['name_bn'],
                     'description' => $data['description'],
                     'channel_type' => $data['channel_type'],
-                    'station_id' => $stationId,
+                    'station_id' => Station::query()->where('code', $data['station_code'] ?? '')->value('id') ?? $stationId,
                     'room_name' => 'betar-'.$data['slug'],
                     'is_active' => true,
                 ],

@@ -296,11 +296,11 @@ class BroadcastChannelController extends Controller
             'name_bn' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'description_bn' => ['nullable', 'string'],
-            'station_id' => ['nullable', 'integer', 'exists:stations,id'],
+            'station_id' => ['required', 'integer', 'exists:stations,id'],
             'artwork' => ArtworkService::rules(),
             'remove_artwork' => ['boolean'],
             'is_active' => ['boolean'],
-        ]);
+        ], [], ['station_id' => 'station']);
     }
 
     private function options(): array
