@@ -43,7 +43,7 @@ final class WatchDemoExpansionSeeder extends Seeder
                 'featured' => true,
                 'episodes' => [
                     ['Solar irrigation from a village workshop', 'গ্রামের কর্মশালায় সৌর সেচ', 24, 'A field report on a solar pump that helps farmers irrigate without diesel.', 'portal/demo/watch-solar.mp4'],
-                    ['The makers behind the machine', 'যন্ত্রটির পেছনের নির্মাতারা', 27, 'Meet the students and farmers testing a cleaner way to grow food.', null],
+                    ['The makers behind the machine', 'যন্ত্রটির পেছনের নির্মাতারা', 27, 'Meet the students and farmers testing a cleaner way to grow food.', 'portal/demo/episodes/green-futures-bangladesh-2.mp4'],
                 ],
             ],
             [
@@ -61,7 +61,7 @@ final class WatchDemoExpansionSeeder extends Seeder
                 'featured' => true,
                 'episodes' => [
                     ['At the edge of the mangrove', 'ম্যানগ্রোভের প্রান্তে', 31, 'Researchers map changing tides and the people who live beside them.', 'portal/demo/watch-sundarbans.webm'],
-                    ['Guardians of the tidal forest', 'জোয়ারের বনের প্রহরী', 29, 'Meet the rangers and honey collectors protecting a fragile ecosystem.', null],
+                    ['Guardians of the tidal forest', 'জোয়ারের বনের প্রহরী', 29, 'Meet the rangers and honey collectors protecting a fragile ecosystem.', 'portal/demo/episodes/sundarbans-field-notes-2.mp4'],
                 ],
             ],
             [
@@ -78,8 +78,8 @@ final class WatchDemoExpansionSeeder extends Seeder
                 'rating' => 'G',
                 'featured' => false,
                 'episodes' => [
-                    ['One song, three generations', 'একটি গান, তিন প্রজন্ম', 35, 'A warm studio session connects a folk melody with a new generation of performers.', null],
-                    ['Making the dotara sing', 'দোতারা তৈরির গল্প', 22, 'A craftsperson explains the patience and precision behind a beloved instrument.', null],
+                    ['One song, three generations', 'একটি গান, তিন প্রজন্ম', 35, 'A warm studio session connects a folk melody with a new generation of performers.', 'portal/demo/episodes/studio-sounds-1.mp4'],
+                    ['Making the dotara sing', 'দোতারা তৈরির গল্প', 22, 'A craftsperson explains the patience and precision behind a beloved instrument.', 'portal/demo/episodes/studio-sounds-2.mp4'],
                 ],
             ],
             [
@@ -96,8 +96,8 @@ final class WatchDemoExpansionSeeder extends Seeder
                 'rating' => '13+',
                 'featured' => false,
                 'episodes' => [
-                    ['The notebook on platform four', 'চার নম্বর প্ল্যাটফর্মের নোটবুক', 42, 'A detective discovers a pattern in the final notes of a missing broadcaster.', null],
-                    ['Signal in the rain', 'বৃষ্টির মধ্যে সংকেত', 44, 'An impossible signal leads the investigation toward an abandoned station.', null],
+                    ['The notebook on platform four', 'চার নম্বর প্ল্যাটফর্মের নোটবুক', 42, 'A detective discovers a pattern in the final notes of a missing broadcaster.', 'portal/demo/episodes/the-last-platform-1.mp4'],
+                    ['Signal in the rain', 'বৃষ্টির মধ্যে সংকেত', 44, 'An impossible signal leads the investigation toward an abandoned station.', 'portal/demo/episodes/the-last-platform-2.mp4'],
                 ],
             ],
         ];
@@ -105,7 +105,17 @@ final class WatchDemoExpansionSeeder extends Seeder
         foreach ($shows as $position => $data) {
             $categoryId = $categories->get(strtolower(str_replace(' ', '-', $data['category'])));
 
-            $show = WatchShow::query()->updateOrCreate(['slug' => $data['slug']], [
+            $expectedImagePath = 'portal/demo/'.$data['image'];
+            $show = WatchShow::query()->where('slug', $data['slug'])->first();
+
+            // A matching slug can be an administrator's real programme. Never
+            // replace its artwork or editorial metadata with demo content.
+            if ($show !== null && $show->image_path !== $expectedImagePath) {
+                continue;
+            }
+
+            $defaults = [
+                'slug' => $data['slug'],
                 'created_by' => $creatorId,
                 'watch_category_id' => $categoryId,
                 'title' => $data['title'],
@@ -115,21 +125,37 @@ final class WatchDemoExpansionSeeder extends Seeder
                 'description' => $data['description'],
                 'description_bn' => $data['description_bn'],
                 'category' => $data['category'],
-                'image_path' => 'portal/demo/'.$data['image'],
+                'image_path' => $expectedImagePath,
                 'year' => $data['year'],
                 'rating' => $data['rating'],
                 'position' => $position,
                 'is_featured' => $data['featured'],
                 'is_published' => true,
                 'published_at' => now()->subDays($position + 1),
-            ]);
+            ];
+
+            if ($show === null) {
+                $show = WatchShow::query()->create($defaults);
+            } else {
+                // Fill only fields that were not supplied yet. This makes the
+                // seeder safe for Docker restarts and preserves editorial edits.
+                $changed = false;
+                foreach ($defaults as $attribute => $value) {
+                    if (blank($show->getAttribute($attribute))) {
+                        $show->setAttribute($attribute, $value);
+                        $changed = true;
+                    }
+                }
+                if ($changed) {
+                    $show->save();
+                }
+            }
 
             foreach ($data['episodes'] as $episodePosition => $episode) {
                 [$title, $titleBn, $duration, $description, $videoPath] = $episode;
                 $values = [
                     'title_bn' => $titleBn,
                     'description' => $description,
-                    'description_bn' => null,
                     'duration_minutes' => $duration,
                     'position' => $episodePosition + 1,
                     'is_published' => true,
@@ -141,11 +167,25 @@ final class WatchDemoExpansionSeeder extends Seeder
                     $values['video_path'] = $videoPath;
                 }
 
-                $show->episodes()->updateOrCreate(['title' => $title], $values);
+                $existingEpisode = $show->episodes()->where('position', $episodePosition + 1)->first();
+                if ($existingEpisode === null) {
+                    $show->episodes()->create($values + ['title' => $title]);
+                } else {
+                    $changed = false;
+                    foreach ($values as $attribute => $value) {
+                        if (blank($existingEpisode->getAttribute($attribute))) {
+                            $existingEpisode->setAttribute($attribute, $value);
+                            $changed = true;
+                        }
+                    }
+                    if ($changed) {
+                        $existingEpisode->save();
+                    }
+                }
             }
         }
 
-        $this->command?->info('Watch demo expansion seeded (4 shows, 8 episodes, 2 video assets).');
+        $this->command?->info('Watch demo expansion seeded (4 shows, 8 episodes with sample video).');
     }
 
     private function installAssets(): void
@@ -153,21 +193,30 @@ final class WatchDemoExpansionSeeder extends Seeder
         $disk = Storage::disk('public');
         $sourceDirectory = base_path('database/seeders/assets/portal');
         $assets = [
-            'watch-innovation.png',
-            'watch-sundarbans.png',
-            'watch-studio.png',
-            'watch-noir.png',
-            'watch-solar.mp4',
-            'watch-sundarbans.webm',
+            'watch-innovation.png' => 'watch-innovation.png',
+            'watch-sundarbans.png' => 'watch-sundarbans.png',
+            'watch-studio.png' => 'watch-studio.png',
+            'watch-noir.png' => 'watch-noir.png',
+            'watch-solar.mp4' => 'watch-solar.mp4',
+            'watch-sundarbans.webm' => 'watch-sundarbans.webm',
+            'episodes/green-futures-bangladesh-2.mp4' => 'watch-solar.mp4',
+            'episodes/sundarbans-field-notes-2.mp4' => 'watch-solar.mp4',
+            'episodes/studio-sounds-1.mp4' => 'watch-solar.mp4',
+            'episodes/studio-sounds-2.mp4' => 'watch-solar.mp4',
+            'episodes/the-last-platform-1.mp4' => 'watch-solar.mp4',
+            'episodes/the-last-platform-2.mp4' => 'watch-solar.mp4',
         ];
 
-        foreach ($assets as $asset) {
-            $path = $sourceDirectory.'/'.$asset;
+        foreach ($assets as $targetName => $sourceName) {
+            $path = $sourceDirectory.'/'.$sourceName;
             if (! File::exists($path) || File::size($path) === 0) {
-                throw new RuntimeException('Watch demo asset is missing or empty: '.$asset);
+                throw new RuntimeException('Watch demo asset is missing or empty: '.$sourceName);
             }
 
-            $disk->put('portal/demo/'.$asset, File::get($path), 'public');
+            $target = 'portal/demo/'.$targetName;
+            if (! $disk->exists($target) && ! $disk->put($target, File::get($path), 'public')) {
+                throw new RuntimeException('Unable to install Watch demo asset: '.$targetName);
+            }
         }
     }
 }

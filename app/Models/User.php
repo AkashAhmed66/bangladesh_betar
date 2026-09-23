@@ -139,6 +139,11 @@ class User extends Authenticatable
         return $this->hasMany(ContentReaction::class);
     }
 
+    public function watchlistItems(): HasMany
+    {
+        return $this->hasMany(WatchlistItem::class);
+    }
+
     public function savedSearches(): HasMany
     {
         return $this->hasMany(SavedSearch::class);

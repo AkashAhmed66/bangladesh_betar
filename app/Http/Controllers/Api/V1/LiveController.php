@@ -14,23 +14,42 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 /**
- * Public live-broadcasting API (M27): list the channels that are on air right
- * now and mint listener tokens so the public app can subscribe to the audio.
+ * Public live-broadcasting API (M27): list the active audio catalogue (whether
+ * on air or off air) and mint listener tokens for channels currently live.
  */
 class LiveController extends Controller
 {
     public function __construct(private readonly LiveKitService $liveKit) {}
 
-    /** Channels currently on air, most-listened first. */
+    /**
+     * All active audio channels, with channels currently on air first.
+     *
+     * Keeping off-air channels in the catalogue lets the public portal show a
+     * stable station/channel directory and clearly communicate when a stream
+     * is unavailable. Only the token endpoint is restricted to live sessions.
+     */
     public function index(): JsonResponse
     {
         $channels = BroadcastChannel::query()
             ->audio()
-            ->live()
             ->where('is_active', true)
             ->with(['station', 'liveSession.broadcaster'])
             ->get()
-            ->sortByDesc(fn (BroadcastChannel $c) => $c->liveSession?->current_listeners ?? 0)
+            ->sort(function (BroadcastChannel $left, BroadcastChannel $right): int {
+                $leftLive = $left->liveSession !== null;
+                $rightLive = $right->liveSession !== null;
+
+                if ($leftLive !== $rightLive) {
+                    return $leftLive ? -1 : 1;
+                }
+
+                $listenerDifference = ($right->liveSession?->current_listeners ?? 0)
+                    <=> ($left->liveSession?->current_listeners ?? 0);
+
+                return $listenerDifference !== 0
+                    ? $listenerDifference
+                    : strcasecmp((string) $left->name, (string) $right->name);
+            })
             ->values();
 
         return LiveChannelResource::collection($channels)->response();
@@ -39,7 +58,7 @@ class LiveController extends Controller
     /** A single channel (whether or not it is live). */
     public function show(BroadcastChannel $broadcastChannel): JsonResponse
     {
-        abort_unless($broadcastChannel->isAudio(), 404);
+        $this->ensurePublicAudioChannel($broadcastChannel);
         $broadcastChannel->load(['station', 'liveSession.broadcaster']);
 
         return response()->json([
@@ -50,7 +69,7 @@ class LiveController extends Controller
     /** Issue a subscribe-only LiveKit token for a currently-live channel. */
     public function token(Request $request, BroadcastChannel $broadcastChannel): JsonResponse
     {
-        abort_unless($broadcastChannel->isAudio(), 404);
+        $this->ensurePublicAudioChannel($broadcastChannel);
         if (! $broadcastChannel->isLive()) {
             return response()->json(['message' => 'This channel is not live right now.'], 404);
         }
@@ -67,7 +86,7 @@ class LiveController extends Controller
     /** Listener asks the broadcaster for permission to speak (raise hand). */
     public function raiseHand(Request $request, BroadcastChannel $broadcastChannel): JsonResponse
     {
-        abort_unless($broadcastChannel->isAudio(), 404);
+        $this->ensurePublicAudioChannel($broadcastChannel);
         if (! $broadcastChannel->isLive()) {
             return response()->json(['message' => 'This channel is not live right now.'], 404);
         }
@@ -90,12 +109,17 @@ class LiveController extends Controller
     /** Listener withdraws a pending raise-hand request. */
     public function lowerHand(Request $request, BroadcastChannel $broadcastChannel): JsonResponse
     {
-        abort_unless($broadcastChannel->isAudio(), 404);
+        $this->ensurePublicAudioChannel($broadcastChannel);
         $identity = $request->string('identity')->trim()->toString();
         if ($identity !== '') {
             SpeakRequestStore::remove($broadcastChannel->room_name, $identity);
         }
 
         return response()->json(['ok' => true]);
+    }
+
+    private function ensurePublicAudioChannel(BroadcastChannel $channel): void
+    {
+        abort_unless($channel->isAudio() && $channel->is_active, 404);
     }
 }

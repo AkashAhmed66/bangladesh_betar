@@ -16,10 +16,11 @@ final class VideoUploadService
         return ['nullable', 'file', 'mimetypes:video/mp4,video/webm', 'max:524288'];
     }
 
-    public function sync(Request $request, ?string $currentPath): ?string
+    public function sync(Request $request, ?string $currentPath, string $input = 'video', string $directory = 'watch/videos', ?string $removeInput = null): ?string
     {
-        if ($request->hasFile('video')) {
-            $newPath = $request->file('video')->store('watch/videos', 'public');
+        $removeInput ??= $input === 'video' ? 'remove_video' : 'remove_'.$input;
+        if ($request->hasFile($input)) {
+            $newPath = $request->file($input)->store($directory, 'public');
 
             if (! is_string($newPath) || $newPath === '') {
                 throw new RuntimeException('The video could not be stored. Please try again.');
@@ -30,7 +31,7 @@ final class VideoUploadService
             return $newPath;
         }
 
-        if ($request->boolean('remove_video')) {
+        if ($request->boolean($removeInput)) {
             $this->delete($currentPath);
 
             return null;

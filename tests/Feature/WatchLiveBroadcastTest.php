@@ -99,6 +99,92 @@ final class WatchLiveBroadcastTest extends TestCase
             ->assertJsonPath('data.station_bn', $station->name_bn);
     }
 
+    public function test_live_radio_catalogue_contains_every_active_audio_channel_and_marks_live_state(): void
+    {
+        $station = $this->station();
+        $live = $this->channel('audio', 'catalogue-live-room');
+        $live->update([
+            'name' => 'National Service',
+            'name_bn' => 'জাতীয় সেবা',
+            'station_id' => $station->id,
+        ]);
+        BroadcastSession::query()->create([
+            'broadcast_channel_id' => $live->id,
+            'room_name' => $live->room_name,
+            'status' => 'live',
+            'started_at' => now()->subMinute(),
+            'current_listeners' => 8,
+            'peak_listeners' => 8,
+        ]);
+
+        $offAir = $this->channel('audio', 'catalogue-offair-room');
+        $offAir->update([
+            'name' => 'Regional Service',
+            'name_bn' => 'আঞ্চলিক সেবা',
+            'station_id' => $station->id,
+        ]);
+
+        $inactive = $this->channel('audio', 'catalogue-inactive-room');
+        $inactive->update(['is_active' => false]);
+        $this->channel('video', 'catalogue-video-room');
+
+        $response = $this->getJson(route('api.v1.live-channels.index'))->assertOk();
+        $catalogue = collect($response->json('data'));
+        $liveData = $catalogue->firstWhere('id', $live->id);
+        $offAirData = $catalogue->firstWhere('id', $offAir->id);
+
+        $this->assertNotNull($liveData);
+        $this->assertTrue($liveData['is_live']);
+        $this->assertSame(8, $liveData['listener_count']);
+        $this->assertSame($station->id, $liveData['station_id']);
+        $this->assertSame($station->name, $liveData['station']);
+        $this->assertSame($station->name_bn, $liveData['station_bn']);
+        $this->assertNotNull($offAirData);
+        $this->assertFalse($offAirData['is_live']);
+        $this->assertSame(0, $offAirData['listener_count']);
+        $this->assertFalse($catalogue->contains('id', $inactive->id));
+    }
+
+    public function test_audio_listener_token_is_available_only_for_an_active_live_channel(): void
+    {
+        $liveKit = Mockery::mock(LiveKitService::class);
+        $liveKit->shouldReceive('isConfigured')->once()->andReturnTrue();
+        $liveKit->shouldReceive('listenerToken')->once()->andReturn([
+            'ws_url' => 'ws://livekit.test',
+            'token' => 'audio-listener-token',
+            'room' => 'token-live-room',
+        ]);
+        $this->app->instance(LiveKitService::class, $liveKit);
+
+        $offAir = $this->channel('audio', 'token-offair-room');
+        $this->postJson(route('api.v1.live-channels.token', $offAir))
+            ->assertNotFound();
+
+        $inactive = $this->channel('audio', 'token-inactive-room');
+        $inactive->update(['is_active' => false]);
+        BroadcastSession::query()->create([
+            'broadcast_channel_id' => $inactive->id,
+            'room_name' => $inactive->room_name,
+            'status' => 'live',
+            'started_at' => now(),
+        ]);
+        $this->postJson(route('api.v1.live-channels.token', $inactive))
+            ->assertNotFound();
+
+        $live = $this->channel('audio', 'token-live-room');
+        BroadcastSession::query()->create([
+            'broadcast_channel_id' => $live->id,
+            'room_name' => $live->room_name,
+            'status' => 'live',
+            'started_at' => now(),
+        ]);
+
+        $this->postJson(route('api.v1.live-channels.token', $live))
+            ->assertOk()
+            ->assertJsonPath('token', 'audio-listener-token')
+            ->assertJsonPath('room', $live->room_name);
+    }
+
     public function test_broadcaster_can_start_and_completely_stop_watch_live_video(): void
     {
         $liveKit = Mockery::mock(LiveKitService::class);
@@ -150,13 +236,14 @@ final class WatchLiveBroadcastTest extends TestCase
             'peak_listeners' => 15,
         ]);
 
-        $this->getJson(route('api.v1.watch-live-channels.index'))
+        $watchCatalogue = collect($this->getJson(route('api.v1.watch-live-channels.index'))
             ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $video->id)
-            ->assertJsonPath('data.0.type', 'watch_live_channel')
-            ->assertJsonPath('data.0.is_live', true)
-            ->assertJsonPath('data.0.viewer_count', 12);
+            ->json('data'));
+        $videoData = $watchCatalogue->firstWhere('id', $video->id);
+        $this->assertNotNull($videoData);
+        $this->assertSame('watch_live_channel', $videoData['type']);
+        $this->assertTrue($videoData['is_live']);
+        $this->assertSame(12, $videoData['viewer_count']);
 
         $this->getJson(route('api.v1.live-channels.show', $video))->assertNotFound();
         $this->getJson(route('api.v1.watch-live-channels.show', $audio))->assertNotFound();

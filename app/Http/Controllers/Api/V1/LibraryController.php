@@ -7,6 +7,8 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AudioAssetResource;
 use App\Http\Resources\PlaylistResource;
+use App\Http\Resources\WatchEpisodeResource;
+use App\Http\Resources\WatchShowResource;
 use App\Models\AudioAsset;
 use App\Models\Favorite;
 use App\Models\Follow;
@@ -14,8 +16,14 @@ use App\Models\PlayHistory;
 use App\Models\Playlist;
 use App\Models\PlaylistItem;
 use App\Models\UserQueue;
+use App\Models\WatchEpisode;
+use App\Models\WatchlistItem;
+use App\Models\WatchShow;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -26,7 +34,92 @@ use Illuminate\Validation\Rule;
 class LibraryController extends Controller
 {
     private const PLAYABLE_TYPES = ['song', 'audio_asset', 'podcast_episode', 'episode'];
+
     private const FOLLOWABLE_TYPES = ['artist', 'programme', 'podcast_channel', 'playlist'];
+
+    private const WATCHLIST_TYPES = ['watch_show', 'watch_episode'];
+
+    /** The signed-in listener's saved Watch shows and episodes. */
+    public function watchlist(Request $request): JsonResponse
+    {
+        $items = $request->user()->watchlistItems()
+            ->whereIn('watchable_type', self::WATCHLIST_TYPES)
+            ->whereHasMorph('watchable', [WatchShow::class, WatchEpisode::class], function (Builder $query, string $type): void {
+                if ($type === WatchShow::class) {
+                    $query->published();
+                } else {
+                    $query->where('is_published', true)->whereHas('show', fn (Builder $show): Builder => $show->published());
+                }
+            })
+            ->with('watchable')
+            ->latest()
+            ->get();
+        $items->loadMorph('watchable', [
+            WatchEpisode::class => ['show'],
+            WatchShow::class => ['portalCategory'],
+        ]);
+        $items->loadMorphCount('watchable', [WatchShow::class => ['publishedEpisodes']]);
+
+        return response()->json([
+            'data' => $items->map(fn (WatchlistItem $item): array => [
+                'id' => $item->id,
+                'watchable_type' => $item->watchable_type,
+                'watchable_id' => $item->watchable_id,
+                'added_at' => $item->created_at?->toIso8601String(),
+                'item' => $this->watchlistResource($item->watchable),
+            ])->filter(fn (array $item): bool => $item['item'] !== null)->values(),
+        ]);
+    }
+
+    /** Add/remove a published Watch show or episode from the listener's list. */
+    public function toggleWatchlist(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'watchable_type' => ['required', Rule::in(self::WATCHLIST_TYPES)],
+            'watchable_id' => ['required', 'integer'],
+        ]);
+        $watchable = $this->publishedWatchable($data['watchable_type'], (int) $data['watchable_id']);
+
+        return DB::transaction(function () use ($request, $data, $watchable): JsonResponse {
+            // Serialise toggles for this listener so concurrent taps cannot
+            // race the unique constraint or create duplicate saved items.
+            $request->user()->newQuery()->whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
+            $existing = $request->user()->watchlistItems()
+                ->where('watchable_type', $data['watchable_type'])
+                ->where('watchable_id', $watchable->id)
+                ->first();
+
+            if ($existing !== null) {
+                $existing->delete();
+
+                return response()->json(['watchlisted' => false, 'watchable_type' => $data['watchable_type'], 'watchable_id' => $watchable->id]);
+            }
+
+            $item = $request->user()->watchlistItems()->create([
+                'watchable_type' => $data['watchable_type'],
+                'watchable_id' => $watchable->id,
+            ]);
+
+            return response()->json([
+                'watchlisted' => true,
+                'watchable_type' => $data['watchable_type'],
+                'watchable_id' => $watchable->id,
+                'added_at' => $item->created_at?->toIso8601String(),
+            ], 201);
+        }, 3);
+    }
+
+    /** Remove one saved Watch item without requiring a second toggle call. */
+    public function removeFromWatchlist(Request $request, string $type, int $id): JsonResponse
+    {
+        abort_unless(in_array($type, self::WATCHLIST_TYPES, true), 404);
+        $deleted = $request->user()->watchlistItems()
+            ->where('watchable_type', $type)
+            ->where('watchable_id', $id)
+            ->delete();
+
+        return response()->json(['watchlisted' => false, 'removed' => $deleted > 0]);
+    }
 
     // ---- Playlists (FR-PUB-04) ----
 
@@ -196,7 +289,7 @@ class LibraryController extends Controller
             ->where('followable_type', $data['followable_type'])
             ->where('followable_id', $data['followable_id'])->first();
 
-        $modelClass = \Illuminate\Database\Eloquent\Relations\Relation::getMorphedModel($data['followable_type']);
+        $modelClass = Relation::getMorphedModel($data['followable_type']);
 
         if ($existing) {
             $existing->delete();
@@ -283,5 +376,51 @@ class LibraryController extends Controller
     private function ensureOwner(Request $request, Playlist $playlist): void
     {
         abort_unless($playlist->user_id === $request->user()->id, 403, 'You do not own this playlist.');
+    }
+
+    private function publishedWatchable(string $type, int $id): WatchShow|WatchEpisode
+    {
+        if ($type === 'watch_show') {
+            return WatchShow::query()->published()->findOrFail($id);
+        }
+
+        return WatchEpisode::query()
+            ->where('is_published', true)
+            ->whereHas('show', fn ($query) => $query->published())
+            ->findOrFail($id);
+    }
+
+    /** @return array<string, mixed>|null */
+    private function watchlistResource(WatchShow|WatchEpisode|null $watchable): ?array
+    {
+        $watchable?->setAttribute('is_in_watchlist', true);
+        if ($watchable instanceof WatchShow) {
+            if (! $watchable->is_published || ($watchable->published_at !== null && $watchable->published_at->isFuture())) {
+                return null;
+            }
+
+            return (new WatchShowResource($watchable))->resolve();
+        }
+        if ($watchable instanceof WatchEpisode) {
+            $watchable->loadMissing('show');
+            if (! $watchable->is_published
+                || ! $watchable->show?->is_published
+                || ($watchable->show->published_at !== null && $watchable->show->published_at->isFuture())) {
+                return null;
+            }
+
+            return array_merge(
+                (new WatchEpisodeResource($watchable))->resolve(),
+                ['show' => $watchable->show ? [
+                    'id' => $watchable->show->id,
+                    'slug' => $watchable->show->slug,
+                    'title' => $watchable->show->title,
+                    'title_bn' => $watchable->show->title_bn,
+                    'image_url' => $watchable->show->image_path ? asset('storage/'.$watchable->show->image_path) : null,
+                ] : null],
+            );
+        }
+
+        return null;
     }
 }

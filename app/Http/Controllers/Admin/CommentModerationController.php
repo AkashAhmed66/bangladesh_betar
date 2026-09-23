@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AudioAsset;
 use App\Models\Comment;
+use App\Models\WatchEpisode;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -38,11 +39,13 @@ class CommentModerationController extends Controller
             ->with(['user', 'commentable', 'moderator'])
             // Without records.view-all (e.g. artists) only comments left on
             // recordings the user can see — i.e. feedback on their own work.
-            ->when(! $request->user()->can('records.view-all'), fn ($q) => $q->whereHasMorph(
-                'commentable',
-                [AudioAsset::class],
-                fn ($m) => $m->visibleTo($request->user()),
-            ))
+            ->when(! $request->user()->can('records.view-all'), fn ($q) => $q->where(function ($scope) use ($request): void {
+                $scope->whereHasMorph('commentable', [AudioAsset::class], fn ($m) => $m->visibleTo($request->user()))
+                    ->orWhereHasMorph('commentable', [WatchEpisode::class], fn ($m) => $m->whereHas(
+                        'show',
+                        fn ($show) => $show->visibleTo($request->user()),
+                    ));
+            }))
             ->when($status === 'deleted', fn ($q) => $q->onlyTrashed())
             ->when($status !== '' && $status !== 'deleted',
                 fn ($q) => $q->whereNull('deleted_at')->where('status', $status))

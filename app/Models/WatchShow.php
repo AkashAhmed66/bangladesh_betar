@@ -24,6 +24,11 @@ final class WatchShow extends Model
         'is_featured' => 'boolean',
         'is_published' => 'boolean',
         'published_at' => 'immutable_datetime',
+        'genres' => 'array',
+        'creators' => 'array',
+        'cast' => 'array',
+        'audio_languages' => 'array',
+        'subtitle_languages' => 'array',
     ];
 
     public function getRouteKeyName(): string
@@ -47,6 +52,11 @@ final class WatchShow extends Model
     public function approvals(): MorphMany
     {
         return $this->morphMany(Approval::class, 'approvable');
+    }
+
+    public function watchlistItems(): MorphMany
+    {
+        return $this->morphMany(WatchlistItem::class, 'watchable');
     }
 
     public function portalCategory(): BelongsTo

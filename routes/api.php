@@ -108,6 +108,7 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
 
         // Comments read + recommendations fallback (M25/M26)
         Route::get('assets/{asset}/comments', [V1\EngagementController::class, 'comments'])->name('comments.index');
+        Route::get('watch-episodes/{watchEpisode}/reviews', [V1\EngagementController::class, 'watchEpisodeReviews'])->name('watch-episodes.reviews.index');
         Route::get('recommendations/for-you', [V1\RecommendationController::class, 'forYou'])->name('recommendations.for-you');
         Route::get('assets/{asset}/similar', [V1\RecommendationController::class, 'similar'])->name('recommendations.similar');
 
@@ -176,6 +177,10 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
 
         Route::get('me/favorites', [V1\LibraryController::class, 'favorites'])->name('favorites.index');
         Route::post('me/favorites/toggle', [V1\LibraryController::class, 'toggleFavorite'])->name('favorites.toggle');
+        Route::get('me/watchlist', [V1\LibraryController::class, 'watchlist'])->name('watchlist.index');
+        Route::post('me/watchlist/toggle', [V1\LibraryController::class, 'toggleWatchlist'])->name('watchlist.toggle');
+        Route::delete('me/watchlist/{type}/{id}', [V1\LibraryController::class, 'removeFromWatchlist'])
+            ->where('type', 'watch_show|watch_episode')->whereNumber('id')->name('watchlist.destroy');
 
         // Premium offline download of the PLAIN file — permanently disabled
         // (download-protection policy). Offline listening instead stores the
@@ -195,6 +200,8 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
 
         // Engagement — comments, ratings, reports (M26)
         Route::post('assets/{asset}/comments', [V1\EngagementController::class, 'postComment'])->name('comments.store');
+        Route::post('watch-episodes/{watchEpisode}/reviews', [V1\EngagementController::class, 'postWatchEpisodeReview'])->name('watch-episodes.reviews.store');
+        Route::post('watch-episodes/{watchEpisode}/rate', [V1\EngagementController::class, 'rateWatchEpisode'])->name('watch-episodes.rate');
         Route::delete('comments/{comment}', [V1\EngagementController::class, 'deleteComment'])->name('comments.destroy');
         Route::post('assets/{asset}/rate', [V1\EngagementController::class, 'rate'])->name('rate');
         Route::post('reports', [V1\EngagementController::class, 'report'])->name('reports.store');

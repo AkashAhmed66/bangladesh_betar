@@ -56,6 +56,7 @@ final class WatchShowController extends Controller
     {
         $data = $this->payload($request);
         $data['image_path'] = $this->artwork->sync($request, 'portal/watch', null);
+        $data['trailer_path'] = $this->videos->sync($request, null, 'trailer', 'watch/trailers');
         $data['is_published'] = false;
         $data['approval_status'] = 'draft';
         $show = WatchShow::query()->create($data);
@@ -81,6 +82,7 @@ final class WatchShowController extends Controller
 
         $data = $this->payload($request);
         $data['image_path'] = $this->artwork->sync($request, 'portal/watch', $watchShow->image_path);
+        $data['trailer_path'] = $this->videos->sync($request, $watchShow->trailer_path, 'trailer', 'watch/trailers');
         $watchShow->update($data);
         $this->approvals->invalidate($watchShow, $request->user());
 
@@ -143,8 +145,10 @@ final class WatchShowController extends Controller
         }
 
         $imagePath = $watchShow->image_path;
+        $trailerPath = $watchShow->trailer_path;
         $watchShow->delete();
         $this->artwork->delete($imagePath);
+        $this->videos->delete($trailerPath);
 
         return redirect()->route('admin.watch-shows.index')->with('success', 'Watch show and its episodes were removed.');
     }
@@ -167,9 +171,36 @@ final class WatchShowController extends Controller
             )->utc();
         }
 
-        unset($data['artwork'], $data['remove_artwork'], $data['is_published']);
+        foreach (['genres', 'creators', 'cast', 'audio_languages', 'subtitle_languages'] as $field) {
+            $data[$field] = $this->parseList($data[$field] ?? null);
+        }
+
+        if (array_key_exists('age_restriction', $data)) {
+            $data['rating'] = $data['age_restriction'];
+        }
+
+        unset($data['artwork'], $data['remove_artwork'], $data['trailer'], $data['remove_trailer'], $data['is_published']);
 
         return $data;
+    }
+
+    /** @return array<int, string>|null */
+    private function parseList(mixed $value): ?array
+    {
+        if (is_array($value)) {
+            $items = $value;
+        } elseif (is_string($value)) {
+            $items = preg_split('/[,\n]+/', $value) ?: [];
+        } else {
+            return null;
+        }
+
+        $items = array_values(array_unique(array_filter(array_map(
+            static fn (mixed $item): string => trim((string) $item),
+            $items,
+        ), static fn (string $item): bool => $item !== '')));
+
+        return $items === [] ? null : $items;
     }
 
     /** @return array<string, string> */

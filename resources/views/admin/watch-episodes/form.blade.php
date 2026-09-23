@@ -15,6 +15,10 @@
             <x-form.input :label="__('Episode title (Bangla)')" name="title_bn" :value="$episode?->title_bn" />
             <x-form.textarea :label="__('Description (English)')" name="description" :value="$episode?->description" rows="4" />
             <x-form.textarea :label="__('Description (Bangla)')" name="description_bn" :value="$episode?->description_bn" rows="4" />
+            <x-form.textarea :label="__('Episode summary (English)')" name="summary" :value="$episode?->summary" rows="3" />
+            <x-form.textarea :label="__('Episode summary (Bangla)')" name="summary_bn" :value="$episode?->summary_bn" rows="3" />
+            <x-form.input label="Audio languages" name="audio_languages" :value="is_array($episode?->audio_languages) ? implode(', ', $episode->audio_languages) : $episode?->audio_languages" placeholder="Bangla, English" />
+            <x-form.input label="Subtitle languages" name="subtitle_languages" :value="is_array($episode?->subtitle_languages) ? implode(', ', $episode->subtitle_languages) : $episode?->subtitle_languages" placeholder="Bangla, English" />
             <x-form.input label="Duration (minutes)" name="duration_minutes" type="number" :value="$episode?->duration_minutes ?? 30" required />
             <x-form.input label="Episode position" name="position" type="number" :value="$episode?->position ?? (($show->episodes()->max('position') ?? 0) + 1)" required />
             <div class="sm:col-span-2 space-y-3">

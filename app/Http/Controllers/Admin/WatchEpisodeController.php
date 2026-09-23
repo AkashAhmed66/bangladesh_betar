@@ -36,6 +36,7 @@ final class WatchEpisodeController extends Controller
         $this->authorizeRecordVisibility($watchShow);
 
         $data = $request->validated();
+        $data = $this->normaliseMetadata($data);
         $data['video_path'] = $this->videos->sync($request, null);
         unset($data['video'], $data['remove_video']);
         $watchShow->episodes()->create($data);
@@ -62,6 +63,7 @@ final class WatchEpisodeController extends Controller
         $this->authorizeRecordVisibility($watchEpisode->show);
 
         $data = $request->validated();
+        $data = $this->normaliseMetadata($data);
         $data['video_path'] = $this->videos->sync($request, $watchEpisode->video_path);
         unset($data['video'], $data['remove_video']);
         $watchEpisode->update($data);
@@ -83,5 +85,21 @@ final class WatchEpisodeController extends Controller
         $this->approvals->invalidate($show, auth()->user());
 
         return redirect()->route('admin.watch-shows.edit', $show)->with('success', 'Episode removed. The show was unpublished and returned to draft for approval.');
+    }
+
+    /** @param array<string, mixed> $data */
+    private function normaliseMetadata(array $data): array
+    {
+        foreach (['audio_languages', 'subtitle_languages'] as $field) {
+            $value = $data[$field] ?? null;
+            $items = is_string($value) ? (preg_split('/[,\n]+/', $value) ?: []) : (is_array($value) ? $value : []);
+            $items = array_values(array_unique(array_filter(array_map(
+                static fn (mixed $item): string => trim((string) $item),
+                $items,
+            ), static fn (string $item): bool => $item !== '')));
+            $data[$field] = $items === [] ? null : $items;
+        }
+
+        return $data;
     }
 }

@@ -13,6 +13,7 @@ use App\Models\CommunitySubmission;
 use App\Models\Rating;
 use App\Models\Setting;
 use App\Models\User;
+use App\Models\WatchEpisode;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -32,6 +33,92 @@ class EngagementController extends Controller
         $comments = $asset->comments()->approved()->with('user')->latest()->paginate(20);
 
         return CommentResource::collection($comments)->response();
+    }
+
+    /** Public approved reviews and rating aggregate for a published episode. */
+    public function watchEpisodeReviews(Request $request, WatchEpisode $watchEpisode): JsonResponse
+    {
+        $this->ensurePublishedWatchEpisode($watchEpisode);
+        $comments = $watchEpisode->comments()->approved()->with('user')->latest()->paginate(20);
+        $aggregate = $watchEpisode->ratings()
+            ->selectRaw('AVG(rating) as avg_rating, COUNT(*) as rating_count')
+            ->first();
+        $distribution = array_fill(1, 5, 0);
+        foreach ($watchEpisode->ratings()->selectRaw('rating, COUNT(*) as total')->groupBy('rating')->get() as $bucket) {
+            $distribution[(int) $bucket->rating] = (int) $bucket->total;
+        }
+        $yourRating = $request->user()
+            ? $watchEpisode->ratings()->where('user_id', $request->user()->id)->value('rating')
+            : null;
+
+        return response()->json([
+            'data' => CommentResource::collection($comments->getCollection()),
+            'meta' => [
+                'current_page' => $comments->currentPage(),
+                'last_page' => $comments->lastPage(),
+                'per_page' => $comments->perPage(),
+                'total' => $comments->total(),
+            ],
+            'rating' => [
+                'avg_rating' => $aggregate?->avg_rating === null ? null : round((float) $aggregate->avg_rating, 2),
+                'rating_count' => (int) ($aggregate?->rating_count ?? 0),
+                'your_rating' => $yourRating === null ? null : (int) $yourRating,
+                'distribution' => $distribution,
+            ],
+        ]);
+    }
+
+    /** Submit or update an episode rating and/or review. */
+    public function postWatchEpisodeReview(Request $request, WatchEpisode $watchEpisode): JsonResponse
+    {
+        $this->ensurePublishedWatchEpisode($watchEpisode);
+        $data = $request->validate([
+            'body' => ['nullable', 'string', 'max:2000'],
+            'rating' => ['nullable', 'integer', 'min:1', 'max:5'],
+        ]);
+        $body = isset($data['body']) ? trim((string) $data['body']) : null;
+        $rating = $data['rating'] ?? null;
+        if ($body === '') {
+            $body = null;
+        }
+        if ($body === null && $rating === null) {
+            throw ValidationException::withMessages(['body' => ['Add a review, a rating, or both.']]);
+        }
+
+        $ratingAgg = $rating === null ? null : $this->applyEpisodeRating($watchEpisode, $request->user(), (int) $rating);
+        $comment = null;
+        $status = null;
+        if ($body !== null) {
+            $status = Setting::get('moderation_mode', 'post') === 'pre' ? 'pending' : 'approved';
+            if (Setting::get('profanity_filter_enabled', true) && $this->containsProfanity($body)) {
+                $status = 'pending';
+            }
+            $comment = $watchEpisode->comments()->create([
+                'user_id' => $request->user()->id,
+                'body' => $body,
+                'rating' => $rating,
+                'status' => $status,
+            ]);
+            $comment->load('user');
+        }
+
+        return response()->json([
+            'message' => $status === null
+                ? 'Rating saved.'
+                : ($status === 'approved' ? 'Review posted.' : 'Review submitted for moderation.'),
+            'data' => $comment ? (new CommentResource($comment))->resolve() : null,
+            'rating' => $ratingAgg === null ? null : $ratingAgg + ['your_rating' => $rating],
+        ], $comment ? 201 : 200);
+    }
+
+    /** Standalone episode rating endpoint. */
+    public function rateWatchEpisode(Request $request, WatchEpisode $watchEpisode): JsonResponse
+    {
+        $this->ensurePublishedWatchEpisode($watchEpisode);
+        $data = $request->validate(['rating' => ['required', 'integer', 'min:1', 'max:5']]);
+        $aggregate = $this->applyEpisodeRating($watchEpisode, $request->user(), (int) $data['rating']);
+
+        return response()->json(['message' => 'Rating saved.', ...$aggregate, 'your_rating' => (int) $data['rating']]);
     }
 
     /**
@@ -125,6 +212,26 @@ class EngagementController extends Controller
         ]);
 
         return ['avg_rating' => $asset->avg_rating, 'rating_count' => $asset->rating_count];
+    }
+
+    /** @return array{avg_rating: float|null, rating_count: int} */
+    private function applyEpisodeRating(WatchEpisode $episode, User $user, int $rating): array
+    {
+        Rating::query()->updateOrCreate(
+            ['user_id' => $user->id, 'ratable_type' => 'watch_episode', 'ratable_id' => $episode->id],
+            ['rating' => $rating],
+        );
+        $aggregate = $episode->ratings()->selectRaw('AVG(rating) as avg_rating, COUNT(*) as rating_count')->first();
+
+        return [
+            'avg_rating' => $aggregate?->avg_rating === null ? null : round((float) $aggregate->avg_rating, 2),
+            'rating_count' => (int) ($aggregate?->rating_count ?? 0),
+        ];
+    }
+
+    private function ensurePublishedWatchEpisode(WatchEpisode $episode): void
+    {
+        abort_unless($episode->is_published && $episode->show()->published()->exists(), 404);
     }
 
     public function deleteComment(Request $request, Comment $comment): JsonResponse

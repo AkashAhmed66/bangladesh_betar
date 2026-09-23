@@ -72,8 +72,10 @@ final class PortalContentController extends Controller
         $category = $this->watchCategory($request);
         $shows = WatchShow::query()
             ->published()
-            ->with(['publishedEpisodes', 'portalCategory'])
+            ->with(['publishedEpisodes' => fn ($episodes) => $episodes->withAvg('ratings', 'rating')->withCount('ratings')
+                ->withExists(['watchlistItems as is_in_watchlist' => fn ($items) => $items->where('user_id', $request->user()?->id ?? 0)]), 'portalCategory'])
             ->withCount('publishedEpisodes')
+            ->withExists(['watchlistItems as is_in_watchlist' => fn ($items) => $items->where('user_id', $request->user()?->id ?? 0)])
             ->when($category, fn (Builder $query, WatchCategory $selected): Builder => $query->where(
                 fn (Builder $match): Builder => $match->where('watch_category_id', $selected->id)->orWhere('category', $selected->name),
             ));
@@ -90,26 +92,29 @@ final class PortalContentController extends Controller
         return WatchShowResource::collection($shows);
     }
 
-    public function watchShow(string $slug): WatchShowResource
+    public function watchShow(Request $request, string $slug): WatchShowResource
     {
         return new WatchShowResource(
             WatchShow::query()
                 ->published()
-                ->with(['publishedEpisodes', 'portalCategory'])
+                ->with(['publishedEpisodes' => fn ($episodes) => $episodes->withAvg('ratings', 'rating')->withCount('ratings')
+                    ->withExists(['watchlistItems as is_in_watchlist' => fn ($items) => $items->where('user_id', $request->user()?->id ?? 0)]), 'portalCategory'])
                 ->withCount('publishedEpisodes')
+                ->withExists(['watchlistItems as is_in_watchlist' => fn ($items) => $items->where('user_id', $request->user()?->id ?? 0)])
                 ->where('slug', $slug)
                 ->firstOrFail(),
         );
     }
 
     /** Public metadata for social cards; episodes and video URLs are intentionally excluded. */
-    public function watchShowPreview(string $slug): WatchShowResource
+    public function watchShowPreview(Request $request, string $slug): WatchShowResource
     {
         return new WatchShowResource(
             WatchShow::query()
                 ->published()
                 ->with('portalCategory')
                 ->withCount('publishedEpisodes')
+                ->withExists(['watchlistItems as is_in_watchlist' => fn ($items) => $items->where('user_id', $request->user()?->id ?? 0)])
                 ->where('slug', $slug)
                 ->firstOrFail(),
         );
@@ -139,31 +144,31 @@ final class PortalContentController extends Controller
             ->withQueryString();
 
         $items = $clips->getCollection()->map(fn (WatchClip $clip): array => [
-            'id'                  => $clip->id,
-            'title'               => $clip->title,
-            'title_bn'            => $clip->title_bn,
-            'description'         => $clip->description,
-            'description_bn'      => $clip->description_bn,
-            'slug'                => $clip->slug,
-            'creator_name'        => $clip->creator_name,
-            'creator_handle'      => $clip->creator_handle,
-            'creator_avatar_url'  => $clip->creator_avatar_url,
-            'video_url'           => $clip->video_url,
-            'thumbnail_url'       => $clip->thumbnail_url,
-            'audio_track'         => $clip->audio_track,
-            'hashtags'            => $clip->hashtag_array,
-            'likes_count'         => $clip->likes_count,
-            'dislikes_count'      => $clip->dislikes_count,
-            'published_at'        => $clip->published_at?->toIso8601String(),
+            'id' => $clip->id,
+            'title' => $clip->title,
+            'title_bn' => $clip->title_bn,
+            'description' => $clip->description,
+            'description_bn' => $clip->description_bn,
+            'slug' => $clip->slug,
+            'creator_name' => $clip->creator_name,
+            'creator_handle' => $clip->creator_handle,
+            'creator_avatar_url' => $clip->creator_avatar_url,
+            'video_url' => $clip->video_url,
+            'thumbnail_url' => $clip->thumbnail_url,
+            'audio_track' => $clip->audio_track,
+            'hashtags' => $clip->hashtag_array,
+            'likes_count' => $clip->likes_count,
+            'dislikes_count' => $clip->dislikes_count,
+            'published_at' => $clip->published_at?->toIso8601String(),
         ])->all();
 
         return response()->json([
             'data' => $items,
             'meta' => [
                 'current_page' => $clips->currentPage(),
-                'last_page'    => $clips->lastPage(),
-                'per_page'     => $clips->perPage(),
-                'total'        => $clips->total(),
+                'last_page' => $clips->lastPage(),
+                'per_page' => $clips->perPage(),
+                'total' => $clips->total(),
             ],
         ]);
     }

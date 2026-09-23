@@ -30,6 +30,7 @@ class DatabaseSeeder extends Seeder
             PortalCategorySeeder::class,   // editable News + Watch category navigation
             PortalContentSeeder::class,    // seeded News + Watch portal content and images
             WatchDemoExpansionSeeder::class, // additional Watch catalogue, posters and demo videos
+            WatchMetadataSeeder::class,      // age, genres and language metadata for demo Watch items
             BroadcastChannelSeeder::class, // M27 live broadcast channels
             WorkflowSeeder::class,         // approval workflows + live instances
             RightsSeeder::class,           // rights holders & records

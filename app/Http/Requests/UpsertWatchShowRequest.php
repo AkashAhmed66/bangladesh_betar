@@ -6,6 +6,7 @@ namespace App\Http\Requests;
 
 use App\Models\WatchShow;
 use App\Services\ArtworkService;
+use App\Services\VideoUploadService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -31,14 +32,22 @@ final class UpsertWatchShowRequest extends FormRequest
             'description_bn' => ['nullable', 'string', 'max:5000'],
             'watch_category_id' => ['nullable', 'required_without:category', 'integer', Rule::exists('watch_categories', 'id')->where('is_active', true)],
             'category' => ['nullable', 'required_without:watch_category_id', 'string', Rule::exists('watch_categories', 'name')],
+            'genres' => ['nullable', 'string', 'max:1000'],
+            'creators' => ['nullable', 'string', 'max:2000'],
+            'cast' => ['nullable', 'string', 'max:5000'],
+            'audio_languages' => ['nullable', 'string', 'max:500'],
+            'subtitle_languages' => ['nullable', 'string', 'max:500'],
             'year' => ['nullable', 'integer', 'min:1900', 'max:'.(date('Y') + 2)],
             'rating' => ['nullable', 'string', 'max:20'],
+            'age_restriction' => ['nullable', 'string', 'max:20'],
             'position' => ['required', 'integer', 'min:0', 'max:65535'],
             'is_featured' => ['required', 'boolean'],
             'is_published' => ['sometimes', 'boolean'],
             'published_at' => ['nullable', 'date'],
             'artwork' => ArtworkService::rules(),
             'remove_artwork' => ['boolean'],
+            'trailer' => VideoUploadService::rules(),
+            'remove_trailer' => ['boolean'],
         ];
     }
 
